@@ -344,3 +344,40 @@ if not df.empty:
                 template='plotly_dark'
             )
             st.plotly_chart(fig_trend, width='stretch')
+# Allows quick lookup of specific Uma stats without filtering the main charts.
+# %%
+st.sidebar.markdown("---")
+st.sidebar.subheader("🔍 Uma Inspector")
+
+# Get sorted list of Umas
+all_umas = sorted(df['Clean_Uma'].unique())
+target_uma = st.sidebar.selectbox("Select to view stats:", [""] + all_umas)
+
+if target_uma:
+    # Filter data for this specific Uma
+    uma_data = df[df['Clean_Uma'] == target_uma]
+    
+    # 1. Calculate Core Metrics
+    avg_wr = uma_data['Calculated_WinRate'].mean()
+    total_runs = uma_data['Clean_Races'].sum()
+    
+    # 2. Determine Best Strategy
+    # We group by Strategy and calculate Win Rate
+    strat_stats = uma_data.groupby('Clean_Style')['Calculated_WinRate'].agg(['mean', 'count'])
+    
+    # Filter: Only consider strategies with > 3 runs (to avoid 1/1 = 100% bias)
+    valid_strats = strat_stats[strat_stats['count'] > 3]
+    
+    # If no strategy has >3 runs, fall back to raw max
+    if valid_strats.empty: 
+        valid_strats = strat_stats
+        
+    # Get the strategy with the highest 'mean' win rate
+    best_strat = valid_strats['mean'].idxmax() if not valid_strats.empty else "N/A"
+    
+    # 3. Display Stats in Sidebar
+    st.sidebar.caption(f"Stats for **{target_uma}**")
+    c1, c2 = st.sidebar.columns(2)
+    c1.metric("Win Rate", f"{avg_wr:.1f}%")
+    c2.metric("Runs", int(total_runs))
+    st.sidebar.metric("Best Strategy", best_strat)
