@@ -1,7 +1,6 @@
 # ---
 # jupyter:
 #   jupytext:
-#     formats: ipynb,py:percent
 #     text_representation:
 #       extension: .py
 #       format_name: percent
@@ -34,138 +33,195 @@ st.set_page_config(
 
 
 # %%
-# --- DATA LOADING & CLEANING ---
-@st.cache_data(ttl=60)  # CONSTANTLY UPDATING: Refreshes data from Google every 60 seconds
-def load_data():
-    try:
-        # Load data directly from the live CSV URL
-        df = pd.read_csv(SHEET_URL)
-        
-        # 1. Clean 'Winrate' (Remove % and convert to float)
-        if 'winrate' in df.columns.str.lower():
-            # Normalize column name
-            col_name = [c for c in df.columns if 'winrate' in c.lower()][0]
-            df['Win Rate %'] = df[col_name].astype(str).str.replace('%', '').astype(float)
-        
-        # 2. Clean 'Money Spent' (Remove $ or commas)
-        if 'money spent' in df.columns.str.lower():
-            col_name = [c for c in df.columns if 'money spent' in c.lower()][0]
-            df['Money Spent'] = df[col_name].astype(str).str.replace('$', '').str.replace(',', '')
-            df['Money Spent'] = pd.to_numeric(df['Money Spent'], errors='coerce').fillna(0)
+# --- REUSABLE HELPER FUNCTIONS ---
+def find_column(df, keywords):
+    """
+    Searches for a column name that matches a list of keywords.
+    Returns the actual column name or None.
+    This isolates the logic so if you rename 'Money Spent' to 'Total Cost', 
+    the app still works as long as 'cost' is in the keywords.
+    """
+    clean_cols = df.columns.str.lower().str.replace(' ', '').str.replace('_', '')
+    for i, col in enumerate(clean_cols):
+        for key in keywords:
+            if key in col:
+                return df.columns[i]
+    return None
 
-        # 3. Parse 'R1D1' to extract main Uma name
-        # Assumes format like "Oguri Cap (Leader)" or "Oguri Cap, Leader"
-        target_col = [c for c in df.columns if 'R1D1' in c][0] if any('R1D1' in c for c in df.columns) else None
-        if target_col:
-            # Simple split to get the first part (The Name)
-            df['Ace Uma'] = df[target_col].astype(str).apply(lambda x: x.split('(')[0].split(',')[0].strip())
-        else:
-            df['Ace Uma'] = "Unknown"
+def clean_currency(series):
+    """
+    Reusable function to turn '$1,000', '1,000', or '1000' into float 1000.0
+    """
+    return (series.astype(str)
+            .str.replace('$', '', regex=False)
+            .str.replace(',', '', regex=False)
+            .str.replace(' ', '', regex=False)
+            .apply(pd.to_numeric, errors='coerce')
+            .fillna(0))
 
-        return df
-    except Exception as e:
-        st.error(f"Error loading data: {e}")
-        return pd.DataFrame()
+def clean_percentage(series):
+    """
+    Reusable function to turn '50%', '0.5', or '50' into float 50.0
+    """
+    s = series.astype(str).str.replace('%', '', regex=False)
+    return pd.to_numeric(s, errors='coerce').fillna(0)
 
-# Load the data
-df = load_data()
+def parse_uma_details(series):
+    """
+    Extracts the main Uma name from complex strings.
+    Example: 'Oguri Cap (Christmas) - Leader' -> 'Oguri Cap (Christmas)'
+    """
+    return series.astype(str).apply(lambda x: x.split('-')[0].split('(')[0].strip())
+
 
 # %%
-# --- SIDEBAR CONTROLS ---
-st.sidebar.title("🏆 Virgo Cup Controls")
-st.sidebar.markdown("Data auto-refreshes every 60s.")
+# --- MAIN DATA PIPELINE ---
+
+@st.cache_data(ttl=60)  # OPTIMIZATION: Cache data for 60 seconds to handle constant updates
+def load_and_process_data():
+    try:
+        df = pd.read_csv(SHEET_URL)
+        
+        # --- 1. ISOLATE COLUMNS (Concept Mapping) ---
+        # We map "Concepts" (like Money) to "Actual Columns" dynamically
+        col_map = {
+            'win_rate': find_column(df, ['winrate', 'win%', 'wr', 'rate']),
+            'money': find_column(df, ['money', 'spent', 'cost', 'whale']),
+            'runs': find_column(df, ['runs', 'attempts', 'count', 'total']),
+            'group': find_column(df, ['group', 'bracket', 'league']),
+            'ace_uma': find_column(df, ['r1d1', 'uma1', 'ace', 'character']),
+        }
+
+        # --- 2. APPLY TRANSFORMATIONS ---
+        
+        # Process Win Rate
+        if col_map['win_rate']:
+            df['Clean_WinRate'] = clean_percentage(df[col_map['win_rate']])
+        else:
+            df['Clean_WinRate'] = 0.0
+
+        # Process Money
+        if col_map['money']:
+            df['Clean_Money'] = clean_currency(df[col_map['money']])
+        else:
+            df['Clean_Money'] = 0.0
+
+        # Process Runs (Ensure numeric)
+        if col_map['runs']:
+            df['Clean_Runs'] = pd.to_numeric(df[col_map['runs']], errors='coerce').fillna(0)
+        else:
+            df['Clean_Runs'] = 0
+
+        # Process Ace Uma Name
+        if col_map['ace_uma']:
+            df['Clean_AceName'] = parse_uma_details(df[col_map['ace_uma']])
+        else:
+            df['Clean_AceName'] = "Unknown"
+            
+        # Normalize Group Name
+        if col_map['group']:
+            df['Clean_Group'] = df[col_map['group']].fillna("Unknown")
+        else:
+            df['Clean_Group'] = "Unknown"
+
+        return df, col_map
+
+    except Exception as e:
+        st.error(f"Data Pipeline Error: {e}")
+        return pd.DataFrame(), {}
+
+
+
+# %%
+# --- LOAD DATA ---
+df, cols_found = load_and_process_data()
+
+# --- SIDEBAR FILTERS ---
+st.sidebar.header("🏆 Virgo Cup Controls")
 
 if not df.empty:
-    # Interactive Filters
-    groups = list(df['CM group'].unique()) if 'CM group' in df.columns else []
-    selected_group = st.sidebar.multiselect("Filter by CM Group", groups, default=groups)
+    # Dynamic Group Filter
+    available_groups = list(df['Clean_Group'].unique())
+    selected_groups = st.sidebar.multiselect("Filter by Group", available_groups, default=available_groups)
     
-    if selected_group:
-        filtered_df = df[df['CM group'].isin(selected_group)]
+    # Apply Filter
+    if selected_groups:
+        filtered_df = df[df['Clean_Group'].isin(selected_groups)]
     else:
         filtered_df = df
 
-    # Manual Refresh Button
-    if st.sidebar.button("Refresh Data Now"):
+    # Refresh Button
+    if st.sidebar.button("🔄 Refresh Live Data"):
         st.cache_data.clear()
         st.rerun()
 
 # %%
-# --- MAIN DASHBOARD ---
+# --- DASHBOARD UI ---
 st.title("🏆 Umamusume CM5 Virgo Cup Analytics")
 
 if df.empty:
-    st.warning("Waiting for data... Check your Google Sheet URL in the code.")
+    st.warning("Waiting for data connection... ensure your Google Sheet is published as CSV.")
 else:
-    # Top Metrics
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Total Runs Recorded", filtered_df['runs done a day'].sum() if 'runs done a day' in filtered_df.columns else 0)
-    c2.metric("Avg Winrate", f"{filtered_df['Win Rate %'].mean():.2f}%")
-    c3.metric("Total Participants", len(filtered_df))
+    # KPIS
+    kpi1, kpi2, kpi3 = st.columns(3)
+    kpi1.metric("Total Runs", int(filtered_df['Clean_Runs'].sum()))
+    kpi2.metric("Avg Win Rate", f"{filtered_df['Clean_WinRate'].mean():.1f}%")
+    kpi3.metric("Trainers Tracked", len(filtered_df))
 
-    st.markdown("---")
+    st.divider()
 
-    # ROW 1: MATPLOTLIB & SEABORN GRAPHS
-    col1, col2 = st.columns(2)
+    # CHARTS
+    tab1, tab2 = st.tabs(["📈 Performance Analytics", "💾 Raw Data"])
 
-    with col1:
-        st.subheader("💸 Money Spent vs. Win Rate")
-        fig1, ax1 = plt.subplots(figsize=(10, 6))
+    with tab1:
+        c1, c2 = st.columns(2)
         
-        # Using Seaborn as requested
-        sns.scatterplot(
-            data=filtered_df, 
-            x='Money Spent', 
-            y='Win Rate %', 
-            hue='CM group', 
-            style='CM group', 
-            s=100, 
-            ax=ax1,
-            palette='viridis'
-        )
-        
-        ax1.set_title("Does Whaling = Winning?", fontsize=14)
-        ax1.grid(True, linestyle='--', alpha=0.7)
-        st.pyplot(fig1)
+        with c1:
+            st.subheader("💸 Investment vs. Performance")
+            fig1, ax1 = plt.subplots(figsize=(8, 5))
+            
+            # Scatter plot showing Money vs Win Rate
+            sns.scatterplot(
+                data=filtered_df,
+                x='Clean_Money',
+                y='Clean_WinRate',
+                hue='Clean_Group',
+                size='Clean_Runs',
+                sizes=(50, 300),
+                alpha=0.7,
+                palette='viridis',
+                ax=ax1
+            )
+            ax1.set_xlabel("Money Spent ($)")
+            ax1.set_ylabel("Win Rate (%)")
+            ax1.grid(True, linestyle='--', alpha=0.3)
+            st.pyplot(fig1)
 
-    with col2:
-        st.subheader("🐎 Win Rate Distribution by Group")
-        fig2, ax2 = plt.subplots(figsize=(10, 6))
-        
-        sns.boxplot(
-            data=filtered_df, 
-            x='CM group', 
-            y='Win Rate %', 
-            palette='coolwarm',
-            ax=ax2
-        )
-        
-        ax2.set_title("Performance Spread per Group", fontsize=14)
-        st.pyplot(fig2)
+        with c2:
+            st.subheader("🐎 Meta Report: Top Aces")
+            # Custom Aggregation for Bar Chart
+            uma_perf = filtered_df.groupby('Clean_AceName').agg({
+                'Clean_WinRate': 'mean',
+                'Clean_Runs': 'count'
+            }).reset_index()
+            
+            # Filter out low sample size (arbitrary < 1 entry) & Top 8
+            uma_perf = uma_perf[uma_perf['Clean_Runs'] > 0].sort_values('Clean_WinRate', ascending=False).head(8)
+            
+            fig2, ax2 = plt.subplots(figsize=(8, 5))
+            sns.barplot(
+                data=uma_perf,
+                y='Clean_AceName',
+                x='Clean_WinRate',
+                palette='magma',
+                ax=ax2
+            )
+            ax2.set_xlabel("Avg Win Rate (%)")
+            ax2.set_ylabel("")
+            st.pyplot(fig2)
 
-    # ROW 2: UMA USAGE
-    st.subheader("📊 Most Popular 'Ace' Umas & Their Win Rates")
-    
-    # Aggregate data for the bar chart
-    uma_stats = filtered_df.groupby('Ace Uma')['Win Rate %'].agg(['mean', 'count']).reset_index()
-    uma_stats = uma_stats[uma_stats['count'] > 0].sort_values(by='mean', ascending=False)
-    
-    fig3, ax3 = plt.subplots(figsize=(12, 6))
-    
-    sns.barplot(
-        data=uma_stats.head(10), # Top 10 only
-        x='mean',
-        y='Ace Uma',
-        palette='magma',
-        ax=ax3
-    )
-    
-    ax3.set_xlabel("Average Win Rate (%)")
-    ax3.set_ylabel("Uma Name")
-    ax3.set_title("Top Performing Umas (Avg Win Rate)", fontsize=14)
-    st.pyplot(fig3)
-
-    # ROW 3: RAW DATA
-    st.markdown("---")
-    with st.expander("📂 View Raw Data Table"):
+    with tab2:
+        st.markdown("### Debugging & Raw View")
+        st.info("This view shows how the app 'mapped' your headers to its logic.")
+        st.write(f"**Column Mapping:** {cols_found}")
         st.dataframe(filtered_df)
