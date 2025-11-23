@@ -59,10 +59,11 @@ descriptions = {
     
     "leaderboard": """
     **How this is calculated:**
-    - **Sorting:** Trainers are ranked by a 'Performance Score' which prioritizes Total Wins first, and Win Rate second.
-    - **Formula:** Score = Win Rate * log(Total Races + 1). This ensures a player with 19/20 wins ranks higher than a player with 1/1 wins.
-    - **Filtering:** Trainers with fewer than 15 total races are excluded to ensure the leaderboard reflects consistent performance.
-    - **Anonymization:** Only the Top 10 trainers are shown by name; all others are anonymized in the dataset.
+    - **Sorting:** Trainers are ranked by a **Performance Score** to balance high win rates with high participation.
+    - **Formula:** `Score = Win Rate * log(Total Races + 1)`.
+    - **Why?** A player with 19/20 wins (Score ≈ 289) ranks higher than a player with 1/1 wins (Score ≈ 69), ensuring the leaderboard rewards consistent performance over time.
+    - **Filtering:** Trainers with fewer than 15 total races are excluded.
+    - **Anonymization:** Only the Top 10 trainers are shown by name.
     """,
     
     "trends": """
@@ -165,6 +166,7 @@ def parse_uma_details(series):
 def calculate_score(wins, races):
     if races == 0: return 0
     wr = (wins / races) * 100
+    # Logarithmic boost for volume: Win Rate * log(Races + 1)
     return wr * np.log1p(races)
 
 def anonymize_players(df, metric='Calculated_WinRate', top_n=10):
@@ -173,9 +175,15 @@ def anonymize_players(df, metric='Calculated_WinRate', top_n=10):
         'Clean_Wins': 'sum',
         'Clean_Races': 'sum'
     }).reset_index()
+    
+    # Calculate Score
     player_stats['Score'] = player_stats.apply(lambda x: calculate_score(x['Clean_Wins'], x['Clean_Races']), axis=1)
+    
     eligible_pros = player_stats[player_stats['Clean_Races'] >= 20]
+    
+    # Sort by Score
     top_players = eligible_pros.sort_values('Score', ascending=False).head(top_n)['Clean_IGN'].tolist()
+    
     df['Display_IGN'] = df['Clean_IGN'].apply(lambda x: x if x in top_players else "Anonymous Trainer")
     return df
 
@@ -297,6 +305,7 @@ if not df.empty:
     # --- TABS ---
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Money & Meta", "Uma Tier List", "Strategy", "Card Impact", "Leaderboard", "Trends"])
 
+    # ... (Tabs 1-4 are the same as before) ...
     with tab1:
         c1, c2 = st.columns(2)
         with c1:
@@ -420,7 +429,7 @@ if not df.empty:
             
             team_df['Has_Runaway'] = team_df['Clean_Style'].apply(check_for_runaway)
             runner_stats = team_df.groupby('Has_Runaway')['Calculated_WinRate'].mean().reset_index()
-            runner_stats['Strategy'] = runner_stats['Has_Runaway'].map({True: 'With Runaway (Nigeru)', False: 'No Runaway'})
+            runner_stats['Strategy'] = runner_stats['Has_Runaway'].map({True: 'With Runaway', False: 'No Runaway'})
             
             fig_runner = px.bar(
                 runner_stats, 
@@ -450,7 +459,6 @@ if not df.empty:
             target_name = st.selectbox("Select Card", sorted(list(card_map.keys())))
             col_match = card_map[target_name]
             
-            # Use FILTERED df here to respect sidebar group selection
             card_stats = df.drop_duplicates(subset=['Clean_IGN', 'Round', 'Day']).groupby(col_match)['Calculated_WinRate'].mean().reset_index()
             fig_card = px.bar(
                 card_stats, 
@@ -494,18 +502,20 @@ if not df.empty:
         
         fig_leader = px.bar(
             top_leaders, 
-            x='Global_WinRate', 
+            x='Score', # CHANGED TO SCORE
             y='Label', 
             orientation='h', 
             color='Global_WinRate', 
             title="Top 10 Trainers", 
             text='Clean_Wins', 
-            labels={'Global_WinRate': 'Win Rate (%)', 'Label': '', 'Clean_Wins': 'Total Wins'}, 
+            labels={'Score': 'Performance Score', 'Label': '', 'Clean_Wins': 'Total Wins', 'Global_WinRate': 'Win Rate (%)'}, 
             template='plotly_dark', 
             color_continuous_scale='Turbo',
             height=700
         )
-        fig_leader.update_traces(texttemplate='Wins: %{text} | WR: %{x:.1f}%', textposition='inside')
+        # Text template updated to show Win Rate and Wins clearly on the bar
+        fig_leader.update_traces(texttemplate='Wins: %{text} | WR: %{marker.color:.1f}%', textposition='inside')
+        fig_leader.update_layout(yaxis={'categoryorder':'total ascending'}) # Ensures #1 is at top
         st.plotly_chart(fig_leader, width='stretch')
         with st.expander("ℹ️ About this chart"):
             st.markdown(descriptions["leaderboard"])
