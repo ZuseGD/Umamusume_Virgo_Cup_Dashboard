@@ -6,6 +6,7 @@ import re
 import numpy as np
 
 # --- CONFIGURATION ---
+# 🚨 Updated Live Google Sheet URL (Exploded View with new GID)
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTR8Pa4QQVSNwepSe9dYnro3ZaVEpYQmBdZUzumuLL-U2IR3nKVh-_GbZeJHT2x9aCqnp7P-0hPm5Zd/pub?gid=221070242&single=true&output=csv"
 
 st.set_page_config(
@@ -175,7 +176,7 @@ def anonymize_players(df, metric='Calculated_WinRate', top_n=10):
     return df
 
 # Chart Styler for Mobile/Readability + FIXED PANNING
-def style_fig(fig):
+def style_fig(fig, height=500):
     fig.update_layout(
         font=dict(size=14), 
         legend=dict(
@@ -183,8 +184,9 @@ def style_fig(fig):
         ),
         margin=dict(l=10, r=10, t=40, b=10),
         autosize=True,
-        xaxis=dict(automargin=True), # Helps prevent label cutoff
-        yaxis=dict(automargin=True)
+        height=height, # Enforce height
+        yaxis=dict(automargin=True), # Important for long labels
+        xaxis=dict(automargin=True)
     )
     # Prevent panning (getting lost) on both axes
     fig.update_xaxes(fixedrange=True)
@@ -274,7 +276,7 @@ except Exception as e:
     st.error(f"Data Load Failed: {e}")
     st.stop()
 
-# --- SIDEBAR FILTERS ONLY ---
+# --- SIDEBAR ---
 st.sidebar.header("⚙️ Filters")
 groups = list(df['Clean_Group'].unique())
 selected = st.sidebar.multiselect("Filter Group", groups, default=groups)
@@ -284,6 +286,7 @@ if selected:
     team_df = team_df[team_df['Clean_Group'].isin(selected)]
 
 if not df.empty:
+    # Filter Team Comps (Recalculate on filtered data)
     comp_counts = team_df['Team_Comp'].value_counts()
     valid_comps = comp_counts[comp_counts > 7].index.tolist()
     filtered_team_df = team_df[team_df['Team_Comp'].isin(valid_comps)]
@@ -307,10 +310,12 @@ if not df.empty:
         
         st.markdown("---")
         
-        # 2. TRAINER INSPECTOR (Home Page)
-        st.subheader("🧑‍🏫 Trainer Inspector")
+        # 2. LEADERBOARD
+        st.subheader("👑 Top Performers")
+        
+        # TRAINER INSPECTOR (Moved here)
         all_trainers = sorted(team_df['Clean_IGN'].unique()) 
-        target_trainer = st.selectbox("Search Trainer:", [""] + all_trainers)
+        target_trainer = st.selectbox("Search Trainer Stats:", [""] + all_trainers)
         
         if target_trainer:
             t_data = team_df[team_df['Clean_IGN'] == target_trainer]
@@ -326,11 +331,6 @@ if not df.empty:
             else:
                 st.warning("No data found for this trainer.")
 
-        st.markdown("---")
-
-        # 3. LEADERBOARD
-        st.subheader("👑 Top Performers")
-        
         named_teams = team_df[team_df['Display_IGN'] != "Anonymous Trainer"].copy()
         leaderboard = named_teams.groupby(['Display_IGN', 'Team_Comp']).agg({'Clean_Wins': 'sum', 'Clean_Races': 'sum'}).reset_index()
         leaderboard['Global_WinRate'] = (leaderboard['Clean_Wins'] / leaderboard['Clean_Races']) * 100
@@ -338,32 +338,32 @@ if not df.empty:
         leaderboard = leaderboard[leaderboard['Clean_Races'] >= 15]
         
         top_leaders = leaderboard.sort_values('Score', ascending=False).head(10)
-        
-        # Sort logic for display (ascending for horiz bar)
-        plot_data = top_leaders.sort_values('Score', ascending=True)
-        plot_data['Label'] = plot_data['Display_IGN'] + " (" + plot_data['Team_Comp'] + ")"
+        top_leaders = top_leaders.sort_values('Score', ascending=True) # For bar chart order
+        top_leaders['Label'] = top_leaders['Display_IGN'] + " (" + top_leaders['Team_Comp'] + ")"
         
         fig_leader = px.bar(
-            plot_data, x='Score', y='Label', orientation='h', color='Global_WinRate',
-            text='Clean_Wins', template='plotly_dark', color_continuous_scale='Turbo', height=600
+            top_leaders, x='Score', y='Label', orientation='h', color='Global_WinRate',
+            text='Clean_Wins', template='plotly_dark', color_continuous_scale='Turbo', 
+            height=600
         )
         fig_leader.update_traces(texttemplate='Wins: %{text} | WR: %{marker.color:.1f}%', textposition='inside')
         fig_leader.update_layout(xaxis_title="Performance Score", yaxis_title=None)
-        st.plotly_chart(style_fig(fig_leader), width='stretch', config=PLOT_CONFIG)
+        st.plotly_chart(style_fig(fig_leader, height=600), width='stretch', config=PLOT_CONFIG)
         with st.expander("ℹ️ Leaderboard Logic"):
             st.markdown(descriptions["leaderboard"])
 
         st.markdown("---")
 
-        # 4. SPENDING
+        # 3. SPENDING
         st.subheader("💰 Spending vs. Win Rate")
         team_df_sorted = team_df.sort_values('Sort_Money')
         fig_money = px.box(
             team_df_sorted, x='Original_Spent', y='Calculated_WinRate', color='Original_Spent',
-            points="all", template='plotly_dark', color_discrete_sequence=px.colors.qualitative.Bold, height=600
+            points="all", template='plotly_dark', color_discrete_sequence=px.colors.qualitative.Bold, 
+            height=600
         )
         fig_money.update_layout(showlegend=False, yaxis_title="Win Rate (%)", xaxis_title="Spending Tier")
-        st.plotly_chart(style_fig(fig_money), width='stretch', config=PLOT_CONFIG)
+        st.plotly_chart(style_fig(fig_money, height=600), width='stretch', config=PLOT_CONFIG)
         with st.expander("ℹ️ About this chart"):
             st.markdown(descriptions["money"])
 
@@ -380,11 +380,12 @@ if not df.empty:
                 fig_comps = px.bar(
                     comp_stats.sort_values('Calculated_WinRate', ascending=False).head(15),
                     x='Calculated_WinRate', y='Team_Comp', orientation='h', color='Calculated_WinRate',
-                    color_continuous_scale='Plasma', text='Usage Count', title="Top Teams (>7 Entries)", template='plotly_dark', height=700
+                    color_continuous_scale='Plasma', text='Usage Count', template='plotly_dark', 
+                    height=700
                 )
                 fig_comps.update_layout(yaxis={'categoryorder':'total ascending'}, xaxis_title="Avg Win Rate (%)", yaxis_title="Team Composition")
                 fig_comps.update_traces(texttemplate='%{text} Entries', textposition='inside')
-                st.plotly_chart(style_fig(fig_comps), width='stretch', config=PLOT_CONFIG)
+                st.plotly_chart(style_fig(fig_comps, height=700), width='stretch', config=PLOT_CONFIG)
                 with st.expander("ℹ️ About this chart"):
                     st.markdown(descriptions["teams"])
             else:
@@ -411,11 +412,12 @@ if not df.empty:
             
             fig_style = px.bar(
                 style_stats, x='Calculated_WinRate', y='Standard_Style', orientation='h', color='Calculated_WinRate',
-                template='plotly_dark', title="Win Rate by Running Style", text='Calculated_WinRate', color_continuous_scale='Viridis', height=500
+                template='plotly_dark', title="Win Rate by Running Style", text='Calculated_WinRate', color_continuous_scale='Viridis', 
+                height=500
             )
             fig_style.update_layout(yaxis={'categoryorder':'array', 'categoryarray': desired_order[::-1]}, xaxis_title="Avg Win Rate (%)", yaxis_title=None)
-            fig_style.update_traces(texttemplate='%{text:.1f}%', textposition='inside')
-            st.plotly_chart(style_fig(fig_style), width='stretch', config=PLOT_CONFIG)
+            fig_style.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+            st.plotly_chart(style_fig(fig_style, height=500), width='stretch', config=PLOT_CONFIG)
             with st.expander("ℹ️ About this chart"):
                 st.markdown(descriptions["strategy"])
 
@@ -441,18 +443,16 @@ if not df.empty:
                 color_discrete_sequence=['#00CC96', '#EF553B'], height=500
             )
             fig_runner.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-            st.plotly_chart(style_fig(fig_runner), width='stretch', config=PLOT_CONFIG)
+            st.plotly_chart(style_fig(fig_runner, height=500), width='stretch', config=PLOT_CONFIG)
             with st.expander("ℹ️ About this chart"):
                 st.markdown(descriptions["runaway"])
 
     # --- PAGE 3: INDIVIDUAL UMAS ---
     elif page == "🐴 Individual Umas":
         st.title("🐴 Individual Uma Performance")
-        
-        # DISCLAIMER (Specific to this page)
         st.warning("⚠️ **NOTE:** Win Rates are based on **TEAM Performance** when this Uma is present. It does NOT track individual race wins.")
         
-        # UMA INSPECTOR
+        # UMA INSPECTOR (Here on this page)
         st.subheader("🔍 Uma Inspector")
         all_umas = sorted(df['Clean_Uma'].unique())
         target_uma = st.selectbox("Select Uma:", [""] + all_umas)
@@ -469,12 +469,12 @@ if not df.empty:
             st.caption(f"Stats for **{target_uma}**")
             c1, c2 = st.columns(2)
             c1.metric("Win Rate", f"{avg_wr:.1f}%")
-            c2.metric("Unique Users", int(unique_players))
+            c2.metric("Unique Players", int(unique_players))
             st.metric("Best Strategy", best_strat)
             
             # Drilldown Chart
             fig_drill = px.bar(strat_stats, x='mean', y=strat_stats.index, orientation='h', title=f"Strategy Breakdown for {target_uma}", template='plotly_dark', height=400)
-            st.plotly_chart(style_fig(fig_drill), width='stretch', config=PLOT_CONFIG)
+            st.plotly_chart(style_fig(fig_drill, height=400), width='stretch', config=PLOT_CONFIG)
         
         st.markdown("---")
         
@@ -491,11 +491,11 @@ if not df.empty:
             color_continuous_scale='Viridis', 
             text='Clean_Races', 
             template='plotly_dark', 
-            height=700
+            height=800
         )
         fig_uma.update_layout(yaxis={'categoryorder':'total ascending'}, xaxis_title="Avg Win Rate (%)", yaxis_title="Character")
         fig_uma.update_traces(texttemplate='WR: %{x:.1f}% | Runs: %{text}', textposition='inside')
-        st.plotly_chart(style_fig(fig_uma), width='stretch', config=PLOT_CONFIG)
+        st.plotly_chart(style_fig(fig_uma, height=800), width='stretch', config=PLOT_CONFIG)
         with st.expander("ℹ️ About this chart"):
             st.markdown(descriptions["umas"])
 
@@ -523,7 +523,7 @@ if not df.empty:
             )
             fig_card.update_traces(texttemplate='%{text:.1f}%', textposition='inside')
             fig_card.update_layout(xaxis_title="Limit Break Status")
-            st.plotly_chart(style_fig(fig_card), width='stretch', config=PLOT_CONFIG)
+            st.plotly_chart(style_fig(fig_card, height=600), width='stretch', config=PLOT_CONFIG)
             with st.expander("ℹ️ About this chart"):
                 st.markdown(descriptions["cards"])
         else:
@@ -539,7 +539,7 @@ if not df.empty:
                 markers=True, template='plotly_dark', text='Calculated_WinRate', height=600
             )
             fig_trend.update_traces(textposition="top center", texttemplate='%{text:.1f}%')
-            st.plotly_chart(style_fig(fig_trend), width='stretch', config=PLOT_CONFIG)
+            st.plotly_chart(style_fig(fig_trend, height=600), width='stretch', config=PLOT_CONFIG)
             with st.expander("ℹ️ About this chart"):
                 st.markdown(descriptions["trends"])
 
