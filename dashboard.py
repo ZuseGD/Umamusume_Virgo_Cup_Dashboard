@@ -3,11 +3,123 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import re
+import numpy as np
 
 # --- CONFIGURATION ---
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTR8Pa4QQVSNwepSe9dYnro3ZaVEpYQmBdZUzumuLL-U2IR3nKVh-_GbZeJHT2x9aCqnp7P-0hPm5Zd/pub?gid=221070242&single=true&output=csv"
 
 st.set_page_config(page_title="Virgo Cup CM5 Dashboard", page_icon="🏆", layout="wide")
+
+# --- DESCRIPTIONS & FOOTER ---
+descriptions = {
+    "money": """
+    **How this is calculated:**
+    - **Data Source:** Players self-report their total spending tier (e.g., F2P, $1-$100, $1000++).
+    - **Metric:** The box plot shows the distribution of 'Win Rate' for all players within each spending tier.
+    - **Interpretation:** The box represents the middle 50% of players (IQR). The line inside is the median win rate. Whiskers show the range of typical performance. Outliers are shown as individual points.
+    - **Goal:** To visualize if higher spending correlates with higher win rates, or if F2P players remain competitive.
+    """,
+    
+    "teams": """
+    **How this is calculated:**
+    - **Team Definition:** A unique combination of 3 Umas used by a single player in a single session (Round + Day).
+    - **Filtering:** Only team compositions that appear at least 8 times in the dataset are shown to ensure statistical relevance.
+    - **Metric:** The average win rate of all players using that specific trio of Umas.
+    - **Goal:** To identify the "Meta" teams that consistently perform well across different trainers.
+    """,
+    
+    "umas": """
+    **How this is calculated:**
+    - **Scope:** Evaluates each Uma individually, regardless of their teammates.
+    - **Metric:** The average win rate of all teams that included this specific Uma.
+    - **Filtering:** Umas with fewer than 10 recorded runs are excluded to prevent skewed data (e.g., 1 win / 1 run = 100%).
+    - **Goal:** To produce a "Tier List" of individual character strength in the current meta.
+    """,
+    
+    "strategy": """
+    **How this is calculated:**
+    - **Standardization:** Raw running styles (e.g., "Betweener", "Leader") are mapped to standard English terms (Pace Chaser, Front Runner, etc.).
+    - **Metric:** The average win rate for Umas using that specific running style.
+    - **Goal:** To see which running strategy is dominant on this specific track.
+    """,
+    
+    "runaway": """
+    **How this is calculated:**
+    - **Definition:** A team is flagged as "With Runaway" if at least one Uma uses the 'Runaway' (Nigeru) or 'Oonige' strategy. Note: 'Front Runner' (Senkou) is NOT considered a Runaway.
+    - **Metric:** Compares the average win rate of teams that include a Runaway vs. teams that do not.
+    - **Goal:** To test the hypothesis that having a Runaway is essential for controlling the race pace.
+    """,
+    
+    "cards": """
+    **How this is calculated:**
+    - **Data Source:** Players report the status (Limit Break level) of specific key Support Cards (e.g., Kitasan Black).
+    - **Metric:** The average win rate of players grouped by the Limit Break status of the selected card (e.g., MLB vs 0LB).
+    - **Goal:** To measure the impact of "Meta" support cards on actual race performance.
+    """,
+    
+    "leaderboard": """
+    **How this is calculated:**
+    - **Sorting:** Trainers are ranked by a 'Performance Score' which prioritizes Total Wins first, and Win Rate second.
+    - **Formula:** Score = Win Rate * log(Total Races + 1). This ensures a player with 19/20 wins ranks higher than a player with 1/1 wins.
+    - **Filtering:** Trainers with fewer than 15 total races are excluded to ensure the leaderboard reflects consistent performance.
+    - **Anonymization:** Only the Top 10 trainers are shown by name; all others are anonymized in the dataset.
+    """,
+    
+    "trends": """
+    **How this is calculated:**
+    - **Grouping:** Data is aggregated by Round (1 or 2) and Day (1 or 2).
+    - **Metric:** The average win rate of the entire player base for that specific session.
+    - **Goal:** To observe how the competition difficulty evolves over time (e.g., does win rate drop in Round 2 as casual players are eliminated?).
+    """
+}
+
+footer_html = """
+<style>
+.footer {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    background-color: #0E1117;
+    color: #888;
+    text-align: center;
+    padding: 15px;
+    font-size: 13px;
+    border-top: 1px solid #333;
+    z-index: 100;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+}
+.footer a {
+    color: #00CC96; /* Accent Color */
+    text-decoration: none;
+    font-weight: bold;
+}
+.footer a:hover {
+    text-decoration: underline;
+    color: #FAFAFA;
+}
+.social-icon {
+    margin-right: 5px;
+    font-size: 1.2em;
+    vertical-align: middle;
+}
+</style>
+<div class="footer">
+    <span>Made by <b>Zuse</b> 🚀 | Virgo Cup Analytics</span>
+    <span>
+        👾 Discord: <b>@zusethegoose</b>
+    </span>
+    <span>
+        <a href="https://github.com/ZuseGD" target="_blank">💻 GitHub</a>
+    </span>
+    <span>
+        <a href="https://paypal.me/JgamersZuse" target="_blank">☕ Support (PayPal)</a>
+    </span>
+</div>
+"""
 
 # --- 1. HELPER FUNCTIONS ---
 def find_column(df, keywords, case_sensitive=False):
@@ -50,14 +162,20 @@ def extract_races_count(series):
 def parse_uma_details(series):
     return series.astype(str).apply(lambda x: x.split(' - ')[0].strip().title())
 
+def calculate_score(wins, races):
+    if races == 0: return 0
+    wr = (wins / races) * 100
+    return wr * np.log1p(races)
+
 def anonymize_players(df, metric='Calculated_WinRate', top_n=10):
     player_stats = df.groupby('Clean_IGN').agg({
         metric: 'mean',
         'Clean_Wins': 'sum',
         'Clean_Races': 'sum'
     }).reset_index()
+    player_stats['Score'] = player_stats.apply(lambda x: calculate_score(x['Clean_Wins'], x['Clean_Races']), axis=1)
     eligible_pros = player_stats[player_stats['Clean_Races'] >= 20]
-    top_players = eligible_pros.sort_values(['Clean_Wins', metric], ascending=[False, False]).head(top_n)['Clean_IGN'].tolist()
+    top_players = eligible_pros.sort_values('Score', ascending=False).head(top_n)['Clean_IGN'].tolist()
     df['Display_IGN'] = df['Clean_IGN'].apply(lambda x: x if x in top_players else "Anonymous Trainer")
     return df
 
@@ -67,7 +185,6 @@ def load_data():
     try:
         df = pd.read_csv(SHEET_URL)
         
-        # Map Core Columns
         col_map = {
             'ign': find_column(df, ['ign', 'player']),
             'group': find_column(df, ['cmgroup', 'bracket']),
@@ -81,7 +198,6 @@ def load_data():
             'runs_per_day': find_column(df, ['runsperday', 'howmanyruns'])
         }
 
-        # Clean Basic Data
         if col_map['money']: 
             df['Original_Spent'] = df[col_map['money']].fillna("Unknown")
             df['Sort_Money'] = clean_currency_numeric(df[col_map['money']])
@@ -117,71 +233,53 @@ def load_data():
         else: df['Day'] = "Unknown"
 
         df = anonymize_players(df)
-        
-        # --- TEAM RECONSTRUCTION ---
-        # We build the 'team_df' here, but we will filter it dynamically in the App Layout section
-        team_df = df.groupby(['Clean_IGN', 'Display_IGN', 'Clean_Group', 'Round', 'Day', 'Original_Spent', 'Sort_Money']).agg({
-            'Clean_Uma': lambda x: sorted(list(x)), 
-            'Clean_Style': lambda x: list(x),       
-            'Calculated_WinRate': 'mean',           
-            'Clean_Races': 'mean',
-            'Clean_Wins': 'mean'
-        }).reset_index()
-
-        team_df['Uma_Count'] = team_df['Clean_Uma'].apply(len)
-        team_df = team_df[team_df['Uma_Count'] == 3]
-        team_df['Team_Comp'] = team_df['Clean_Uma'].apply(lambda x: ", ".join(x))
-        
-        return df, team_df
-        
+        return df
     except Exception as e:
         st.error(f"Data Error: {e}")
-        return pd.DataFrame(), pd.DataFrame()
+        return pd.DataFrame()
 
 # --- 3. APP LAYOUT ---
 try:
-    raw_df, raw_team_df = load_data()
+    df = load_data()
 except Exception as e:
     st.error(f"Data Load Failed: {e}")
     st.stop()
 
 st.title("🏆 Virgo Cup CM5 Analytics")
 
-if not raw_df.empty:
-    # --- SIDEBAR ---
-    st.sidebar.header("⚙️ Filters")
+if not df.empty:
+    # Reconstruct Teams
+    team_df = df.groupby(['Clean_IGN', 'Display_IGN', 'Clean_Group', 'Round', 'Day', 'Original_Spent', 'Sort_Money']).agg({
+        'Clean_Uma': lambda x: sorted(list(x)), 
+        'Clean_Style': lambda x: list(x),       
+        'Calculated_WinRate': 'mean',           
+        'Clean_Races': 'mean',
+        'Clean_Wins': 'mean'
+    }).reset_index()
     
-    # 1. Group Filter (FIXED LOGIC)
-    # We get unique groups from the raw data
-    groups = list(raw_df['Clean_Group'].unique())
-    # Default to all if none selected
-    selected_groups = st.sidebar.multiselect("Filter Group", groups, default=groups)
-    
-    # 2. APPLY FILTER GLOBALLY
-    if selected_groups:
-        df = raw_df[raw_df['Clean_Group'].isin(selected_groups)]
-        team_df = raw_team_df[raw_team_df['Clean_Group'].isin(selected_groups)]
-    else:
-        # If user unchecks everything, show nothing or everything? Usually everything is safer fallback.
-        df = raw_df
-        team_df = raw_team_df
+    # Calculate Score for Teams
+    team_df['Score'] = team_df.apply(lambda x: calculate_score(x['Clean_Wins'], x['Clean_Races']), axis=1)
 
-    # Filter Team Comps based on the NEW filtered dataset
+    team_df['Uma_Count'] = team_df['Clean_Uma'].apply(len)
+    team_df = team_df[team_df['Uma_Count'] == 3]
+    team_df['Team_Comp'] = team_df['Clean_Uma'].apply(lambda x: ", ".join(x))
+    
     comp_counts = team_df['Team_Comp'].value_counts()
     valid_comps = comp_counts[comp_counts > 7].index.tolist()
     filtered_team_df = team_df[team_df['Team_Comp'].isin(valid_comps)]
+
+    # Sidebar
+    groups = list(df['Clean_Group'].unique())
+    selected = st.sidebar.multiselect("Filter Group", groups, default=groups)
     
     # UMA SEARCH BAR
     st.sidebar.markdown("---")
     st.sidebar.subheader("🔍 Uma Inspector")
-    # Use 'raw_df' for list so you can search Umas even if filtered out by group
-    all_umas = sorted(raw_df['Clean_Uma'].unique())
+    all_umas = sorted(df['Clean_Uma'].unique())
     target_uma = st.sidebar.selectbox("Select to view stats:", [""] + all_umas)
 
     if target_uma:
-        # Inspect logic uses the GLOBAL df (user might want to check stats regardless of group filter)
-        # OR should it respect the filter? Usually Inspector is global. Let's keep it global (raw_df).
-        uma_data = raw_df[raw_df['Clean_Uma'] == target_uma]
+        uma_data = df[df['Clean_Uma'] == target_uma]
         avg_wr = uma_data['Calculated_WinRate'].mean()
         unique_players = uma_data['Clean_IGN'].nunique()
         
@@ -193,13 +291,12 @@ if not raw_df.empty:
         st.sidebar.caption(f"Stats for **{target_uma}**")
         c1, c2 = st.sidebar.columns(2)
         c1.metric("Win Rate", f"{avg_wr:.1f}%")
-        c2.metric("Players", int(unique_players))
+        c2.metric("Unique Players", int(unique_players))
         st.sidebar.metric("Best Strat", best_strat)
 
     # --- TABS ---
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Money & Meta", "Uma Tier List", "Strategy", "Card Impact", "Leaderboard", "Trends"])
 
-    # --- TAB 1: Money & Ideal Teams ---
     with tab1:
         c1, c2 = st.columns(2)
         with c1:
@@ -218,6 +315,8 @@ if not raw_df.empty:
             )
             fig_money.update_layout(showlegend=False, yaxis_title="Win Rate (%)", xaxis_title="Spending Tier")
             st.plotly_chart(fig_money, width='stretch')
+            with st.expander("ℹ️ About this chart"):
+                st.markdown(descriptions["money"])
             
         with c2:
             st.subheader("Ideal Team Compositions")
@@ -242,14 +341,14 @@ if not raw_df.empty:
                 fig_comps.update_layout(yaxis={'categoryorder':'total ascending'}, xaxis_title="Avg Win Rate (%)", yaxis_title="Team Composition")
                 fig_comps.update_traces(texttemplate='%{text} Entries', textposition='inside')
                 st.plotly_chart(fig_comps, width='stretch')
+                with st.expander("ℹ️ About this chart"):
+                    st.markdown(descriptions["teams"])
             else:
                 st.info("Not enough data to show Team Comps (>7 uses required).")
 
-    # --- TAB 2: Individual Tier List ---
     with tab2:
         st.subheader("Individual Uma Tier List")
         st.caption("Performance of individual Umas regardless of team composition (Min. 10 runs).")
-        # Uses 'df' which is now FILTERED by the sidebar
         uma_stats = df.groupby('Clean_Uma').agg({'Calculated_WinRate': 'mean', 'Clean_Races': 'count'}).reset_index()
         uma_stats = uma_stats[uma_stats['Clean_Races'] >= 10]
         
@@ -268,8 +367,9 @@ if not raw_df.empty:
         fig_uma.update_layout(yaxis={'categoryorder':'total ascending'}, xaxis_title="Avg Win Rate (%)", yaxis_title="Character")
         fig_uma.update_traces(texttemplate='WR: %{x:.1f}% | Runs: %{text}', textposition='inside')
         st.plotly_chart(fig_uma, width='stretch')
+        with st.expander("ℹ️ About this chart"):
+            st.markdown(descriptions["umas"])
 
-    # --- TAB 3: Strategy ---
     with tab3:
         st.subheader("Strategy Analysis")
         c1, c2 = st.columns(2)
@@ -304,6 +404,8 @@ if not raw_df.empty:
             fig_style.update_layout(yaxis={'categoryorder':'array', 'categoryarray': desired_order[::-1]}, xaxis_title="Avg Win Rate (%)", yaxis_title="Strategy")
             fig_style.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
             st.plotly_chart(fig_style, width='stretch')
+            with st.expander("ℹ️ About this chart"):
+                st.markdown(descriptions["strategy"])
         
         with c2:
             def check_for_runaway(style_list):
@@ -318,7 +420,7 @@ if not raw_df.empty:
             
             team_df['Has_Runaway'] = team_df['Clean_Style'].apply(check_for_runaway)
             runner_stats = team_df.groupby('Has_Runaway')['Calculated_WinRate'].mean().reset_index()
-            runner_stats['Strategy'] = runner_stats['Has_Runaway'].map({True: 'With Runaway', False: 'No Runaway'})
+            runner_stats['Strategy'] = runner_stats['Has_Runaway'].map({True: 'With Runaway (Nigeru)', False: 'No Runaway'})
             
             fig_runner = px.bar(
                 runner_stats, 
@@ -333,8 +435,9 @@ if not raw_df.empty:
             )
             fig_runner.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
             st.plotly_chart(fig_runner, width='stretch')
+            with st.expander("ℹ️ About this chart"):
+                st.markdown(descriptions["runaway"])
 
-    # --- TAB 4: Card Impact ---
     with tab4:
         st.subheader("Support Card Impact")
         card_map = {}
@@ -362,21 +465,31 @@ if not raw_df.empty:
             )
             fig_card.update_traces(texttemplate='%{text:.1f}%', textposition='inside')
             st.plotly_chart(fig_card, width='stretch')
+            with st.expander("ℹ️ About this chart"):
+                st.markdown(descriptions["cards"])
         else:
             st.warning("No Support Card data found in CSV.")
 
-    # --- TAB 5: Leaderboard ---
     with tab5:
         st.subheader("Trainer Leaderboard")
-        st.caption("Top 10 Trainers (All-Time). Sorted by Total Wins (Min. 15 Races).")
+        st.caption("Top 10 Trainers (All-Time). Sorted by Performance Score (Win Rate x Volume).")
         
         # Ensure Anonymous trainers are filtered out
         named_teams = team_df[team_df['Display_IGN'] != "Anonymous Trainer"].copy()
         
-        leaderboard = named_teams.groupby(['Display_IGN', 'Team_Comp']).agg({'Clean_Wins': 'sum', 'Clean_Races': 'sum'}).reset_index()
+        leaderboard = named_teams.groupby(['Display_IGN', 'Team_Comp']).agg({
+            'Clean_Wins': 'sum', 
+            'Clean_Races': 'sum'
+        }).reset_index()
+        
+        # Recalculate score for aggregated total
         leaderboard['Global_WinRate'] = (leaderboard['Clean_Wins'] / leaderboard['Clean_Races']) * 100
+        leaderboard['Score'] = leaderboard.apply(lambda x: calculate_score(x['Clean_Wins'], x['Clean_Races']), axis=1)
+        
         leaderboard = leaderboard[leaderboard['Clean_Races'] >= 15]
-        top_leaders = leaderboard.sort_values(['Clean_Wins', 'Global_WinRate'], ascending=[False, False]).head(10)
+        
+        # SORT BY SCORE instead of raw WR
+        top_leaders = leaderboard.sort_values('Score', ascending=False).head(10)
         top_leaders['Label'] = top_leaders['Display_IGN'] + " (" + top_leaders['Team_Comp'] + ")"
         
         fig_leader = px.bar(
@@ -392,10 +505,11 @@ if not raw_df.empty:
             color_continuous_scale='Turbo',
             height=700
         )
-        fig_leader.update_traces(texttemplate='Total Wins: %{text} | WR: %{x:.1f}%', textposition='inside')
+        fig_leader.update_traces(texttemplate='Wins: %{text} | WR: %{x:.1f}%', textposition='inside')
         st.plotly_chart(fig_leader, width='stretch')
+        with st.expander("ℹ️ About this chart"):
+            st.markdown(descriptions["leaderboard"])
         
-    # --- TAB 6: Trends ---
     with tab6:
         st.subheader("Meta Trends")
         if 'Round' in df.columns and 'Day' in df.columns:
@@ -414,3 +528,8 @@ if not raw_df.empty:
             )
             fig_trend.update_traces(textposition="top center", texttemplate='%{text:.1f}%')
             st.plotly_chart(fig_trend, width='stretch')
+            with st.expander("ℹ️ About this chart"):
+                st.markdown(descriptions["trends"])
+
+# --- FOOTER ---
+st.markdown(footer_html, unsafe_allow_html=True)
