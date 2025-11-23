@@ -206,7 +206,6 @@ except Exception as e:
     st.stop()
 
 # --- NAVIGATION ---
-# Simple top-level navigation to separate the "Global View" from "Drill Downs"
 page = st.radio("Navigation", ["🌍 Global Overview", "🐴 Individual Umas", "⚔️ Team & Meta", "🃏 Resources"], horizontal=True, label_visibility="collapsed")
 
 if page == "🌍 Global Overview":
@@ -352,7 +351,7 @@ elif page == "⚔️ Team & Meta":
         st.plotly_chart(fig_style, use_container_width=True)
 
     with tab_meta3:
-        st.subheader("⚠️ Impact of Runaways (Nigeru)")
+        st.subheader("⚠️ Impact of Runaways (Oonige)")
         def check_for_runaway(style_list):
             target_terms = ['Runaway', 'Runner', 'Escape', 'Oonige', 'Great Escape']
             for s in style_list:
@@ -365,7 +364,7 @@ elif page == "⚔️ Team & Meta":
         
         team_df['Has_Runaway'] = team_df['Clean_Style'].apply(check_for_runaway)
         runner_stats = team_df.groupby('Has_Runaway')['Calculated_WinRate'].mean().reset_index()
-        runner_stats['Strategy'] = runner_stats['Has_Runaway'].map({True: 'With Runaway', False: 'No Runaway'})
+        runner_stats['Strategy'] = runner_stats['Has_Runaway'].map({True: 'With Runaway/Oonige', False: 'No Runaway'})
         
         fig_runner = px.bar(
             runner_stats, x='Strategy', y='Calculated_WinRate', color='Strategy',
