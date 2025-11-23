@@ -98,7 +98,6 @@ def load_data():
         if col_map['races_text']: df['Clean_Races'] = extract_races_count(df[col_map['races_text']])
         else: df['Clean_Races'] = 1
 
-        # Win Rate Calc
         df['Calculated_WinRate'] = (df['Clean_Wins'] / df['Clean_Races']) * 100
         df.loc[df['Calculated_WinRate'] > 100, 'Calculated_WinRate'] = 100
 
@@ -148,20 +147,37 @@ except Exception as e:
 st.title("🏆 Virgo Cup CM5 Analytics")
 
 if not df.empty:
-    # Filter Team Comps
     comp_counts = team_df['Team_Comp'].value_counts()
     valid_comps = comp_counts[comp_counts > 7].index.tolist()
     filtered_team_df = team_df[team_df['Team_Comp'].isin(valid_comps)]
 
-    # Sidebar
+    # --- SIDEBAR ---
     groups = list(df['Clean_Group'].unique())
     selected = st.sidebar.multiselect("Filter Group", groups, default=groups)
     
-    if selected:
-        # Note: Deep filtering logic can be added here if needed
-        pass
+    # UMA SEARCH BAR
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🔍 Uma Inspector")
+    all_umas = sorted(df['Clean_Uma'].unique())
+    target_uma = st.sidebar.selectbox("Select to view stats:", [""] + all_umas)
 
-    # Tabs
+    if target_uma:
+        uma_data = df[df['Clean_Uma'] == target_uma]
+        avg_wr = uma_data['Calculated_WinRate'].mean()
+        unique_players = uma_data['Clean_IGN'].nunique()
+        
+        strat_stats = uma_data.groupby('Clean_Style')['Calculated_WinRate'].agg(['mean', 'count'])
+        valid_strats = strat_stats[strat_stats['count'] > 3]
+        if valid_strats.empty: valid_strats = strat_stats
+        best_strat = valid_strats['mean'].idxmax() if not valid_strats.empty else "N/A"
+        
+        st.sidebar.caption(f"Stats for **{target_uma}**")
+        c1, c2 = st.sidebar.columns(2)
+        c1.metric("Win Rate", f"{avg_wr:.1f}%")
+        c2.metric("Unique Players", int(unique_players))
+        st.sidebar.metric("Best Strat", best_strat)
+
+    # --- TABS ---
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Money & Meta", "Uma Tier List", "Strategy", "Card Impact", "Leaderboard", "Trends"])
 
     with tab1:
@@ -289,10 +305,19 @@ if not df.empty:
 
     with tab4:
         st.subheader("Support Card Impact")
-        targets = ['Fine Motion', 'SSR Riko', 'SR Riko', 'Kitasan']
-        target = st.selectbox("Select Card", targets)
-        col_match = next((c for c in df.columns if target.lower() in c.lower() and "Card Status" in c), None)
-        if col_match:
+        
+        # DYNAMIC CARD DETECTION
+        card_map = {}
+        for c in df.columns:
+            if "Card Status" in c:
+                # Extract name inside brackets, e.g., "SSR Riko Kashimoto"
+                card_name = c.split('[')[-1].replace(']', '').strip()
+                card_map[card_name] = c
+                
+        if card_map:
+            target_name = st.selectbox("Select Card", sorted(list(card_map.keys())))
+            col_match = card_map[target_name]
+            
             card_stats = df.drop_duplicates(subset=['Clean_IGN', 'Round', 'Day']).groupby(col_match)['Calculated_WinRate'].mean().reset_index()
             fig_card = px.bar(
                 card_stats, 
@@ -301,9 +326,11 @@ if not df.empty:
                 color='Calculated_WinRate', 
                 color_continuous_scale='Bluered', 
                 template='plotly_dark', 
-                title=f"Win Rate by {target} Status"
+                title=f"Win Rate by {target_name} Status"
             )
             st.plotly_chart(fig_card, width='stretch')
+        else:
+            st.warning("No Support Card data found in CSV.")
 
     with tab5:
         st.subheader("Trainer Leaderboard")
@@ -344,40 +371,3 @@ if not df.empty:
                 template='plotly_dark'
             )
             st.plotly_chart(fig_trend, width='stretch')
-# Allows quick lookup of specific Uma stats without filtering the main charts.
-# %%
-st.sidebar.markdown("---")
-st.sidebar.subheader("🔍 Uma Inspector")
-
-# Get sorted list of Umas
-all_umas = sorted(df['Clean_Uma'].unique())
-target_uma = st.sidebar.selectbox("Select to view stats:", [""] + all_umas)
-
-if target_uma:
-    # Filter data for this specific Uma
-    uma_data = df[df['Clean_Uma'] == target_uma]
-    
-    # 1. Calculate Core Metrics
-    avg_wr = uma_data['Calculated_WinRate'].mean()
-    total_runs = uma_data['Clean_Races'].sum()
-    
-    # 2. Determine Best Strategy
-    # We group by Strategy and calculate Win Rate
-    strat_stats = uma_data.groupby('Clean_Style')['Calculated_WinRate'].agg(['mean', 'count'])
-    
-    # Filter: Only consider strategies with > 3 runs (to avoid 1/1 = 100% bias)
-    valid_strats = strat_stats[strat_stats['count'] > 3]
-    
-    # If no strategy has >3 runs, fall back to raw max
-    if valid_strats.empty: 
-        valid_strats = strat_stats
-        
-    # Get the strategy with the highest 'mean' win rate
-    best_strat = valid_strats['mean'].idxmax() if not valid_strats.empty else "N/A"
-    
-    # 3. Display Stats in Sidebar
-    st.sidebar.caption(f"Stats for **{target_uma}**")
-    c1, c2 = st.sidebar.columns(2)
-    c1.metric("Win Rate", f"{avg_wr:.1f}%")
-    c2.metric("Runs", int(total_runs))
-    st.sidebar.metric("Best Strategy", best_strat)
