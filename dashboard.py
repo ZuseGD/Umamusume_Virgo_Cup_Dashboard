@@ -55,7 +55,7 @@ descriptions = {
     """,
     "runaway": """
     **How this is calculated:**
-    - **Definition:** A team is flagged as "With Runaway" if at least one Uma uses the 'Runaway' (Oonige) strategy. Note: 'Front Runner'  is NOT considered a Runaway.
+    - **Definition:** A team is flagged as "With Runaway" if at least one Uma uses the 'Runaway' strategy. Note: 'Front Runner' is NOT considered a Runaway.
     - **Metric:** Compares the average win rate of teams that include a Runaway vs. teams that do not.
     - **Goal:** To test the hypothesis that having a Runaway is essential for controlling the race pace.
     """,
@@ -272,7 +272,8 @@ except Exception as e:
     st.error(f"Data Load Failed: {e}")
     st.stop()
 
-st.title("🏆 Virgo Cup CM5 Analytics")
+# --- NAVIGATION ---
+page = st.radio("Navigation", ["🌍 Global Overview", "⚔️ Team & Meta", "🐴 Individual Umas", "🃏 Resources"], horizontal=True, label_visibility="collapsed")
 
 if not df.empty:
     # Filter Team Comps
@@ -281,6 +282,7 @@ if not df.empty:
     filtered_team_df = team_df[team_df['Team_Comp'].isin(valid_comps)]
 
     # --- SIDEBAR ---
+    st.sidebar.header("⚙️ Filters & Search")
     groups = list(df['Clean_Group'].unique())
     selected = st.sidebar.multiselect("Filter Group", groups, default=groups)
     
@@ -309,7 +311,7 @@ if not df.empty:
         c2.metric("Unique Users", int(unique_players))
         st.sidebar.metric("Best Strat", best_strat)
         
-    # TRAINER INSPECTOR (NEW)
+    # TRAINER INSPECTOR
     st.sidebar.markdown("---")
     st.sidebar.subheader("🧑‍🏫 Trainer Inspector")
     all_trainers = sorted(team_df['Clean_IGN'].unique()) # Use Clean_IGN to allow finding yourself
@@ -319,58 +321,88 @@ if not df.empty:
         t_data = team_df[team_df['Clean_IGN'] == target_trainer]
         t_wr = t_data['Calculated_WinRate'].mean()
         t_runs = t_data['Clean_Races'].sum()
-        # Most used Team
         fav_team = t_data['Team_Comp'].mode()[0] if not t_data.empty else "N/A"
-        
         st.sidebar.caption(f"Stats for **{target_trainer}**")
         t1, t2 = st.sidebar.columns(2)
         t1.metric("Win Rate", f"{t_wr:.1f}%")
         t2.metric("Total Runs", int(t_runs))
         st.sidebar.text(f"Fav Team:\n{fav_team}")
 
-    # --- TABS ---
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["💰 Money", "🐎 Tier", "🧠 Strat", "🃏 Cards", "👑 Top", "📈 Meta"])
+    # --- PAGE 1: GLOBAL OVERVIEW ---
+    if page == "🌍 Global Overview":
+        st.title("🏆 Virgo Cup Global Overview")
+        
+        # 1. TOP METRICS
+        total_runs = team_df['Clean_Races'].sum()
+        avg_wr = team_df['Calculated_WinRate'].mean()
+        active_trainers = team_df['Clean_IGN'].nunique()
+        
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Total Data Points", int(total_runs), help="Total individual races recorded")
+        m2.metric("Global Avg Win Rate", f"{avg_wr:.1f}%", help="Average across all submissions")
+        m3.metric("Active Trainers", int(active_trainers))
+        
+        st.markdown("---")
+        
+        # 2. LEADERBOARD
+        st.subheader("👑 Top Performers")
+        named_teams = team_df[team_df['Display_IGN'] != "Anonymous Trainer"].copy()
+        leaderboard = named_teams.groupby(['Display_IGN', 'Team_Comp']).agg({'Clean_Wins': 'sum', 'Clean_Races': 'sum'}).reset_index()
+        leaderboard['Global_WinRate'] = (leaderboard['Clean_Wins'] / leaderboard['Clean_Races']) * 100
+        leaderboard['Score'] = leaderboard.apply(lambda x: calculate_score(x['Clean_Wins'], x['Clean_Races']), axis=1)
+        leaderboard = leaderboard[leaderboard['Clean_Races'] >= 15]
+        top_leaders = leaderboard.sort_values('Score', ascending=False).head(10)
+        
+        # Search Feature
+        search_trainer_main = st.multiselect("🔍 Compare Specific Trainer(s) to Top 10:", all_trainers)
+        if search_trainer_main:
+            searched_df = leaderboard[leaderboard['Display_IGN'].isin(search_trainer_main)]
+            plot_data = pd.concat([top_leaders, searched_df]).drop_duplicates().sort_values('Score', ascending=True)
+            chart_height = 600 + (len(search_trainer_main) * 30)
+        else:
+            plot_data = top_leaders.sort_values('Score', ascending=True)
+            chart_height = 600
 
-    with tab1:
-        c1, c2 = st.columns(2)
-        with c1:
-            st.subheader("Spending vs Win Rate")
-            team_df_sorted = team_df.sort_values('Sort_Money')
-            fig_money = px.box(
-                team_df_sorted, 
-                x='Original_Spent', 
-                y='Calculated_WinRate', 
-                color='Original_Spent', 
-                points="all", 
-                title="Distribution of Win Rates", 
-                template='plotly_dark', 
-                color_discrete_sequence=px.colors.qualitative.Bold,
-                height=600
-            )
-            fig_money.update_layout(showlegend=False, yaxis_title="Win Rate (%)", xaxis_title="Spending Tier")
-            st.plotly_chart(style_fig(fig_money), width='stretch', config=PLOT_CONFIG)
-            with st.expander("ℹ️ About this chart"):
-                st.markdown(descriptions["money"])
-            
-        with c2:
-            st.subheader("Ideal Team Compositions")
+        plot_data['Label'] = plot_data['Display_IGN'] + " (" + plot_data['Team_Comp'] + ")"
+        
+        fig_leader = px.bar(
+            plot_data, x='Score', y='Label', orientation='h', color='Global_WinRate',
+            text='Clean_Wins', template='plotly_dark', color_continuous_scale='Turbo', height=chart_height
+        )
+        fig_leader.update_traces(texttemplate='Wins: %{text} | WR: %{marker.color:.1f}%', textposition='inside')
+        fig_leader.update_layout(xaxis_title="Performance Score", yaxis_title=None)
+        st.plotly_chart(style_fig(fig_leader), width='stretch', config=PLOT_CONFIG)
+        with st.expander("ℹ️ Leaderboard Logic"):
+            st.markdown(descriptions["leaderboard"])
+
+        st.markdown("---")
+
+        # 3. SPENDING
+        st.subheader("💰 Spending vs. Win Rate")
+        team_df_sorted = team_df.sort_values('Sort_Money')
+        fig_money = px.box(
+            team_df_sorted, x='Original_Spent', y='Calculated_WinRate', color='Original_Spent',
+            points="all", template='plotly_dark', color_discrete_sequence=px.colors.qualitative.Bold, height=600
+        )
+        fig_money.update_layout(showlegend=False, yaxis_title="Win Rate (%)", xaxis_title="Spending Tier")
+        st.plotly_chart(style_fig(fig_money), width='stretch', config=PLOT_CONFIG)
+        with st.expander("ℹ️ About this chart"):
+            st.markdown(descriptions["money"])
+
+    # --- PAGE 2: TEAM & META ---
+    elif page == "⚔️ Team & Meta":
+        st.title("⚔️ Team Composition & Meta Strategy")
+        
+        tab_meta1, tab_meta2, tab_meta3 = st.tabs(["Ideal Teams", "Running Style", "Runaway Impact"])
+        
+        with tab_meta1:
+            st.subheader("🏆 Meta Team Compositions")
             if not filtered_team_df.empty:
-                comp_stats = filtered_team_df.groupby('Team_Comp').agg({
-                    'Calculated_WinRate': 'mean', 
-                    'Clean_Races': 'count'
-                }).reset_index().rename(columns={'Clean_Races': 'Usage Count'})
-                
+                comp_stats = filtered_team_df.groupby('Team_Comp').agg({'Calculated_WinRate': 'mean', 'Clean_Races': 'count'}).reset_index()
                 fig_comps = px.bar(
-                    comp_stats.sort_values('Calculated_WinRate', ascending=False).head(15), 
-                    x='Calculated_WinRate', 
-                    y='Team_Comp', 
-                    orientation='h', 
-                    color='Calculated_WinRate', 
-                    color_continuous_scale='Plasma', 
-                    text='Usage Count', 
-                    title="Top Teams (>7 Entries)", 
-                    template='plotly_dark',
-                    height=600
+                    comp_stats.sort_values('Calculated_WinRate', ascending=False).head(15),
+                    x='Calculated_WinRate', y='Team_Comp', orientation='h', color='Calculated_WinRate',
+                    color_continuous_scale='Plasma', text='Clean_Races', template='plotly_dark', height=700
                 )
                 fig_comps.update_layout(yaxis={'categoryorder':'total ascending'}, xaxis_title="Avg Win Rate (%)", yaxis_title="Team Composition")
                 fig_comps.update_traces(texttemplate='%{text} Entries', textposition='inside')
@@ -380,34 +412,8 @@ if not df.empty:
             else:
                 st.info("Not enough data to show Team Comps (>7 uses required).")
 
-    with tab2:
-        st.subheader("Individual Uma Tier List")
-        st.caption("Performance of individual Umas regardless of team composition (Min. 10 runs).")
-        uma_stats = df.groupby('Clean_Uma').agg({'Calculated_WinRate': 'mean', 'Clean_Races': 'count'}).reset_index()
-        uma_stats = uma_stats[uma_stats['Clean_Races'] >= 10]
-        
-        fig_uma = px.bar(
-            uma_stats.sort_values('Calculated_WinRate', ascending=False).head(15), 
-            x='Calculated_WinRate', 
-            y='Clean_Uma', 
-            orientation='h', 
-            color='Calculated_WinRate', 
-            color_continuous_scale='Viridis', 
-            text='Clean_Races', 
-            template='plotly_dark', 
-            title="Top 15 Umas by Win Rate",
-            height=700
-        )
-        fig_uma.update_layout(yaxis={'categoryorder':'total ascending'}, xaxis_title="Avg Win Rate (%)", yaxis_title="Character")
-        fig_uma.update_traces(texttemplate='WR: %{x:.1f}% | Runs: %{text}', textposition='inside')
-        st.plotly_chart(style_fig(fig_uma), width='stretch', config=PLOT_CONFIG)
-        with st.expander("ℹ️ About this chart"):
-            st.markdown(descriptions["umas"])
-
-    with tab3:
-        st.subheader("Strategy Analysis")
-        c1, c2 = st.columns(2)
-        with c1:
+        with tab_meta2:
+            st.subheader("🏃 Performance by Running Style")
             def standardize_style(style):
                 s = str(style).lower().strip()
                 if 'front' in s or 'leader' in s: return 'Front Runner'
@@ -424,24 +430,17 @@ if not df.empty:
             desired_order = ['Runaway', 'Front Runner', 'Pace Chaser', 'Late Surger', 'End Closer']
             
             fig_style = px.bar(
-                style_stats, 
-                x='Calculated_WinRate', 
-                y='Standard_Style', 
-                orientation='h', 
-                color='Calculated_WinRate', 
-                template='plotly_dark', 
-                title="Win Rate by Running Style", 
-                text='Calculated_WinRate', 
-                color_continuous_scale='Viridis',
-                height=500
+                style_stats, x='Calculated_WinRate', y='Standard_Style', orientation='h', color='Calculated_WinRate',
+                template='plotly_dark', title="Win Rate by Running Style", text='Calculated_WinRate', color_continuous_scale='Viridis', height=500
             )
             fig_style.update_layout(yaxis={'categoryorder':'array', 'categoryarray': desired_order[::-1]}, xaxis_title="Avg Win Rate (%)", yaxis_title="Strategy")
             fig_style.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
             st.plotly_chart(style_fig(fig_style), width='stretch', config=PLOT_CONFIG)
             with st.expander("ℹ️ About this chart"):
                 st.markdown(descriptions["strategy"])
-        
-        with c2:
+
+        with tab_meta3:
+            st.subheader("⚠️ Impact of Runaways")
             def check_for_runaway(style_list):
                 target_terms = ['Runaway', 'Runner', 'Escape', 'Oonige', 'Great Escape']
                 for s in style_list:
@@ -457,22 +456,46 @@ if not df.empty:
             runner_stats['Strategy'] = runner_stats['Has_Runaway'].map({True: 'With Runaway', False: 'No Runaway'})
             
             fig_runner = px.bar(
-                runner_stats, 
-                x='Strategy', 
-                y='Calculated_WinRate', 
-                color='Strategy', 
-                template='plotly_dark', 
-                title="Impact of having a Runaway (Oonige)", 
-                color_discrete_sequence=['#00CC96', '#EF553B'],
-                text='Calculated_WinRate',
-                height=500
+                runner_stats, x='Strategy', y='Calculated_WinRate', color='Strategy',
+                template='plotly_dark', text='Calculated_WinRate',
+                color_discrete_sequence=['#00CC96', '#EF553B'], height=500
             )
             fig_runner.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+            fig_runner.update_layout(xaxis_title=None, showlegend=False)
             st.plotly_chart(style_fig(fig_runner), width='stretch', config=PLOT_CONFIG)
             with st.expander("ℹ️ About this chart"):
                 st.markdown(descriptions["runaway"])
 
-    with tab4:
+    # --- PAGE 3: INDIVIDUAL UMAS ---
+    elif page == "🐴 Individual Umas":
+        st.title("🐴 Individual Uma Performance")
+        st.warning("⚠️ **NOTE:** Win Rates are based on **TEAM Performance** when this Uma is present. It does NOT track individual race wins.")
+        
+        st.subheader("📊 Uma Tier List")
+        uma_stats = df.groupby('Clean_Uma').agg({'Calculated_WinRate': 'mean', 'Clean_Races': 'count'}).reset_index()
+        uma_stats = uma_stats[uma_stats['Clean_Races'] >= 10]
+        
+        fig_uma = px.bar(
+            uma_stats.sort_values('Calculated_WinRate', ascending=False).head(15), 
+            x='Calculated_WinRate', 
+            y='Clean_Uma', 
+            orientation='h', 
+            color='Calculated_WinRate', 
+            color_continuous_scale='Viridis', 
+            text='Clean_Races', 
+            template='plotly_dark', 
+            height=700
+        )
+        fig_uma.update_layout(yaxis={'categoryorder':'total ascending'}, xaxis_title="Avg Win Rate (%)", yaxis_title="Character")
+        fig_uma.update_traces(texttemplate='WR: %{x:.1f}% | Runs: %{text}', textposition='inside')
+        st.plotly_chart(style_fig(fig_uma), width='stretch', config=PLOT_CONFIG)
+        with st.expander("ℹ️ About this chart"):
+            st.markdown(descriptions["umas"])
+
+    # --- PAGE 4: RESOURCES ---
+    elif page == "🃏 Resources":
+        st.title("🃏 Resource Analysis")
+        
         st.subheader("Support Card Impact")
         card_map = {}
         for c in df.columns:
@@ -484,83 +507,28 @@ if not df.empty:
             target_name = st.selectbox("Select Card", sorted(list(card_map.keys())))
             col_match = card_map[target_name]
             
-            # Use FILTERED df here to respect sidebar group selection
             card_stats = df.drop_duplicates(subset=['Clean_IGN', 'Round', 'Day']).groupby(col_match)['Calculated_WinRate'].mean().reset_index()
             fig_card = px.bar(
-                card_stats, 
-                x=col_match, 
-                y='Calculated_WinRate', 
-                color='Calculated_WinRate', 
-                color_continuous_scale='Bluered', 
-                template='plotly_dark', 
-                title=f"Win Rate by {target_name} Status",
-                text='Calculated_WinRate',
-                height=600
+                card_stats, x=col_match, y='Calculated_WinRate', color='Calculated_WinRate',
+                color_continuous_scale='Bluered', template='plotly_dark', title=f"Win Rate by {target_name} Status",
+                text='Calculated_WinRate', height=600
             )
             fig_card.update_traces(texttemplate='%{text:.1f}%', textposition='inside')
+            fig_card.update_layout(xaxis_title="Limit Break Status")
             st.plotly_chart(style_fig(fig_card), width='stretch', config=PLOT_CONFIG)
             with st.expander("ℹ️ About this chart"):
                 st.markdown(descriptions["cards"])
         else:
-            st.warning("No Support Card data found in CSV.")
+            st.warning("No Card Data found.")
 
-    with tab5:
-        st.subheader("Trainer Leaderboard")
-        st.caption("Top 10 Trainers (All-Time). Sorted by Performance Score (Win Rate x Volume).")
-        
-        # Ensure Anonymous trainers are filtered out
-        named_teams = team_df[team_df['Display_IGN'] != "Anonymous Trainer"].copy()
-        
-        leaderboard = named_teams.groupby(['Display_IGN', 'Team_Comp']).agg({
-            'Clean_Wins': 'sum', 
-            'Clean_Races': 'sum'
-        }).reset_index()
-        
-        # Recalculate score for aggregated total
-        leaderboard['Global_WinRate'] = (leaderboard['Clean_Wins'] / leaderboard['Clean_Races']) * 100
-        leaderboard['Score'] = leaderboard.apply(lambda x: calculate_score(x['Clean_Wins'], x['Clean_Races']), axis=1)
-        
-        leaderboard = leaderboard[leaderboard['Clean_Races'] >= 15]
-        
-        # SORT BY SCORE instead of raw WR
-        top_leaders = leaderboard.sort_values('Score', ascending=False).head(10)
-        top_leaders['Label'] = top_leaders['Display_IGN'] + " (" + top_leaders['Team_Comp'] + ")"
-        
-        fig_leader = px.bar(
-            top_leaders, 
-            x='Score', # CHANGED TO SCORE for sorting visual
-            y='Label', 
-            orientation='h', 
-            color='Global_WinRate', 
-            title="Top 10 Trainers", 
-            text='Clean_Wins', 
-            labels={'Score': 'Performance Score', 'Label': '', 'Clean_Wins': 'Total Wins', 'Global_WinRate': 'Win Rate (%)'}, 
-            template='plotly_dark', 
-            color_continuous_scale='Turbo',
-            height=700
-        )
-        # Text template updated to show Win Rate and Wins clearly on the bar
-        fig_leader.update_traces(texttemplate='Wins: %{text} | WR: %{marker.color:.1f}%', textposition='inside')
-        fig_leader.update_layout(yaxis={'categoryorder':'total ascending'}) # Ensures #1 is at top
-        st.plotly_chart(style_fig(fig_leader), width='stretch', config=PLOT_CONFIG)
-        with st.expander("ℹ️ About this chart"):
-            st.markdown(descriptions["leaderboard"])
-        
-    with tab6:
-        st.subheader("Meta Trends")
+        st.subheader("Meta Trends (Round 1 vs Round 2)")
         if 'Round' in df.columns and 'Day' in df.columns:
             trend_df = team_df.groupby(['Round', 'Day']).agg({'Calculated_WinRate': 'mean', 'Clean_Races': 'count'}).reset_index()
             trend_df['Session'] = trend_df['Round'] + " " + trend_df['Day']
             
             fig_trend = px.line(
-                trend_df, 
-                x='Session', 
-                y='Calculated_WinRate', 
-                title="Average Win Rate by Session (Meta Evolution)", 
-                markers=True, 
-                template='plotly_dark',
-                text='Calculated_WinRate',
-                height=600
+                trend_df, x='Session', y='Calculated_WinRate', title="Global Win Rate Trend",
+                markers=True, template='plotly_dark', text='Calculated_WinRate', height=600
             )
             fig_trend.update_traces(textposition="top center", texttemplate='%{text:.1f}%')
             st.plotly_chart(style_fig(fig_trend), width='stretch', config=PLOT_CONFIG)
