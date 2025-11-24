@@ -5,6 +5,7 @@ import numpy as np
 from PIL import Image
 import os
 import re
+import html
 
 # --- CONFIGURATION ---
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTR8Pa4QQVSNwepSe9dYnro3ZaVEpYQmBdZUzumuLL-U2IR3nKVh-_GbZeJHT2x9aCqnp7P-0hPm5Zd/pub?gid=221070242&single=true&output=csv"
@@ -136,6 +137,12 @@ DESCRIPTIONS = {
 }
 
 # --- HELPER FUNCTIONS ---
+def sanitize_text(text):
+    """Escapes HTML characters in a string to prevent injection attacks."""
+    if pd.isna(text):
+        return text
+    return html.escape(str(text))
+
 def show_description(key):
     """Displays an expander with the description if the key exists."""
     if key in DESCRIPTIONS:
@@ -245,6 +252,14 @@ def render_filters(df):
 def load_data():
     try:
         df = pd.read_csv(SHEET_URL)
+
+        # --- 🛡️ SECURITY: SANITIZE INPUTS ---
+        # Identify all text columns and escape HTML characters
+        # This turns "<script>" into "&lt;script&gt;" (safe to display)
+        string_cols = df.select_dtypes(include=['object']).columns
+        for col in string_cols:
+            df[col] = df[col].apply(sanitize_text)
+        # ------------------------------------
         col_map = {
             'ign': find_column(df, ['ign', 'player']),
             'group': find_column(df, ['cmgroup', 'bracket']),
@@ -338,6 +353,11 @@ def load_ocr_data(filepath="data/r2d2.parquet"):
             return pd.DataFrame()
             
         df = pd.read_parquet(filepath)
+
+        # --- 🛡️ SECURITY: SANITIZE INPUTS ---
+        string_cols = df.select_dtypes(include=['object']).columns
+        for col in string_cols:
+            df[col] = df[col].apply(sanitize_text)
         
         # --- 1. CLEANING MISSING VALUES ---
         # Remove empty names
