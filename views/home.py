@@ -85,25 +85,34 @@ def show_view(df, team_df):
     # LEADERBOARD
     st.subheader("👑 Top Performers")
     
-    named_teams = team_df[team_df['Display_IGN'] != "Anonymous Trainer"].copy()
+    # 1. USE RAW DF FOR STATS (Source of Truth)
+    # This ensures we count ALL races, even if the Team Comp data was incomplete
+    stats_source = df[df['Display_IGN'] != "Anonymous Trainer"].copy()
     
-    # 1. AGGREGATE BY TRAINER ONLY (Fixes the split-team issue)
-    leaderboard = named_teams.groupby('Display_IGN').agg({
+    leaderboard = stats_source.groupby('Display_IGN').agg({
         'Clean_Wins': 'sum', 
-        'Clean_Races': 'sum',
-        # Find their most frequent team to display as a label
-        'Team_Comp': lambda x: x.mode()[0] if not x.mode().empty else "Various"
+        'Clean_Races': 'sum'
     }).reset_index()
     
+    # 2. CALCULATE SCORES
     leaderboard['Global_WinRate'] = (leaderboard['Clean_Wins'] / leaderboard['Clean_Races']) * 100
     leaderboard['Score'] = leaderboard.apply(lambda x: calculate_score(x['Clean_Wins'], x['Clean_Races']), axis=1)
+    
+    # 3. FETCH MAIN TEAM (From team_df)
+    # We look up what team they played the most, then merge it back to the stats
+    main_teams = team_df.groupby('Display_IGN')['Team_Comp'].agg(
+        lambda x: x.mode()[0] if not x.mode().empty else "Various"
+    ).reset_index()
+    
+    leaderboard = pd.merge(leaderboard, main_teams, on='Display_IGN', how='left')
+    leaderboard['Team_Comp'] = leaderboard['Team_Comp'].fillna("Unknown Team")
+    
+    # 4. SORT & FILTER
     leaderboard = leaderboard[leaderboard['Clean_Races'] >= 15]
-    
     top_leaders = leaderboard.sort_values('Score', ascending=False).head(10)
-    # Sort for chart display (lowest at bottom)
-    top_leaders = top_leaders.sort_values('Score', ascending=True)
+    top_leaders = top_leaders.sort_values('Score', ascending=True) # Sort for chart
     
-    # 2. CHART GENERATION
+    # 5. CHART
     fig_leader = px.bar(
         top_leaders, 
         x='Score', 
@@ -114,7 +123,6 @@ def show_view(df, team_df):
         template='plotly_dark', 
         color_continuous_scale='Turbo', 
         height=700,
-        # Pass the Main Team to the hover tooltip
         hover_data={'Team_Comp': True, 'Display_IGN': False} 
     )
     
