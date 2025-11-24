@@ -289,6 +289,26 @@ def load_data():
         else: df['Day'] = "Unknown"
 
         df = anonymize_players(df)
+
+        # --- 🛡️ NEW: HANDLE DUPLICATE SUBMISSIONS ---
+        # Logic: If a user (IGN) has multiple entries for the same (Round + Day + Uma),
+        # we assume the one with the MORE RACES (Clean_Races) is the "Final/Correct" one.
+        
+        # 1. Sort so the "Best" data is at the top
+        # Priority: Highest Race Count -> Highest Win Count
+        df = df.sort_values(
+            by=['Clean_Races', 'Clean_Wins'], 
+            ascending=[False, False]
+        )
+
+        # 2. Drop Duplicates
+        # We keep 'first' (which is now the highest race count due to the sort)
+        # We check duplicates based on: User + Round + Day + Specific Character
+        df = df.drop_duplicates(
+            subset=['Clean_IGN', 'Round', 'Day', 'Clean_Uma'], 
+            keep='first'
+        )
+        # ---------------------------------------------
         
         # Team Reconstruction
         team_df = df.groupby(['Clean_IGN', 'Display_IGN', 'Clean_Group', 'Round', 'Day', 'Original_Spent', 'Sort_Money']).agg({
@@ -298,13 +318,15 @@ def load_data():
             'Clean_Races': 'mean',
             'Clean_Wins': 'mean'
         }).reset_index()
+
         
         team_df['Score'] = team_df.apply(lambda x: calculate_score(x['Clean_Wins'], x['Clean_Races']), axis=1)
         team_df['Uma_Count'] = team_df['Clean_Uma'].apply(len)
         team_df = team_df[team_df['Uma_Count'] == 3]
         team_df['Team_Comp'] = team_df['Clean_Uma'].apply(lambda x: ", ".join(x))
         
-        return df, team_df
+        return df, team_df 
+    
     except Exception as e:
         st.error(f"Data Error: {e}")
         return pd.DataFrame(), pd.DataFrame()
