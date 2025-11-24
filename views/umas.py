@@ -40,7 +40,7 @@ def show_view(df, team_df):
     chart_height = dynamic_height(n_items, min_height=200, per_item=45)
     
     fig_uma = px.bar(
-        uma_stats.sort_values('Calculated_WinRate', ascending=False).head(15), 
+        top_umas.sort_values('Calculated_WinRate', ascending=False).head(15), 
         x='Calculated_WinRate', 
         y='Short_Name', 
         orientation='h', 
