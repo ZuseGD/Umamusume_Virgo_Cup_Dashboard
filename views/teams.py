@@ -93,43 +93,57 @@ def show_view(df, team_df):
             if 'end' in s or 'closer' in s: return 'End Closer'
             return 'Unknown'
         
-        style_df = df.copy()
-        style_df['Standard_Style'] = style_df['Clean_Style'].apply(standardize_style)
+        def get_style_comp(style_list):
+            # 1. Standardize each style in the list
+            # 2. Sort them (Critical for "Pace, End" == "End, Pace")
+            # 3. Join into a string
+            standardized = [standardize_style(s) for s in style_list]
+            standardized.sort() 
+            return ", ".join(standardized)
+
+        # --- CHART 1: TEAM STYLE COMBINATIONS (Bubble) ---
+        st.markdown("#### 💠 Meta Style Combinations")
         
-        # Aggregate Stats
-        style_stats = style_df.groupby('Standard_Style').agg({
+        # Create a working copy to avoid warnings
+        style_team_df = team_df.copy()
+        
+        # Apply the sorting logic to create the "Composition" string
+        style_team_df['Style_Comp'] = style_team_df['Clean_Style'].apply(get_style_comp)
+        
+        # Aggregate Stats by Composition
+        comp_stats = style_team_df.groupby('Style_Comp').agg({
             'Calculated_WinRate': 'mean', 
             'Clean_Races': 'count'
-        }).reset_index()
+        }).reset_index().rename(columns={'Clean_Races': 'Entries'})
         
-        # Filter out 'Unknown' and low sample size
-        style_stats = style_stats[(style_stats['Clean_Races'] > 5) & (style_stats['Standard_Style'] != 'Unknown')]
+        # Filter: Only show comps with at least 5 entries to reduce noise
+        valid_comps = comp_stats[comp_stats['Entries'] >= 5]
 
-        # 2. BUBBLE CHART (New!)
-        st.markdown("#### 💠 Strategy Quadrants")
-        fig_style_bubble = px.scatter(
-            style_stats,
-            x='Clean_Races',
-            y='Calculated_WinRate',
-            size='Clean_Races',
-            color='Standard_Style',
-            hover_name='Standard_Style',
-            title="Strategy Meta: Popularity vs Performance",
-            template='plotly_dark',
-            labels={'Clean_Races': 'Entries', 'Calculated_WinRate': 'Win Rate %'},
-            height=450
-        )
-        
-        # Add average lines
-        if not style_stats.empty:
-            avg_wr = style_stats['Calculated_WinRate'].mean()
-            avg_pop = style_stats['Clean_Races'].mean()
+        if not valid_comps.empty:
+            fig_style_bubble = px.scatter(
+                valid_comps,
+                x='Entries',
+                y='Calculated_WinRate',
+                size='Entries',
+                color='Style_Comp', 
+                hover_name='Style_Comp',
+                title="Winning Style Combinations (Popularity vs Performance)",
+                template='plotly_dark',
+                labels={'Entries': 'Popularity (Entries)', 'Calculated_WinRate': 'Win Rate %'},
+                height=500
+            )
+            
+            # Add averages
+            avg_wr = valid_comps['Calculated_WinRate'].mean()
+            avg_pop = valid_comps['Entries'].mean()
             fig_style_bubble.add_hline(y=avg_wr, line_dash="dot", annotation_text="Avg Win Rate")
             fig_style_bubble.add_vline(x=avg_pop, line_dash="dot", annotation_text="Avg Popularity")
 
-        st.plotly_chart(style_fig(fig_style_bubble, height=450), width="stretch", config=PLOT_CONFIG)
-        show_description("style")
-        
+            st.plotly_chart(style_fig(fig_style_bubble, height=500), width="stretch", config=PLOT_CONFIG)
+            show_description("teams_meta") # Reusing team meta description
+        else:
+            st.info("Not enough data to show style combinations.")
+
         st.markdown("---")
 
         # 3. BAR CHART (Existing)
