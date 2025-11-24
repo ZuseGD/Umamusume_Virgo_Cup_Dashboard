@@ -20,11 +20,11 @@ def show_view(df, team_df):
         fig_card = px.bar(
             card_stats, x=col_match, y='Calculated_WinRate', color='Calculated_WinRate',
             color_continuous_scale='Bluered', template='plotly_dark', title=f"Win Rate by {target_name} Status",
-            text='Calculated_WinRate', height=500
+            text='Calculated_WinRate', height=600
         )
         fig_card.update_traces(texttemplate='%{text:.1f}%', textposition='inside')
         fig_card.update_layout(xaxis_title="Limit Break Status")
-        st.plotly_chart(style_fig(fig_card, height=500), use_container_width=True, config=PLOT_CONFIG)
+        st.plotly_chart(style_fig(fig_card, height=600), use_container_width=True, config=PLOT_CONFIG)
     else:
         st.warning("No Card Data found.")
 
