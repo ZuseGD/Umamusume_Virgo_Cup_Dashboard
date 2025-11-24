@@ -6,13 +6,44 @@ from utils import style_fig, PLOT_CONFIG, calculate_score
 def show_view(df, team_df):
     st.header("Global Overview")
     
-    # GLOBAL FILTER (Placed at top of page since sidebar is hidden)
-    with st.expander("⚙️ Filter Data (Click to Expand)", expanded=False):
-        groups = list(df['Clean_Group'].unique())
-        selected = st.multiselect("Filter by CM Group", groups, default=groups)
-        if selected:
-            df = df[df['Clean_Group'].isin(selected)]
-            team_df = team_df[team_df['Clean_Group'].isin(selected)]
+   # --- GLOBAL FILTERS (Visible on every page) ---
+        # We use an expander so it is accessible but doesn't clutter the view
+with st.expander("⚙️ Global Filters (Round, Day, Group)", expanded=False):
+    f1, f2, f3 = st.columns(3)
+    
+    # 1. Group Filter
+    with f1:
+        # Get unique groups, sorted
+        groups = sorted(list(df['Clean_Group'].unique()))
+        selected_group = st.multiselect("Filter Group", groups, default=groups)
+        
+    # 2. Round Filter
+    with f2:
+        # Get unique rounds (e.g., Round 1, Round 2)
+        rounds = sorted(list(df['Round'].unique()))
+        selected_round = st.multiselect("Filter Round", rounds, default=rounds)
+        
+    # 3. Day Filter
+    with f3:
+        # Get unique days (e.g., Day 1, Day 2)
+        days = sorted(list(df['Day'].unique()))
+        selected_day = st.multiselect("Filter Day", days, default=days)
+
+# --- APPLY FILTERS TO DATA ---
+# This updates BOTH the individual data (df) and team data (team_df)
+# passing the filtered versions to your views.
+
+if selected_group:
+    df = df[df['Clean_Group'].isin(selected_group)]
+    team_df = team_df[team_df['Clean_Group'].isin(selected_group)]
+
+if selected_round:
+    df = df[df['Round'].isin(selected_round)]
+    team_df = team_df[team_df['Round'].isin(selected_round)]
+
+if selected_day:
+    df = df[df['Day'].isin(selected_day)]
+    team_df = team_df[team_df['Day'].isin(selected_day)]
     
     # Metrics
     total_runs = team_df['Clean_Races'].sum()
