@@ -43,9 +43,6 @@ except:
 
 ocr_df = load_ocr_data()
 
-# 4. GLOBAL SIDEBAR FILTERS
-st.sidebar.header("⚙️ Global Filters")
-
 # Group Filter
 groups = list(df['Clean_Group'].unique())
 selected_group = st.sidebar.multiselect("CM Group", groups, default=groups)
