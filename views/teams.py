@@ -16,14 +16,19 @@ def show_view(df, team_df):
         st.subheader("🏆 Meta Team Compositions")
         if not filtered_team_df.empty:
             comp_stats = filtered_team_df.groupby('Team_Comp').agg({'Calculated_WinRate': 'mean', 'Clean_Races': 'count'}).reset_index().rename(columns={'Clean_Races': 'Usage Count'})
+            # Create a short version: "Uma1, Uma2..."
+            comp_stats['Short_Comp'] = comp_stats['Team_Comp'].apply(
+                lambda x: x[:25] + "..." if len(x) > 25 else x
+            )
             # Get number of items to plot
             n_items = len(comp_stats.head(15))
             # Calculate dynamic height
             chart_height = dynamic_height(n_items, min_height=500, per_item=50)
             fig_comps = px.bar(
                 comp_stats.sort_values('Calculated_WinRate', ascending=True).head(15),
-                x='Calculated_WinRate', y='Team_Comp', orientation='h', color='Calculated_WinRate',
-                color_continuous_scale='Plasma', text='Usage Count', template='plotly_dark', height=chart_height
+                x='Calculated_WinRate', y='Short_Comp', orientation='h', color='Calculated_WinRate',
+                color_continuous_scale='Plasma', text='Usage Count', template='plotly_dark', height=chart_height, 
+                hover_name='Team_Comp'
             )
             fig_comps.update_layout(yaxis_title=None, xaxis_title="Avg Win Rate (%)")
             fig_comps.update_traces(texttemplate='%{text} Entries', textposition='inside')

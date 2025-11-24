@@ -31,6 +31,10 @@ def show_view(df, team_df):
     uma_stats = df.groupby('Clean_Uma').agg({'Calculated_WinRate': 'mean', 'Clean_Races': 'count'}).reset_index()
     uma_stats = uma_stats[uma_stats['Clean_Races'] >= 10]
     top_umas = uma_stats.sort_values('Calculated_WinRate', ascending=False).head(15)
+    # --- ADD THIS TRUNCATION LOGIC ---
+    top_umas['Short_Name'] = top_umas['Clean_Uma'].apply(
+        lambda x: x[:18] + ".." if len(x) > 18 else x
+    )
     # Calculate Height
     n_items = len(top_umas)
     chart_height = dynamic_height(n_items, min_height=200, per_item=45)
@@ -38,12 +42,13 @@ def show_view(df, team_df):
     fig_uma = px.bar(
         uma_stats.sort_values('Calculated_WinRate', ascending=False).head(15), 
         x='Calculated_WinRate', 
-        y='Clean_Uma', 
+        y='Short_Name', 
         orientation='h', 
         color='Calculated_WinRate', 
         color_continuous_scale='Viridis', 
         text='Clean_Races', 
         template='plotly_dark', 
+        hover_name='Clean_Uma',
         height=chart_height
     )
     fig_uma.update_layout(yaxis={'categoryorder':'total ascending'}, xaxis_title="Avg Win Rate (%)", yaxis_title="Character")
