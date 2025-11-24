@@ -4,6 +4,7 @@ from utils import style_fig, PLOT_CONFIG
 
 def show_view(ocr_df):
     st.header("📸 OCR Data Analysis")
+    st.warning("⚠️ **NOTE:** This section is WIP and analyzes data extracted via OCR from images. Data accuracy may vary based on image quality.")
     
     if ocr_df.empty:
         st.warning("No OCR data found. Please ensure 'r2d2.parquet' is in the main folder.")
