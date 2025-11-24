@@ -134,7 +134,7 @@ def show_description(key):
     if key in DESCRIPTIONS:
         with st.expander("ℹ️ How is this calculated?", expanded=False):
             st.markdown(DESCRIPTIONS[key])
-            
+
 def find_column(df, keywords, case_sensitive=False):
     if df.empty: return None
     cols = df.columns.tolist()
@@ -234,7 +234,7 @@ def render_filters(df):
     return df
 
 # --- DATA LOADING ---
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=300) # Cache for 5 minutes
 def load_data():
     try:
         df = pd.read_csv(SHEET_URL)
