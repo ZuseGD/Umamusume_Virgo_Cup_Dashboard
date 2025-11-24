@@ -129,7 +129,7 @@ def show_view(df, team_df):
                 size='Entries',
                 color='Style_Comp', 
                 hover_name='Style_Comp',
-                title="Winning Style Combinations (Popularity vs Performance)",
+                title="",
                 template='plotly_dark',
                 labels={'Entries': 'Popularity (Entries)', 'Calculated_WinRate': 'Win Rate %'},
                 height=500
