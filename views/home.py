@@ -58,7 +58,7 @@ def show_view(df, team_df):
     top_leaders['Label'] = top_leaders['Display_IGN'] + " (" + top_leaders['Team_Comp'] + ")"
     
     fig_leader = px.bar(
-        top_leaders, x='Score', y='Label', orientation='h', color='Global_WinRate',
+        top_leaders, x='Score', y='Label', orientation='v', color='Global_WinRate',
         text='Clean_Wins', template='plotly_dark', color_continuous_scale='Turbo', height=700
     )
     fig_leader.update_traces(texttemplate='Wins: %{text} | WR: %{marker.color:.1f}%', textposition='inside')

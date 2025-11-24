@@ -4,7 +4,7 @@ import os
 
 def show_view():
     st.header("ℹ️ Credits & Team")
-    st.markdown("### 🚀 The Team Behind Virgo Cup Analytics")
+    st.markdown("### 🚀 The Team Behind Moomamusume Dashboard")
     
     st.markdown("---")
     
@@ -19,9 +19,9 @@ def show_view():
     with col2:
         st.subheader("MooMooCows")
         st.caption("Project Lead, YouTuber & Community Lead")
+        st.markdown("Helped promote the project and leads the community.")
         if os.path.exists("images/moologo1.png"):
             st.image("images/moologo1.png", width=150)
-        st.markdown("Helped promote the project and leads the community.")
     
     st.markdown("---")
     st.subheader("🏆 The Team")
@@ -50,4 +50,4 @@ def show_view():
         </button>
     </a>
     """, unsafe_allow_html=True)
-    st.caption("*Data provided by the Umamusume Community. Built with Streamlit & Plotly.*")
+    st.caption("*Data provided by the Moomoocows Umamusume Community. Built with Streamlit & Plotly.*")
