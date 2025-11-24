@@ -1,6 +1,6 @@
 import streamlit as st
 import plotly.express as px
-from utils import style_fig, PLOT_CONFIG
+from utils import style_fig, PLOT_CONFIG, show_description
 
 def show_view(df, team_df):
     st.header("🃏 Resource Analysis")
@@ -25,6 +25,7 @@ def show_view(df, team_df):
         fig_card.update_traces(texttemplate='%{text:.1f}%', textposition='inside')
         fig_card.update_layout(xaxis_title="Limit Break Status")
         st.plotly_chart(style_fig(fig_card, height=600), use_container_width=True, config=PLOT_CONFIG)
+        show_description("cards")
     else:
         st.warning("No Card Data found.")
 
@@ -45,6 +46,7 @@ def show_view(df, team_df):
         trendline="ols" # Requires statsmodels, if not installed remove this line
     )
     st.plotly_chart(style_fig(fig_luck, height=500), width="stretch", config=PLOT_CONFIG)
+    show_description("luck_grind")
 
     st.markdown("---")
 
@@ -59,3 +61,4 @@ def show_view(df, team_df):
         )
         fig_trend.update_traces(textposition="top center", texttemplate='%{text:.1f}%')
         st.plotly_chart(style_fig(fig_trend, height=500), use_container_width=True, config=PLOT_CONFIG)
+        show_description("evolution")

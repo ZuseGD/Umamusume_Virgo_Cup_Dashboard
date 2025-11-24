@@ -1,6 +1,6 @@
 import streamlit as st
 import plotly.express as px
-from utils import style_fig, PLOT_CONFIG, dynamic_height
+from utils import style_fig, PLOT_CONFIG, dynamic_height, show_description
 
 def show_view(df, team_df):
     st.header("🐴 Individual Uma Performance")
@@ -23,6 +23,7 @@ def show_view(df, team_df):
         strat_stats = uma_data.groupby('Clean_Style')['Calculated_WinRate'].agg(['mean', 'count'])
         fig_drill = px.bar(strat_stats, x='mean', y=strat_stats.index, orientation='h', title=f"Strategy Breakdown for {target_uma}", template='plotly_dark', height=400)
         st.plotly_chart(style_fig(fig_drill, height=400), width="stretch", config=PLOT_CONFIG)
+        show_description("drilldown")
 
     st.markdown("---")
     
@@ -43,7 +44,6 @@ def show_view(df, team_df):
     n_items = len(top_umas)
     chart_height = dynamic_height(n_items, min_height=600, per_item=45)
 
-    # 4. Pass 'top_umas' to the data argument
     # --- NEW SCATTER PLOT (Fixed Labels) ---
     st.markdown("#### 💠 Popularity vs. Performance (Quadrants)")
     fig_scatter = px.scatter(
@@ -67,6 +67,7 @@ def show_view(df, team_df):
     fig_scatter.add_vline(x=avg_play, line_dash="dot", annotation_text="Avg Popularity", annotation_position="top right")
     
     st.plotly_chart(style_fig(fig_scatter, height=600), width="stretch", config=PLOT_CONFIG)
+    show_description("scatter_tier")
     
     st.markdown("#### 🏆 Detailed Rankings")
 
@@ -90,5 +91,6 @@ def show_view(df, team_df):
     )
     fig_uma.update_traces(texttemplate='WR: %{x:.1f}% | Runs: %{text}', textposition='inside')
     st.plotly_chart(style_fig(fig_uma, height=chart_height), width="stretch", config=PLOT_CONFIG)
+    show_description("uma_bar")
 
     

@@ -1,7 +1,7 @@
 import streamlit as st
 import plotly.express as px
 import pandas as pd
-from utils import style_fig, PLOT_CONFIG, calculate_score
+from utils import style_fig, PLOT_CONFIG, calculate_score, show_description
 
 def show_view(df, team_df):
     st.header("Global Overview")
@@ -54,6 +54,7 @@ def show_view(df, team_df):
         )
         fig_dist.update_layout(bargap=0.1, yaxis_title="Player Count")
         st.plotly_chart(style_fig(fig_dist, height=400), width="stretch", config=PLOT_CONFIG)
+        show_description("dist_wr")
         
     with g2:
         # 2. Group Difficulty
@@ -69,6 +70,7 @@ def show_view(df, team_df):
         )
         fig_group.update_layout(showlegend=False, yaxis_title="Avg Win Rate (%)", xaxis_title=None)
         st.plotly_chart(style_fig(fig_group, height=400), width="stretch", config=PLOT_CONFIG)
+        show_description("group_diff")
 
     # LEADERBOARD
     st.subheader("👑 Top Performers")
@@ -108,6 +110,7 @@ def show_view(df, team_df):
     fig_leader.update_traces(texttemplate='Wins: %{text} | WR: %{marker.color:.1f}%', textposition='inside', hovertemplate='<b>%{y}</b><br>Team: %{customdata[0]}<br>Score: %{x:.1f}<extra></extra>')
     fig_leader.update_layout(xaxis_title="Performance Score", yaxis_title=None)
     st.plotly_chart(style_fig(fig_leader, height=700), width="stretch", config=PLOT_CONFIG)
+    show_description("leaderboard")
 
     # MONEY
     st.subheader("💰 Spending vs. Win Rate")
@@ -118,3 +121,4 @@ def show_view(df, team_df):
     )
     fig_money.update_layout(showlegend=False, yaxis_title="Win Rate (%)", xaxis_title="Spending Tier")
     st.plotly_chart(style_fig(fig_money, height=600), width="stretch", config=PLOT_CONFIG)
+    show_description("money")

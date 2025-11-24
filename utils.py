@@ -43,10 +43,98 @@ DESCRIPTIONS = {
     **⚠️ IMPORTANT DISCLAIMER:**
     - Win Rate is based on the **TEAM'S** performance when this Uma was present.
     - We cannot track individual race wins from this dataset.
+    """,
+    # --- HOME ---
+    "dist_wr": """
+    **Win Rate Distribution:**
+    - **What it shows:** A histogram of all players' win rates.
+    - **Interpretation:** Most players fall in the middle (Bell Curve). If you are on the far right, you are in the top percentile.
+    """,
+    "group_diff": """
+    **Group Difficulty:**
+    - **Metric:** Average Win Rate of all players within a specific CM Group.
+    - **Goal:** To see which bracket was the most competitive. Lower average win rates usually indicate a harder group (players beating each other up).
+    """,
+    "leaderboard": """
+    **Leaderboard Logic:**
+    - **Score Formula:** `Win Rate * log(Total Races + 1)`
+    - **Why?** This rewards players who maintain a high win rate over *many* races, rather than someone who went 1/1 (100%).
+    """,
+    "money": """
+    **Spending vs. Performance:**
+    - **Box Plot:** The box shows the middle 50% of players. The line in the middle is the median.
+    - **Goal:** To visualize if spending more money guarantees a higher win rate (pay-to-win) or if F2P players remain competitive.
+    """,
+    # --- TEAMS ---
+    "teams_meta": """
+    **Meta Teams:**
+    - **Definition:** Specific combinations of 3 Umas used in a single session.
+    - **Filter:** Only teams seen at least 8 times are displayed.
+    - **Metric:** Average win rate of that specific trio.
+    """,
+    "evolution": """
+    **Meta Evolution:**
+    - **What it shows:** How the popularity of the Top 5 teams changed across Rounds/Days.
+    - **Goal:** Detect shifts in the meta (e.g., Did 'Team A' fall off in Round 2?).
+    """,
+    "style": """
+    **Running Style:**
+    - **Metric:** Win rate by strategy (Runaway/Nigeru, Front/Senkou, etc.).
+    - **Goal:** Identifies the dominant running style for this specific track.
+    """,
+    "runaway": """
+    **Runaway Impact:**
+    - **Hypothesis:** "You need a Runaway (Nigeru) to control the pace."
+    - **Metric:** Compares win rates of teams *with* at least one Runaway vs teams *without* one.
+    """,
+    # --- UMAS ---
+    "scatter_tier": """
+    **Tier List Quadrants:**
+    - **Top Right (Meta):** High Usage, High Win Rate. The standard picks.
+    - **Top Left (Sleepers):** Low Usage, High Win Rate. Strong but underused.
+    - **Bottom Right (Overrated):** High Usage, Low Win Rate. Popular but struggling.
+    - **Bottom Left (Off-Meta):** Low Usage, Low Win Rate.
+    """,
+    "uma_bar": """
+    **Standard Tier List:**
+    - **Metric:** The Win Rate of *teams* containing this Uma.
+    - **Note:** Includes only characters with >10 logged races.
+    """,
+    "drilldown": """
+    **Strategy Breakdown:**
+    - **Goal:** For the selected Uma, which running style performs best?
+    - **Data:** Win rate filtered by the specific strategies used on this character.
+    """,
+    # --- RESOURCES ---
+    "cards": """
+    **Support Card Impact:**
+    - **Metric:** Win rate of players who own specific cards (e.g., SSR vs Non-SSR).
+    - **Goal:** Measures the "P2W" impact of having top-tier meta cards.
+    """,
+    "luck_grind": """
+    **Luck vs. Grind:**
+    - **X-Axis:** Total Races Played. **Y-Axis:** Win Rate.
+    - **Trend:** Often, extremely high win rates drop as players play more matches. This chart tests if "Grinding" normalizes your score.
+    """,
+    # --- OCR ---
+    "ocr_dist": """
+    **Stat Distribution:**
+    - **Source:** Data scanned directly from user screenshots.
+    - **Goal:** Shows the spread of raw stats (Speed, Power, etc.) to identify the average build quality.
+    """,
+    "ocr_score": """
+    **Score Efficiency:**
+    - **What it shows:** Relationship between a single stat (e.g., Speed) and the overall evaluation score (UG, SS, etc.).
     """
 }
 
 # --- HELPER FUNCTIONS ---
+def show_description(key):
+    """Displays an expander with the description if the key exists."""
+    if key in DESCRIPTIONS:
+        with st.expander("ℹ️ How is this calculated?", expanded=False):
+            st.markdown(DESCRIPTIONS[key])
+            
 def find_column(df, keywords, case_sensitive=False):
     if df.empty: return None
     cols = df.columns.tolist()

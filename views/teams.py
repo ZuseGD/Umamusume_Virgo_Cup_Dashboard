@@ -1,6 +1,6 @@
 import streamlit as st
 import plotly.express as px
-from utils import style_fig, PLOT_CONFIG, dynamic_height
+from utils import style_fig, PLOT_CONFIG, dynamic_height, show_description
 
 def show_view(df, team_df):
     st.header("⚔️ Team & Strategy")
@@ -33,6 +33,7 @@ def show_view(df, team_df):
             fig_comps.update_layout(yaxis_title=None, xaxis_title="Avg Win Rate (%)")
             fig_comps.update_traces(texttemplate='%{text} Entries', textposition='inside')
             st.plotly_chart(style_fig(fig_comps, height=chart_height), width="stretch", config=PLOT_CONFIG)
+            show_description("teams_meta")
         else:
             st.info("Not enough data.")
 
@@ -61,6 +62,7 @@ def show_view(df, team_df):
         fig_style.update_layout(yaxis={'categoryorder':'array', 'categoryarray': desired_order[::-1]}, xaxis_title="Avg Win Rate (%)", yaxis_title=None)
         fig_style.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
         st.plotly_chart(style_fig(fig_style, height=500), width="stretch", config=PLOT_CONFIG)
+        show_description("style")
 
     with tab3:
         st.subheader("⚠️ Impact of Runaways")
@@ -86,6 +88,7 @@ def show_view(df, team_df):
         fig_runner.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
         fig_runner.update_layout(xaxis_title=None, showlegend=False)
         st.plotly_chart(style_fig(fig_runner, height=500), width="stretch", config=PLOT_CONFIG)
+        show_description("runaway")
 
     with tab4:
         st.subheader("📈 Meta Evolution over Time")
@@ -106,5 +109,6 @@ def show_view(df, team_df):
             )
             fig_evo.update_layout(hovermode="x unified")
             st.plotly_chart(style_fig(fig_evo, height=500), width="stretch", config=PLOT_CONFIG)
+            show_description("evolution")
         else:
             st.info("Not enough data to track evolution.")

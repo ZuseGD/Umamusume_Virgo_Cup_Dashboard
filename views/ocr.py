@@ -1,6 +1,6 @@
 import streamlit as st
 import plotly.express as px
-from utils import style_fig, PLOT_CONFIG
+from utils import style_fig, PLOT_CONFIG, show_description
 
 def show_view(ocr_df):
     st.header("📸 OCR Data Analysis")
@@ -32,6 +32,7 @@ def show_view(ocr_df):
     )
     fig_dist.update_layout(bargap=0.1)
     st.plotly_chart(style_fig(fig_dist), width="stretch", config=PLOT_CONFIG)
+    show_description("ocr_dist")
     
     # 3. SCATTER PLOT (Score vs Stat)
     '''
