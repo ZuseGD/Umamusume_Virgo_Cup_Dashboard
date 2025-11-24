@@ -28,7 +28,7 @@ def show_view(df, team_df):
                 comp_stats.sort_values('Calculated_WinRate', ascending=True).head(15),
                 x='Calculated_WinRate', y='Short_Comp', orientation='h', color='Calculated_WinRate',
                 color_continuous_scale='Plasma', text='Usage Count', template='plotly_dark', height=chart_height, 
-                hover_data={'Team_Comp': True}
+                hover_data={'Team_Comp': True, 'Calculated_WinRate': ':.2f', 'Usage Count': True, 'Short_Comp': False}
             )
             fig_comps.update_layout(yaxis_title=None, xaxis_title="Avg Win Rate (%)")
             fig_comps.update_traces(texttemplate='%{text} Entries', textposition='inside')
