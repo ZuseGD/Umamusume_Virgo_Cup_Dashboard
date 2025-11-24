@@ -16,8 +16,35 @@ PLOT_CONFIG = {
     'modeBarButtonsToRemove': ['sendDataToCloud', 'lasso2d', 'select2d', 'zoom2d', 'pan2d']
 }
 
-# --- DESCRIPTIONS ---
 DESCRIPTIONS = {
+    "bias": """
+    **⚠️ Survivorship Bias Warning:**
+    - This data is self-reported by the community.
+    - Players who perform well (high win rates) are **more likely** to submit data than those who lose.
+    - As the event progresses (Round 2), casual players may stop playing/reporting, artificially inflating the average skill level of the remaining pool.
+    - *Take "Average Win Rates" as a benchmark for competitive players, not the entire player base.*
+    """,
+    "leaderboard": """
+    **Ranking Logic:** Trainers are ranked by **Performance Score** (Win Rate × Log Volume).
+    - This ensures high-volume winners rank above players with 1/1 wins.
+    - *Note: Only Top 10 are named; others are anonymized.*
+    """,
+    "money": """
+    **Spending vs Win Rate:**
+    - Box Plot showing the distribution of win rates per spending tier.
+    - *Box:* Middle 50% of players. *Line:* Median.
+    """,
+    "teams": """
+    **Meta Teams:**
+    - Unique 3-Uma combinations used in a single session.
+    - Only teams with >7 entries shown.
+    """,
+    "umas": """
+    **⚠️ IMPORTANT DISCLAIMER:**
+    - Win Rate is based on the **TEAM'S** performance when this Uma was present.
+    - We cannot track individual race wins from this dataset.
+    """,
+    # --- HOME ---
     "dist_wr": """
     **Win Rate Distribution:**
     - **What it shows:** A histogram of all players' win rates.
@@ -26,7 +53,7 @@ DESCRIPTIONS = {
     "group_diff": """
     **Group Difficulty:**
     - **Metric:** Average Win Rate of all players within a specific CM Group.
-    - **Goal:** To see which bracket was the most competitive. Lower average win rates usually indicate a harder group.
+    - **Goal:** To see which bracket was the most competitive. Lower average win rates usually indicate a harder group (players beating each other up).
     """,
     "leaderboard": """
     **Leaderboard Logic:**
@@ -38,6 +65,7 @@ DESCRIPTIONS = {
     - **Box Plot:** The box shows the middle 50% of players. The line in the middle is the median.
     - **Goal:** To visualize if spending more money guarantees a higher win rate (pay-to-win) or if F2P players remain competitive.
     """,
+    # --- TEAMS ---
     "teams_meta": """
     **Meta Teams:**
     - **Definition:** Specific combinations of 3 Umas used in a single session.
@@ -59,6 +87,7 @@ DESCRIPTIONS = {
     - **Hypothesis:** "You need a Runaway (Nigeru) to control the pace."
     - **Metric:** Compares win rates of teams *with* at least one Runaway vs teams *without* one.
     """,
+    # --- UMAS ---
     "scatter_tier": """
     **Tier List Quadrants:**
     - **Top Right (Meta):** High Usage, High Win Rate. The standard picks.
@@ -76,6 +105,7 @@ DESCRIPTIONS = {
     - **Goal:** For the selected Uma, which running style performs best?
     - **Data:** Win rate filtered by the specific strategies used on this character.
     """,
+    # --- RESOURCES ---
     "cards": """
     **Support Card Impact:**
     - **Metric:** Win rate of players who own specific cards (e.g., SSR vs Non-SSR).
@@ -86,6 +116,7 @@ DESCRIPTIONS = {
     - **X-Axis:** Total Races Played. **Y-Axis:** Win Rate.
     - **Trend:** Often, extremely high win rates drop as players play more matches. This chart tests if "Grinding" normalizes your score.
     """,
+    # --- OCR ---
     "ocr_dist": """
     **Stat Distribution:**
     - **Source:** Data scanned directly from user screenshots.
@@ -161,11 +192,11 @@ def anonymize_players(df, metric='Calculated_WinRate', top_n=10):
     df['Display_IGN'] = df['Clean_IGN'].apply(lambda x: x if x in top_players else "Anonymous Trainer")
     return df
 
-def style_fig(fig, height=500):
+def style_fig(fig, height=600):
     fig.update_layout(
         font=dict(size=14), 
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        margin=dict(l=0, r=10, t=40, b=10),
+        margin=dict(l=10, r=10, t=40, b=10),
         autosize=True,
         height=height,
         yaxis=dict(automargin=True),
@@ -180,8 +211,30 @@ def dynamic_height(n_items, min_height=400, per_item=40):
     calc_height = n_items * per_item
     return max(min_height, calc_height)
 
-# --- DATA LOADERS ---
-@st.cache_data(ttl=60)
+# --- SHARED FILTER WIDGET ---
+def render_filters(df):
+    # Create a consistent filter bar at the top of the page
+    with st.expander("⚙️ **Global Filters** (Round / Day / Group)", expanded=False):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            groups = list(df['Clean_Group'].unique())
+            sel_group = st.multiselect("CM Group", groups, default=groups)
+        with c2:
+            rounds = sorted(list(df['Round'].unique()))
+            sel_round = st.multiselect("Round", rounds, default=rounds)
+        with c3:
+            days = sorted(list(df['Day'].unique()))
+            sel_day = st.multiselect("Day", days, default=days)
+            
+    # Apply Logic
+    if sel_group: df = df[df['Clean_Group'].isin(sel_group)]
+    if sel_round: df = df[df['Round'].isin(sel_round)]
+    if sel_day: df = df[df['Day'].isin(sel_day)]
+    
+    return df
+
+# --- DATA LOADING ---
+@st.cache_data(ttl=300) # Cache for 5 minutes
 def load_data():
     try:
         df = pd.read_csv(SHEET_URL)
@@ -248,9 +301,9 @@ def load_data():
     except Exception as e:
         st.error(f"Data Error: {e}")
         return pd.DataFrame(), pd.DataFrame()
-
-@st.cache_data(ttl=300)
-def load_ocr_data(filepath="r2d2.parquet"):
+    
+@st.cache_data(ttl=300) # Cache for 5 minutes
+def load_ocr_data(filepath="data/r2d2.parquet"):
     try:
         if not os.path.exists(filepath):
             return pd.DataFrame()
@@ -258,29 +311,33 @@ def load_ocr_data(filepath="r2d2.parquet"):
         df = pd.read_parquet(filepath)
         
         # --- 1. CLEANING MISSING VALUES ---
+        # Remove empty names
         df.dropna(subset=['name'], inplace=True)
         
+        # Fill stats with median
         stat_cols = ['Speed', 'Stamina', 'Power', 'Guts', 'Wit', 'score']
         for col in stat_cols:
             if col in df.columns:
+                # Force numeric first to turn "12OO" into NaN
                 df[col] = pd.to_numeric(df[col], errors='coerce')
                 df[col] = df[col].fillna(df[col].median())
                 df[col] = df[col].astype(int)
 
+        # Fill text with 'Unknown'
         text_cols = ['rank', 'skills', 'Turf', 'Dirt', 'Sprint', 'Mile', 'Medium', 'Long'] 
         for col in text_cols:
             if col in df.columns:
                 df[col] = df[col].fillna('Unknown')
                 
         # --- 2. OUTLIER CAPPING ---
+        # Cap stats at 2000 (adjust based on game scenario)
         for col in stat_cols:
              if col in df.columns:
                 df[col] = df[col].clip(upper=2000)
 
         return df
     except Exception as e:
-        # st.error(f"Error loading Parquet: {e}") 
-        # Suppress error if file just missing to prevent crash on main page
+        st.error(f"Error loading Parquet: {e}")
         return pd.DataFrame()
 
 # Common Footer
