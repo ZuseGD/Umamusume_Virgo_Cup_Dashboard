@@ -118,6 +118,28 @@ def style_fig(fig, height=600):
     fig.update_yaxes(fixedrange=True)
     return fig
 
+# --- SHARED FILTER WIDGET ---
+def render_filters(df):
+    # Create a consistent filter bar at the top of the page
+    with st.expander("⚙️ **Global Filters** (Round / Day / Group)", expanded=False):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            groups = list(df['Clean_Group'].unique())
+            sel_group = st.multiselect("CM Group", groups, default=groups)
+        with c2:
+            rounds = sorted(list(df['Round'].unique()))
+            sel_round = st.multiselect("Round", rounds, default=rounds)
+        with c3:
+            days = sorted(list(df['Day'].unique()))
+            sel_day = st.multiselect("Day", days, default=days)
+            
+    # Apply Logic
+    if sel_group: df = df[df['Clean_Group'].isin(sel_group)]
+    if sel_round: df = df[df['Round'].isin(sel_round)]
+    if sel_day: df = df[df['Day'].isin(sel_day)]
+    
+    return df
+
 # --- DATA LOADING ---
 @st.cache_data(ttl=60)
 def load_data():

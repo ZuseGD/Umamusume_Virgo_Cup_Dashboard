@@ -15,13 +15,21 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. CSS
+# 2. Hide Sidebar CSS
 st.markdown("""
 <style>
     [data-testid="stSidebar"] {display: none;}
     [data-testid="collapsedControl"] {display: none;}
-    div[data-testid="stVerticalBlock"] > div:has(div[data-testid="stRadio"]) {
-        position: sticky; top: 0; z-index: 999; background: #0E1117; padding-bottom: 10px; border-bottom: 1px solid #333;
+    div.stButton > button {
+        width: 100%;
+        border-radius: 5px;
+        height: 3em;
+        font-weight: bold;
+        border: 1px solid #444;
+    }
+    div.stButton > button:hover {
+        border-color: #00CC96;
+        color: #00CC96;
     }
 </style>
 """, unsafe_allow_html=True)

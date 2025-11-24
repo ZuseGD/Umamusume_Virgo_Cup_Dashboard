@@ -1,21 +1,29 @@
 import streamlit as st
 import plotly.express as px
 import pandas as pd
-from utils import style_fig, PLOT_CONFIG, calculate_score
+from utils import style_fig, PLOT_CONFIG, calculate_score, render_filters
 
-def show_view(df, team_df):
+def show_view(df):
+    # APPLY FILTERS LOCALLY
+    df = render_filters(df)
+
+    # Rebuild Team Data based on Filtered DF
+    team_df = df.groupby(['Clean_IGN', 'Display_IGN', 'Clean_Group', 'Round', 'Day', 'Original_Spent', 'Sort_Money']).agg({
+        'Clean_Uma': lambda x: sorted(list(x)), 
+        'Clean_Style': lambda x: list(x),       
+        'Calculated_WinRate': 'mean',           
+        'Clean_Races': 'mean',
+        'Clean_Wins': 'mean'
+    }).reset_index()
+    
+    team_df['Score'] = team_df.apply(lambda x: calculate_score(x['Clean_Wins'], x['Clean_Races']), axis=1)
+    team_df['Uma_Count'] = team_df['Clean_Uma'].apply(len)
+    team_df = team_df[team_df['Uma_Count'] == 3]
+    team_df['Team_Comp'] = team_df['Clean_Uma'].apply(lambda x: ", ".join(x))
+
     st.header("Global Overview")
-    
-    # GLOBAL FILTER
-    st.sidebar.header("Filters") # Sidebar is hidden but code might use it? No, use Expander for filter on top.
-    with st.expander("⚙️ Filter Data (Click to Expand)", expanded=False):
-        groups = list(df['Clean_Group'].unique())
-        selected = st.multiselect("Filter by CM Group", groups, default=groups)
-        if selected:
-            df = df[df['Clean_Group'].isin(selected)]
-            team_df = team_df[team_df['Clean_Group'].isin(selected)]
-    
-    # Metrics
+
+    # METRICS
     total_runs = team_df['Clean_Races'].sum()
     avg_wr = team_df['Calculated_WinRate'].mean()
     active_trainers = team_df['Clean_IGN'].nunique()
@@ -48,7 +56,6 @@ def show_view(df, team_df):
 
     # LEADERBOARD
     st.subheader("👑 Top Performers")
-    
     named_teams = team_df[team_df['Display_IGN'] != "Anonymous Trainer"].copy()
     leaderboard = named_teams.groupby('Display_IGN').agg({
         'Clean_Wins': 'sum', 
