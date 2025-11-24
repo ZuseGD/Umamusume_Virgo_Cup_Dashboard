@@ -5,7 +5,7 @@ from utils import style_fig, PLOT_CONFIG, dynamic_height
 def show_view(df, team_df):
     st.header("⚔️ Team & Strategy")
     
-    tab1, tab2, tab3 = st.tabs(["Ideal Teams", "Running Style", "Runaway Impact"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Ideal Teams", "Running Style", "Runaway Impact", "Meta Evolution"])
     
     # Filter Teams
     comp_counts = team_df['Team_Comp'].value_counts()
@@ -86,3 +86,25 @@ def show_view(df, team_df):
         fig_runner.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
         fig_runner.update_layout(xaxis_title=None, showlegend=False)
         st.plotly_chart(style_fig(fig_runner, height=500), width="stretch", config=PLOT_CONFIG)
+
+    with tab4:
+        st.subheader("📈 Meta Evolution over Time")
+        
+        # Get Top 5 Teams
+        top_teams = team_df['Team_Comp'].value_counts().head(5).index.tolist()
+        
+        if top_teams:
+            # Filter & Group
+            evo_df = team_df[team_df['Team_Comp'].isin(top_teams)]
+            evo_stats = evo_df.groupby(['Round', 'Day', 'Team_Comp']).size().reset_index(name='Count')
+            evo_stats['Session'] = evo_stats['Round'] + ' ' + evo_stats['Day']
+            
+            fig_evo = px.line(
+                evo_stats, x='Session', y='Count', color='Team_Comp',
+                title="Top 5 Meta Teams: Popularity over Time",
+                markers=True, template='plotly_dark'
+            )
+            fig_evo.update_layout(hovermode="x unified")
+            st.plotly_chart(style_fig(fig_evo, height=500), width="stretch", config=PLOT_CONFIG)
+        else:
+            st.info("Not enough data to track evolution.")
