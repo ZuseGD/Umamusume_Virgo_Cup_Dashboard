@@ -53,7 +53,7 @@ def show_view(df, team_df):
         color_continuous_scale='Viridis', 
         text='Clean_Races', 
         template='plotly_dark', 
-        hover_name='Clean_Uma',    # Keep full name on hover
+        hover_data={'Clean_Uma': True},    # Keep full name on hover
         height=chart_height
     )
     
