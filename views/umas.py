@@ -20,8 +20,32 @@ def show_view(df, team_df):
         c1.metric("Win Rate", f"{avg_wr:.1f}%")
         c2.metric("Unique Users", int(unique_players))
         
-        strat_stats = uma_data.groupby('Clean_Style')['Calculated_WinRate'].agg(['mean', 'count'])
-        fig_drill = px.bar(strat_stats, x='mean', y=strat_stats.index, orientation='h', title=f"Strategy Breakdown for {target_uma}", template='plotly_dark', height=400)
+        # 1. PREPARE DATA: Reset index to make columns accessible
+        strat_stats = uma_data.groupby('Clean_Style')['Calculated_WinRate'].agg(['mean', 'count']).reset_index()
+        strat_stats.columns = ['Strategy', 'Win_Rate', 'Races'] # Rename for clarity
+
+        # 2. CREATE CHART WITH HOVER DATA
+        fig_drill = px.bar(
+            strat_stats, 
+            x='Win_Rate', 
+            y='Strategy', 
+            orientation='h', 
+            title=f"Strategy Breakdown for {target_uma}", 
+            template='plotly_dark', 
+            height=400,
+            # Pass the 'Races' column to the hover data
+            hover_data={'Races': True, 'Win_Rate': ':.1f', 'Strategy': False}
+        )
+        
+        # 3. CUSTOMIZE HOVER TOOLTIP
+        fig_drill.update_traces(
+            texttemplate='%{x:.1f}%', 
+            textposition='inside',
+            # Displays: "Strategy" -> "Win Rate" -> "Races: 12"
+            hovertemplate='<b>%{y}</b><br>Win Rate: %{x:.1f}%<br>Races: %{customdata[0]}<extra></extra>'
+        )
+        
+        fig_drill.update_layout(xaxis_title="Win Rate (%)", yaxis_title=None)
         st.plotly_chart(style_fig(fig_drill, height=400), width="stretch", config=PLOT_CONFIG)
         show_description("drilldown")
 
