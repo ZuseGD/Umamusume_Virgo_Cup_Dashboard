@@ -1,39 +1,48 @@
-# Umamusume_Virgo_Cup_Dashboard
-Moomoocows Community Data Dashboard 📊
+# Umamusume Virgo Cup Dashboard 📊
 
-Project Overview
+![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
+![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=flat&logo=streamlit&logoColor=white)
+![Plotly](https://img.shields.io/badge/Plotly-3F4F75?style=flat&logo=plotly&logoColor=white)
+![Pandas](https://img.shields.io/badge/pandas-150458?style=flat&logo=pandas&logoColor=white)
 
-This repository contains the source code for a data analytics and visualization suite designed for the Moomoocows gaming community. The project focuses on the ETL (Extract, Transform, Load) process of raw game telemetry and the generation of interactive dashboards to track player performance and community growth.
+### **Project Overview**
 
-Key Features
+This project is a data analytics and visualization suite designed for the Moomoocows gaming community during the Virgo Cup tournament. It focuses on the **ETL (Extract, Transform, Load)** process of raw game telemetry to generate interactive dashboards that track player performance and meta trends.
 
-Automated Data Cleaning: Scripts written in Python to handle missing values, outliers, and data normalization using pandas and NumPy.
+**🔗 Project Repository:** [GitHub Link](https://github.com/ZuseGD/Umamusume_Virgo_Cup_Dashboard)
 
-Performance Metrics: Calculation of advanced gameplay statistics (e.g., win rates, resource efficiency) to derive predictive insights.
+-----
 
-Visual Reporting: Generation of static and dynamic charts using Matplotlib and custom visualization tools to display trends over time.
+### **Key Features**
 
-Technical Stack
+  * **Interactive Web App:** Built using **Streamlit** to provide a user-friendly interface for exploring complex datasets.
+  * **Dynamic Visualization:** Utilizes **Plotly** for interactive charts, allowing users to zoom, filter, and drill down into specific game events.
+  * **Advanced Data Parsing:** Implements **Regex** and **pandas** to clean and structure raw, unstructured game logs into analysis-ready formats.
 
-Language: Python 3.9+
+-----
 
-Libraries: pandas (Data Manipulation), matplotlib / seaborn (Visualization), scikit-learn (Feature Extraction)
+### **Technical Stack**
 
-Concepts: Data Storytelling, Statistical Analysis, UX Design for Data
+  * **Language:** Python 3.9+
+  * **Core Libraries:**
+      * `streamlit` (Web Application Framework)
+      * `plotly` (Interactive Visualization)
+      * `pandas` (Data Manipulation)
+      * `re` (Regular Expressions/Parsing)
+  * **Concepts:** Data Storytelling, Statistical Analysis, User Experience (UX) for Data
 
-3. LinkedIn "Featured" Post Copy
+-----
 
-Use this text if you create a post featuring a screenshot of your dashboard.
+### **How to Use**
 
-🚀 Excited to share my latest personal project: The Moomoocows Community Dashboard!
-
-I combined my background in Cognitive Systems with technical skills in Python and Data Analytics to build a tool that helps gamers understand their performance data.
-
-What it does:
-✅ Ingests raw gameplay telemetry.
-✅ Cleans and structures data using pandas.
-✅ Visualizes key performance indicators (KPIs) to help players improve strategy.
-
-This project sharpened my skills in building data pipelines and translating technical numbers into user-friendly insights. Check out the repo in the comments! 👇
-
-#DataAnalytics #Python #DataVisualization #Dashboard #GamingAnalytics #CognitiveSystems #EntryLevelDataAnalyst
+1.  **Clone the repository:**
+    ```bash
+    git clone [https://github.com/ZuseGD/Umamusume_Virgo_Cup_Dashboard.git](https://github.com/ZuseGD/Umamusume_Virgo_Cup_Dashboard.git)
+    ```
+2.  **Install dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
+3.  **Run the dashboard:**
+    ```bash
+    streamlit run app.py
