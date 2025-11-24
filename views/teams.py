@@ -1,6 +1,6 @@
 import streamlit as st
 import plotly.express as px
-from utils import style_fig, PLOT_CONFIG
+from utils import style_fig, PLOT_CONFIG, dynamic_height
 
 def show_view(df, team_df):
     st.header("⚔️ Team & Strategy")
@@ -16,14 +16,18 @@ def show_view(df, team_df):
         st.subheader("🏆 Meta Team Compositions")
         if not filtered_team_df.empty:
             comp_stats = filtered_team_df.groupby('Team_Comp').agg({'Calculated_WinRate': 'mean', 'Clean_Races': 'count'}).reset_index().rename(columns={'Clean_Races': 'Usage Count'})
+            # Get number of items to plot
+            n_items = len(comp_stats.head(15))
+            # Calculate dynamic height
+            chart_height = dynamic_height(n_items, min_height=500, per_item=50)
             fig_comps = px.bar(
                 comp_stats.sort_values('Calculated_WinRate', ascending=True).head(15),
                 x='Calculated_WinRate', y='Team_Comp', orientation='h', color='Calculated_WinRate',
-                color_continuous_scale='Plasma', text='Usage Count', template='plotly_dark', height=700
+                color_continuous_scale='Plasma', text='Usage Count', template='plotly_dark', height=chart_height
             )
             fig_comps.update_layout(yaxis_title=None, xaxis_title="Avg Win Rate (%)")
             fig_comps.update_traces(texttemplate='%{text} Entries', textposition='inside')
-            st.plotly_chart(style_fig(fig_comps, height=700), use_container_width=True, config=PLOT_CONFIG)
+            st.plotly_chart(style_fig(fig_comps, height=chart_height), use_container_width=True, config=PLOT_CONFIG)
         else:
             st.info("Not enough data.")
 

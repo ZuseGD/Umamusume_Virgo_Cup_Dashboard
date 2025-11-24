@@ -118,6 +118,11 @@ def style_fig(fig, height=600):
     fig.update_yaxes(fixedrange=True)
     return fig
 
+def dynamic_height(n_items, min_height=400, per_item=40):
+    """Calculates chart height based on number of bars"""
+    calc_height = n_items * per_item
+    return max(min_height, calc_height)
+
 # --- SHARED FILTER WIDGET ---
 def render_filters(df):
     # Create a consistent filter bar at the top of the page

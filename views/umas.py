@@ -1,6 +1,6 @@
 import streamlit as st
 import plotly.express as px
-from utils import style_fig, PLOT_CONFIG
+from utils import style_fig, PLOT_CONFIG, dynamic_height
 
 def show_view(df, team_df):
     st.header("🐴 Individual Uma Performance")
@@ -30,6 +30,10 @@ def show_view(df, team_df):
     st.subheader("📊 Uma Tier List")
     uma_stats = df.groupby('Clean_Uma').agg({'Calculated_WinRate': 'mean', 'Clean_Races': 'count'}).reset_index()
     uma_stats = uma_stats[uma_stats['Clean_Races'] >= 10]
+    top_umas = uma_stats.sort_values('Calculated_WinRate', ascending=False).head(15)
+    # Calculate Height
+    n_items = len(top_umas)
+    chart_height = dynamic_height(n_items, min_height=200, per_item=45)
     
     fig_uma = px.bar(
         uma_stats.sort_values('Calculated_WinRate', ascending=False).head(15), 
@@ -40,8 +44,8 @@ def show_view(df, team_df):
         color_continuous_scale='Viridis', 
         text='Clean_Races', 
         template='plotly_dark', 
-        height=800
+        height=chart_height
     )
     fig_uma.update_layout(yaxis={'categoryorder':'total ascending'}, xaxis_title="Avg Win Rate (%)", yaxis_title="Character")
     fig_uma.update_traces(texttemplate='WR: %{x:.1f}% | Runs: %{text}', textposition='inside')
-    st.plotly_chart(style_fig(fig_uma, height=800), use_container_width=True, config=PLOT_CONFIG)
+    st.plotly_chart(style_fig(fig_uma, height=chart_height), use_container_width=True, config=PLOT_CONFIG)

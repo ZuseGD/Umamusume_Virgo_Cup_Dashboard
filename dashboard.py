@@ -5,8 +5,8 @@ import os
 
 # 1. Page Config
 page_icon = "🏆"
-if os.path.exists("images/moologo2.jpg"):
-    page_icon = Image.open("images/moologo2.jpg")
+if os.path.exists("images/moologo2.png"):
+    page_icon = Image.open("images/moologo2.png")
 
 st.set_page_config(
     page_title="Virgo Cup CM5", 
@@ -88,7 +88,6 @@ with nav_cols[4]:
 
 st.markdown("---")
 
-# 6. DISCLAIMER (Global)
 # --- GLOBAL FILTERS (Visible on every page) ---
         # We use an expander so it is accessible but doesn't clutter the view
 with st.expander("⚙️ Global Filters (Round, Day, Group)", expanded=False):
