@@ -12,7 +12,7 @@ def show_view(df, team_df):
             card_name = c.split('[')[-1].replace(']', '').strip()
             card_map[card_name] = c
             
-        if card_map:
+    if card_map:
             target_name = st.selectbox("Select Card", sorted(list(card_map.keys())))
             col_match = card_map[target_name]
             
@@ -21,7 +21,7 @@ def show_view(df, team_df):
             card_stats = df.drop_duplicates(subset=['Clean_IGN', 'Round', 'Day']).groupby(col_match).agg({
                 'Calculated_WinRate': 'mean',
                 'Clean_IGN': 'count'
-                }).reset_index().rename(columns={'Clean_IGN': 'Player_Count'})
+            }).reset_index().rename(columns={'Clean_IGN': 'Player_Count'})
             
             # 2. PLOT WITH HOVER DATA
             fig_card = px.bar(
@@ -36,7 +36,7 @@ def show_view(df, team_df):
                 height=600,
                 # Add the new count column to the hover data
                 hover_data={'Player_Count': True, 'Calculated_WinRate': ':.1f'} 
-                )
+            )
             
             # 3. CUSTOMIZE HOVER TOOLTIP
             fig_card.update_traces(
@@ -49,8 +49,8 @@ def show_view(df, team_df):
             fig_card.update_layout(xaxis_title="Limit Break Status")
             st.plotly_chart(style_fig(fig_card, height=600), width="stretch", config=PLOT_CONFIG)
             show_description("cards")
-        else:
-            st.warning("No Card Data found.")
+    else:
+        st.warning("No Card Data found.")
 
     st.markdown("---")
     st.subheader("🍀 Luck vs. Grind Analysis")
