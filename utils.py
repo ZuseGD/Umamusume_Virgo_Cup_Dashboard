@@ -4,38 +4,47 @@ import plotly.express as px
 import numpy as np
 from PIL import Image
 import os
+import re
 
 # --- CONFIGURATION ---
-# Live Exploded CSV
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTR8Pa4QQVSNwepSe9dYnro3ZaVEpYQmBdZUzumuLL-U2IR3nKVh-_GbZeJHT2x9aCqnp7P-0hPm5Zd/pub?gid=221070242&single=true&output=csv"
 
-# Chart Configuration (Locks Zoom)
 PLOT_CONFIG = {
     'scrollZoom': False, 
     'displayModeBar': True,
     'displaylogo': False,
-    'modeBarButtonsToRemove': ['sendDataToCloud', 'lasso2d', 'select2d', 'zoom2d', 'pan2d', 'autoScale2d', 'resetScale2d']
+    'modeBarButtonsToRemove': ['sendDataToCloud', 'lasso2d', 'select2d', 'zoom2d', 'pan2d']
 }
 
-# Footer HTML
-footer_html = """
-<style>
-.footer {
-    position: fixed; left: 0; bottom: 0; width: 100%;
-    background-color: #0E1117; color: #888; text-align: center;
-    padding: 10px; font-size: 12px; border-top: 1px solid #333;
-    z-index: 100; display: flex; justify-content: center; gap: 20px;
+DESCRIPTIONS = {
+    "bias": """
+    **⚠️ Survivorship Bias Warning:**
+    - This data is self-reported by the community.
+    - Players who perform well (high win rates) are **more likely** to submit data than those who lose.
+    - As the event progresses (Round 2), casual players may stop playing/reporting, artificially inflating the average skill level of the remaining pool.
+    - *Take "Average Win Rates" as a benchmark for competitive players, not the entire player base.*
+    """,
+    "leaderboard": """
+    **Ranking Logic:** Trainers are ranked by **Performance Score** (Win Rate × Log Volume).
+    - This ensures high-volume winners rank above players with 1/1 wins.
+    - *Note: Only Top 10 are named; others are anonymized.*
+    """,
+    "money": """
+    **Spending vs Win Rate:**
+    - Box Plot showing the distribution of win rates per spending tier.
+    - *Box:* Middle 50% of players. *Line:* Median.
+    """,
+    "teams": """
+    **Meta Teams:**
+    - Unique 3-Uma combinations used in a single session.
+    - Only teams with >7 entries shown.
+    """,
+    "umas": """
+    **⚠️ IMPORTANT DISCLAIMER:**
+    - Win Rate is based on the **TEAM'S** performance when this Uma was present.
+    - We cannot track individual race wins from this dataset.
+    """
 }
-.footer a { color: #00CC96; text-decoration: none; font-weight: bold; }
-.footer a:hover { text-decoration: underline; color: #FAFAFA; }
-</style>
-<div class="footer">
-    <span>Made by <b>Zuse</b> 🚀</span>
-    <span>👾 Discord: <b>@zusethegoose</b></span>
-    <span><a href="https://github.com/ZuseGD" target="_blank">💻 GitHub</a></span>
-    <span><a href="https://paypal.me/paypal.me/JgamersZuse" target="_blank">☕ Support</a></span>
-</div>
-"""
 
 # --- HELPER FUNCTIONS ---
 def find_column(df, keywords, case_sensitive=False):
@@ -67,10 +76,8 @@ def clean_currency_numeric(series):
             .fillna(0))
 
 def extract_races_count(series):
-    # Extracts number from "4 Attempts - 20 Races"
     def parse_races(text):
         text = str(text).lower()
-        import re
         match = re.search(r'(\d+)\s*races', text)
         if match: return int(match.group(1))
         if text.isdigit(): return int(text)
@@ -81,7 +88,6 @@ def parse_uma_details(series):
     return series.astype(str).apply(lambda x: x.split(' - ')[0].strip().title())
 
 def calculate_score(wins, races):
-    # Weighted Score: WinRate * log(Volume)
     if races == 0: return 0
     wr = (wins / races) * 100
     return wr * np.log1p(races)
@@ -108,13 +114,12 @@ def style_fig(fig, height=600):
         yaxis=dict(automargin=True),
         xaxis=dict(automargin=True)
     )
-    # Lock axes to prevent infinite scrolling
     fig.update_xaxes(fixedrange=True)
     fig.update_yaxes(fixedrange=True)
     return fig
 
 # --- DATA LOADING ---
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=60)
 def load_data():
     try:
         df = pd.read_csv(SHEET_URL)
@@ -181,3 +186,23 @@ def load_data():
     except Exception as e:
         st.error(f"Data Error: {e}")
         return pd.DataFrame(), pd.DataFrame()
+
+# Common Footer
+footer_html = """
+<style>
+.footer {
+    position: fixed; left: 0; bottom: 0; width: 100%;
+    background-color: #0E1117; color: #888; text-align: center;
+    padding: 10px; font-size: 12px; border-top: 1px solid #333;
+    z-index: 100; display: flex; justify-content: center; gap: 20px;
+}
+.footer a { color: #00CC96; text-decoration: none; font-weight: bold; }
+.footer a:hover { text-decoration: underline; color: #FAFAFA; }
+</style>
+<div class="footer">
+    <span>Made by <b>Zuse</b> 🚀</span>
+    <span>👾 Discord: <b>@zusethegoose</b></span>
+    <span><a href="https://github.com/ZuseGD" target="_blank">💻 GitHub</a></span>
+    <span><a href="https://paypal.me/paypal.me/JgamersZuse" target="_blank">☕ Support</a></span>
+</div>
+"""
