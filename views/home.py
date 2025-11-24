@@ -85,21 +85,24 @@ def show_view(df, team_df):
     # LEADERBOARD
     st.subheader("👑 Top Performers")
     
-    # 1. USE RAW DF FOR STATS (Source of Truth)
-    # This ensures we count ALL races, even if the Team Comp data was incomplete
-    stats_source = df[df['Display_IGN'] != "Anonymous Trainer"].copy()
+    # 1. DEDUPLICATE SESSIONS (Fixes the 273 wins issue)
+    # We only want to count each "Entry" once, not 3 times (once per Uma)
+    # A unique session is defined by: Trainer + Round + Day
+    unique_sessions = df.drop_duplicates(subset=['Display_IGN', 'Round', 'Day'])
+    
+    # 2. FILTER & AGGREGATE
+    stats_source = unique_sessions[unique_sessions['Display_IGN'] != "Anonymous Trainer"]
     
     leaderboard = stats_source.groupby('Display_IGN').agg({
         'Clean_Wins': 'sum', 
         'Clean_Races': 'sum'
     }).reset_index()
     
-    # 2. CALCULATE SCORES
+    # 3. CALCULATE SCORES
     leaderboard['Global_WinRate'] = (leaderboard['Clean_Wins'] / leaderboard['Clean_Races']) * 100
     leaderboard['Score'] = leaderboard.apply(lambda x: calculate_score(x['Clean_Wins'], x['Clean_Races']), axis=1)
     
-    # 3. FETCH MAIN TEAM (From team_df)
-    # We look up what team they played the most, then merge it back to the stats
+    # 4. FETCH MAIN TEAM (Look up from team_df)
     main_teams = team_df.groupby('Display_IGN')['Team_Comp'].agg(
         lambda x: x.mode()[0] if not x.mode().empty else "Various"
     ).reset_index()
@@ -107,12 +110,12 @@ def show_view(df, team_df):
     leaderboard = pd.merge(leaderboard, main_teams, on='Display_IGN', how='left')
     leaderboard['Team_Comp'] = leaderboard['Team_Comp'].fillna("Unknown Team")
     
-    # 4. SORT & FILTER
+    # 5. SORT & FILTER
     leaderboard = leaderboard[leaderboard['Clean_Races'] >= 15]
     top_leaders = leaderboard.sort_values('Score', ascending=False).head(10)
-    top_leaders = top_leaders.sort_values('Score', ascending=True) # Sort for chart
+    top_leaders = top_leaders.sort_values('Score', ascending=True) 
     
-    # 5. CHART
+    # 6. CHART
     fig_leader = px.bar(
         top_leaders, 
         x='Score', 
