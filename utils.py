@@ -72,6 +72,13 @@ DESCRIPTIONS = {
     - **Filter:** Only teams seen at least 8 times are displayed.
     - **Metric:** Average win rate of that specific trio.
     """,
+    "teams_bubble": """
+    **Team Meta Quadrants:**
+    - **X-Axis (Popularity):** How many times this specific team trio was used.
+    - **Y-Axis (Performance):** The average win rate of this team.
+    - **Bubble Size:** Larger bubbles = More popular.
+    - **Goal:** To separate the "Standard Meta" from "Niche Counter-Meta" teams.
+    """,
     "evolution": """
     **Meta Evolution:**
     - **What it shows:** How the popularity of the Top 5 teams changed across Rounds/Days.

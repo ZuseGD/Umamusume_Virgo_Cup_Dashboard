@@ -12,8 +12,6 @@ def show_view():
     with col1:
         st.subheader("Zuse")
         st.caption("Website Designer & Graphs Team")
-        if os.path.exists("images/image.png"):
-            st.image("images/image.png", width=150)
         st.markdown("- **Discord:** @zusethegoose\n- **GitHub:** [ZuseGD](https://github.com/ZuseGD)")
         
     with col2:
