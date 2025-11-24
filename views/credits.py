@@ -26,7 +26,7 @@ def show_view():
         st.subheader("MooMooCows")
         st.caption("Project Lead, YouTuber & Community Lead")
         # Display MooMooCows Logo 1
-        if os.path.exists("moologo1.jpg"):
+        if os.path.exists("images/moologo1.jpg"):
             st.image("moologo1.jpg", width=150)
         st.markdown("Helped promote the project and leads the community.")
     
