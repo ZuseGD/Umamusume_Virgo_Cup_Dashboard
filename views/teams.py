@@ -145,10 +145,12 @@ def show_view(df, team_df):
             
             final_fig.update_layout(
                 legend=dict(
-                    orientation="h",        # Horizontal orientation
-                    yanchor="bottom", y=2, # Position slightly above the chart
-                    xanchor="left", x=0       # Align to the left
+                    orientation="h",
+                    yanchor="top", y=-0.2,    # Position BELOW the X-axis
+                    xanchor="center", x=0.5   # Center align
                 ),
+                # Add bottom margin to make room for the legend
+                margin=dict(b=80) 
             )
 
             st.plotly_chart(style_fig(final_fig, height=500), width="stretch", config=PLOT_CONFIG)
