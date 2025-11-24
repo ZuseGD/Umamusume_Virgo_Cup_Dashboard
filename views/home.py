@@ -28,8 +28,10 @@ def show_view(df, team_df):
     if target_trainer:
         t_data = team_df[team_df['Clean_IGN'] == target_trainer]
         if not t_data.empty:
-            t_wr = t_data['Calculated_WinRate'].mean()
             t_runs = t_data['Clean_Races'].sum()
+            t_wins = t_data['Clean_Wins'].sum()
+            t_wr = (t_wins / t_runs * 100) if t_runs > 0 else 0.0
+            
             fav_team = t_data['Team_Comp'].mode()[0] if not t_data.empty else "N/A"
             
             c1, c2, c3 = st.columns(3)
