@@ -215,7 +215,7 @@ def load_data():
         return pd.DataFrame(), pd.DataFrame()
     
 @st.cache_data(ttl=300) # Cache for 5 minutes
-def load_ocr_data(filepath="data\r2d2.parquet"):
+def load_ocr_data(filepath="data/r2d2.parquet"):
     try:
         if not os.path.exists(filepath):
             return pd.DataFrame()
