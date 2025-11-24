@@ -143,13 +143,14 @@ def show_view(df, team_df):
 
             final_fig = style_fig(fig_style_bubble, height=500)
             
-            # 2. Override the legend position (Right Side, Vertical)
             final_fig.update_layout(
                 legend=dict(
-                    orientation="v", 
-                    yanchor="top", y=1, 
-                    xanchor="left", x=1.02
-                )
+                    orientation="h",        # Horizontal orientation
+                    yanchor="bottom", y=1.02, # Position slightly above the chart
+                    xanchor="left", x=0       # Align to the left
+                ),
+                # Add a little top margin so the legend doesn't get cut off
+                margin=dict(t=50, l=0, r=0, b=0) 
             )
 
             st.plotly_chart(style_fig(final_fig, height=500), width="stretch", config=PLOT_CONFIG)
