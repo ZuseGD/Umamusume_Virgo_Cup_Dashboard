@@ -45,4 +45,4 @@ This project is a data analytics and visualization suite designed for the Moomoo
     ```
 3.  **Run the dashboard:**
     ```bash
-    streamlit run app.py
+    streamlit run dashboard.py
