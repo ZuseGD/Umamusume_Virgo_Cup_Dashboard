@@ -192,7 +192,7 @@ def parse_uma_details(series):
 def calculate_score(wins, races):
     if races == 0: return 0
     wr = (wins / races) * 100
-    return wr * np.log1p(races)
+    return wr * np.sqrt(races)
 
 def anonymize_players(df, metric='Calculated_WinRate', top_n=10):
     player_stats = df.groupby('Clean_IGN').agg({
