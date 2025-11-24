@@ -39,6 +39,37 @@ def show_view(df, team_df):
     
     st.markdown("---")
 
+    st.markdown("### 📊 Global Context")
+    g1, g2 = st.columns(2)
+    
+    with g1:
+        # 1. Win Rate Distribution
+        fig_dist = px.histogram(
+            team_df, 
+            x="Calculated_WinRate", 
+            nbins=20, 
+            title="Distribution of Player Win Rates",
+            template='plotly_dark',
+            labels={'Calculated_WinRate': 'Win Rate %'}
+        )
+        fig_dist.update_layout(bargap=0.1, yaxis_title="Player Count")
+        st.plotly_chart(style_fig(fig_dist, height=400), width="stretch", config=PLOT_CONFIG)
+        
+    with g2:
+        # 2. Group Difficulty
+        group_stats = team_df.groupby('Clean_Group')['Calculated_WinRate'].mean().reset_index()
+        fig_group = px.bar(
+            group_stats, 
+            x='Clean_Group', 
+            y='Calculated_WinRate',
+            title="Average Win Rate by Group",
+            template='plotly_dark',
+            color='Calculated_WinRate',
+            color_continuous_scale='Redor'
+        )
+        fig_group.update_layout(showlegend=False, yaxis_title="Avg Win Rate (%)", xaxis_title=None)
+        st.plotly_chart(style_fig(fig_group, height=400), width="stretch", config=PLOT_CONFIG)
+
     # LEADERBOARD
     st.subheader("👑 Top Performers")
     
