@@ -44,26 +44,26 @@ def show_view(df, team_df):
     chart_height = dynamic_height(n_items, min_height=600, per_item=45)
 
     # 4. Pass 'top_umas' to the data argument
+    # --- NEW SCATTER PLOT (Fixed Labels) ---
     st.markdown("#### 💠 Popularity vs. Performance (Quadrants)")
     fig_scatter = px.scatter(
         uma_stats, 
         x='Clean_Races', 
         y='Calculated_WinRate',
-        text='Clean_Uma', 
         size='Clean_Races', 
         color='Calculated_WinRate',
         color_continuous_scale='Viridis',
         title="Uma Tier List: Popularity vs Performance",
         template='plotly_dark',
-        hover_name='Clean_Uma',
+        hover_name='Clean_Uma',    
         height=600
     )
-
+    
     # Add reference lines for Averages
     avg_wr = uma_stats['Calculated_WinRate'].mean()
     avg_play = uma_stats['Clean_Races'].mean()
     
-    fig_scatter.add_hline(y=avg_wr, line_dash="dot", annotation_text="Avg Win Rate", annotation_position="bottom left")
+    fig_scatter.add_hline(y=avg_wr, line_dash="dot", annotation_text="Avg WR", annotation_position="bottom left")
     fig_scatter.add_vline(x=avg_play, line_dash="dot", annotation_text="Avg Popularity", annotation_position="top right")
     
     st.plotly_chart(style_fig(fig_scatter, height=600), width="stretch", config=PLOT_CONFIG)
@@ -73,7 +73,7 @@ def show_view(df, team_df):
     fig_uma = px.bar(
         top_umas,                  # <--- IMPORTANT: Use the variable with Short_Name
         x='Calculated_WinRate', 
-        y='Short_Name',            # Now this column exists!
+        y='Short_Name',            
         orientation='h', 
         color='Calculated_WinRate', 
         color_continuous_scale='Viridis', 

@@ -42,6 +42,7 @@ def show_view(df, team_df):
         title="Do more races = Lower Win Rate?",
         template='plotly_dark',
         labels={'Clean_Races': 'Total Races Played', 'Calculated_WinRate': 'Win Rate %'},
+        trendline="ols" # Requires statsmodels, if not installed remove this line
     )
     st.plotly_chart(style_fig(fig_luck, height=500), width="stretch", config=PLOT_CONFIG)
 
