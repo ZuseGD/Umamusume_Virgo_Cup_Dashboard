@@ -17,7 +17,7 @@ def show_view(df, team_df):
         if not filtered_team_df.empty:
             comp_stats = filtered_team_df.groupby('Team_Comp').agg({'Calculated_WinRate': 'mean', 'Clean_Races': 'count'}).reset_index().rename(columns={'Clean_Races': 'Usage Count'})
             fig_comps = px.bar(
-                comp_stats.sort_values('Calculated_WinRate', ascending=False).head(15),
+                comp_stats.sort_values('Calculated_WinRate', ascending=True).head(15),
                 x='Calculated_WinRate', y='Team_Comp', orientation='h', color='Calculated_WinRate',
                 color_continuous_scale='Plasma', text='Usage Count', template='plotly_dark', height=700
             )
