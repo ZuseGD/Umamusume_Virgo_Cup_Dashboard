@@ -90,8 +90,8 @@ def show_view(df, team_df):
     with tab4:
         st.subheader("📈 Meta Evolution over Time")
         
-        # Get Top 5 Teams
-        top_teams = team_df['Team_Comp'].value_counts().head(5).index.tolist()
+        # Get Top 10 Teams
+        top_teams = team_df['Team_Comp'].value_counts().head(10).index.tolist()
         
         if top_teams:
             # Filter & Group
