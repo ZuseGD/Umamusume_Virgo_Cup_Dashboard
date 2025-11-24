@@ -98,6 +98,13 @@ def show_view(df, team_df):
         'Clean_Wins': 'sum', 
         'Clean_Races': 'sum'
     }).reset_index()
+
+    # SORT & FILTER
+    # Added filter: Total Races <= 81 to remove anomalies
+    leaderboard = leaderboard[
+        (leaderboard['Clean_Races'] >= 15) & 
+        (leaderboard['Clean_Races'] <= 81)
+    ]
     
     # 3. CALCULATE SCORES
     leaderboard['Global_WinRate'] = (leaderboard['Clean_Wins'] / leaderboard['Clean_Races']) * 100
@@ -112,12 +119,7 @@ def show_view(df, team_df):
     leaderboard = pd.merge(leaderboard, main_teams, on='Display_IGN', how='left')
     leaderboard['Team_Comp'] = leaderboard['Team_Comp'].fillna("Unknown Team")
     
-    # 5. SORT & FILTER
-    # Added filter: Total Races <= 81 to remove anomalies
-    leaderboard = leaderboard[
-        (leaderboard['Clean_Races'] >= 15) & 
-        (leaderboard['Clean_Races'] <= 81)
-    ]
+    
     
     top_leaders = leaderboard.sort_values('Score', ascending=False).head(10)
     top_leaders = top_leaders.sort_values('Score', ascending=True) 
