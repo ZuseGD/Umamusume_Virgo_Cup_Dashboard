@@ -22,7 +22,7 @@ def show_view(df, team_df):
         
         # 1. PREPARE DATA: Reset index to make columns accessible
         strat_stats = uma_data.groupby('Clean_Style')['Calculated_WinRate'].agg(['mean', 'count']).reset_index()
-        strat_stats.columns = ['Strategy', 'Win_Rate', 'Races'] # Rename for clarity
+        strat_stats.columns = ['Strategy', 'Win_Rate', 'Entries'] # Rename for clarity
 
         # 2. CREATE CHART WITH HOVER DATA
         fig_drill = px.bar(
@@ -34,7 +34,7 @@ def show_view(df, team_df):
             template='plotly_dark', 
             height=400,
             # Pass the 'Races' column to the hover data
-            hover_data={'Races': True, 'Win_Rate': ':.1f', 'Strategy': False}
+            hover_data={'Entries': True, 'Win_Rate': ':.1f', 'Strategy': False}
         )
         
         # 3. CUSTOMIZE HOVER TOOLTIP
