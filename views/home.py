@@ -88,6 +88,7 @@ def show_view(df, team_df):
     # 1. DEDUPLICATE SESSIONS (Fixes the 273 wins issue)
     # We only want to count each "Entry" once, not 3 times (once per Uma)
     # A unique session is defined by: Trainer + Round + Day
+    # This prevents the triple-counting bug.
     unique_sessions = df.drop_duplicates(subset=['Display_IGN', 'Round', 'Day'])
     
     # 2. FILTER & AGGREGATE
@@ -103,6 +104,7 @@ def show_view(df, team_df):
     leaderboard['Score'] = leaderboard.apply(lambda x: calculate_score(x['Clean_Wins'], x['Clean_Races']), axis=1)
     
     # 4. FETCH MAIN TEAM (Look up from team_df)
+    # We merge the team name from team_df just for the label
     main_teams = team_df.groupby('Display_IGN')['Team_Comp'].agg(
         lambda x: x.mode()[0] if not x.mode().empty else "Various"
     ).reset_index()
@@ -111,7 +113,12 @@ def show_view(df, team_df):
     leaderboard['Team_Comp'] = leaderboard['Team_Comp'].fillna("Unknown Team")
     
     # 5. SORT & FILTER
-    leaderboard = leaderboard[leaderboard['Clean_Races'] >= 15]
+    # Added filter: Total Races <= 81 to remove anomalies
+    leaderboard = leaderboard[
+        (leaderboard['Clean_Races'] >= 15) & 
+        (leaderboard['Clean_Races'] <= 81)
+    ]
+    
     top_leaders = leaderboard.sort_values('Score', ascending=False).head(10)
     top_leaders = top_leaders.sort_values('Score', ascending=True) 
     
