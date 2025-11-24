@@ -28,6 +28,26 @@ def show_view(df, team_df):
     else:
         st.warning("No Card Data found.")
 
+    st.markdown("---")
+    st.subheader("🍀 Luck vs. Grind Analysis")
+    
+    # Filter for players with at least 5 races to remove 1-race wonders
+    grind_df = team_df[team_df['Clean_Races'] >= 5]
+    
+    fig_luck = px.scatter(
+        grind_df, 
+        x='Clean_Races', 
+        y='Calculated_WinRate',
+        color='Calculated_WinRate',
+        title="Do more races = Lower Win Rate?",
+        template='plotly_dark',
+        labels={'Clean_Races': 'Total Races Played', 'Calculated_WinRate': 'Win Rate %'},
+        trendline="ols" # Requires statsmodels, if not installed remove this line
+    )
+    st.plotly_chart(style_fig(fig_luck, height=500), width="stretch", config=PLOT_CONFIG)
+
+    st.markdown("---")
+
     st.subheader("Meta Trends (Round 1 vs Round 2)")
     if 'Round' in df.columns and 'Day' in df.columns:
         trend_df = team_df.groupby(['Round', 'Day']).agg({'Calculated_WinRate': 'mean', 'Clean_Races': 'count'}).reset_index()
