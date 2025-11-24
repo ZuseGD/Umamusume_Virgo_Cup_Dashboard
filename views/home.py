@@ -4,9 +4,17 @@ import pandas as pd
 from utils import style_fig, PLOT_CONFIG, calculate_score, show_description
 
 def show_view(df, team_df):
-    st.header("Global Overview")
+    # --- UPDATE NOTICE ---
+    with st.expander("✨ What's New (Nov 24 Update)", expanded=True):
+        st.markdown("""
+        - 📸 **New Feature:** Added [OCR Data Analysis](#) tab (Parquet Data).
+        - 👑 **Leaderboard Fixed:** Now ranks by Total Volume + Win Rate properly.
+        - 📱 **Mobile Friendly:** Charts now resize dynamically for phone screens.
+        - 💠 **Tier List:** Added "Popularity vs. Performance" Quadrant Chart.
+        """)
+
     
-   
+    st.header("Global Overview")
     
     # Metrics
     total_runs = team_df['Clean_Races'].sum()
@@ -78,9 +86,12 @@ def show_view(df, team_df):
     st.subheader("👑 Top Performers")
     
     named_teams = team_df[team_df['Display_IGN'] != "Anonymous Trainer"].copy()
+    
+    # 1. AGGREGATE BY TRAINER ONLY (Fixes the split-team issue)
     leaderboard = named_teams.groupby('Display_IGN').agg({
         'Clean_Wins': 'sum', 
         'Clean_Races': 'sum',
+        # Find their most frequent team to display as a label
         'Team_Comp': lambda x: x.mode()[0] if not x.mode().empty else "Various"
     }).reset_index()
     
@@ -88,28 +99,31 @@ def show_view(df, team_df):
     leaderboard['Score'] = leaderboard.apply(lambda x: calculate_score(x['Clean_Wins'], x['Clean_Races']), axis=1)
     leaderboard = leaderboard[leaderboard['Clean_Races'] >= 15]
     
-    top_leaders = leaderboard.sort_values('Score', ascending=True).head(10)
-    #top_leaders['Label'] = top_leaders['Display_IGN'] + " (" + top_leaders['Team_Comp'] + ")"
+    top_leaders = leaderboard.sort_values('Score', ascending=False).head(10)
+    # Sort for chart display (lowest at bottom)
+    top_leaders = top_leaders.sort_values('Score', ascending=True)
     
-    #fig_leader = px.bar(
-        #top_leaders, x='Score', y='Label', orientation='h', color='Global_WinRate',
-        #text='Clean_Wins', template='plotly_dark', color_continuous_scale='Turbo', height=700
-    #)
+    # 2. CHART GENERATION
     fig_leader = px.bar(
         top_leaders, 
         x='Score', 
-        y='Display_IGN',  # Use ONLY the name for the axis
+        y='Display_IGN', 
         orientation='h', 
         color='Global_WinRate',
         text='Clean_Wins', 
         template='plotly_dark', 
         color_continuous_scale='Turbo', 
         height=700,
-        # Add the Team Comp to the hover info instead
+        # Pass the Main Team to the hover tooltip
         hover_data={'Team_Comp': True, 'Display_IGN': False} 
     )
-
-    fig_leader.update_traces(texttemplate='Wins: %{text} | WR: %{marker.color:.1f}%', textposition='inside', hovertemplate='<b>%{y}</b><br>Team: %{customdata[0]}<br>Score: %{x:.1f}<extra></extra>')
+    
+    fig_leader.update_traces(
+        texttemplate='Wins: %{text} | WR: %{marker.color:.1f}%', 
+        textposition='inside',
+        hovertemplate='<b>%{y}</b><br>Main Team: %{customdata[0]}<br>Score: %{x:.1f}<extra></extra>'
+    )
+    
     fig_leader.update_layout(xaxis_title="Performance Score", yaxis_title=None)
     st.plotly_chart(style_fig(fig_leader, height=700), width="stretch", config=PLOT_CONFIG)
     show_description("leaderboard")
