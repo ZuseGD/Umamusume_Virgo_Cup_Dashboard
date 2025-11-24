@@ -95,17 +95,71 @@ def show_view(df, team_df):
         
         style_df = df.copy()
         style_df['Standard_Style'] = style_df['Clean_Style'].apply(standardize_style)
-        style_stats = style_df.groupby('Standard_Style').agg({'Calculated_WinRate': 'mean', 'Clean_Races': 'count'}).reset_index()
-        style_stats = style_stats[(style_stats['Clean_Races'] > 20) & (style_stats['Standard_Style'] != 'Unknown')]
+        
+        # Aggregate Stats
+        style_stats = style_df.groupby('Standard_Style').agg({
+            'Calculated_WinRate': 'mean', 
+            'Clean_Races': 'count'
+        }).reset_index()
+        
+        # Filter out 'Unknown' and low sample size
+        style_stats = style_stats[(style_stats['Clean_Races'] > 5) & (style_stats['Standard_Style'] != 'Unknown')]
+
+        # 2. BUBBLE CHART (New!)
+        st.markdown("#### 💠 Strategy Quadrants")
+        fig_style_bubble = px.scatter(
+            style_stats,
+            x='Clean_Races',
+            y='Calculated_WinRate',
+            size='Clean_Races',
+            color='Standard_Style',
+            hover_name='Standard_Style',
+            title="Strategy Meta: Popularity vs Performance",
+            template='plotly_dark',
+            labels={'Clean_Races': 'Entries', 'Calculated_WinRate': 'Win Rate %'},
+            height=450
+        )
+        
+        # Add average lines
+        if not style_stats.empty:
+            avg_wr = style_stats['Calculated_WinRate'].mean()
+            avg_pop = style_stats['Clean_Races'].mean()
+            fig_style_bubble.add_hline(y=avg_wr, line_dash="dot", annotation_text="Avg Win Rate")
+            fig_style_bubble.add_vline(x=avg_pop, line_dash="dot", annotation_text="Avg Popularity")
+
+        st.plotly_chart(style_fig(fig_style_bubble, height=450), width="stretch", config=PLOT_CONFIG)
+        show_description("style")
+        
+        st.markdown("---")
+
+        # 3. BAR CHART (Existing)
+        st.markdown("#### 📋 Detailed Rankings")
         desired_order = ['Runaway', 'Front Runner', 'Pace Chaser', 'Late Surger', 'End Closer']
         
         fig_style = px.bar(
-            style_stats, x='Calculated_WinRate', y='Standard_Style', orientation='h', color='Calculated_WinRate',
-            template='plotly_dark', title="Win Rate by Running Style", text='Calculated_WinRate', color_continuous_scale='Viridis', height=500
+            style_stats, 
+            x='Calculated_WinRate', 
+            y='Standard_Style', 
+            orientation='h', 
+            color='Calculated_WinRate',
+            template='plotly_dark', 
+            text='Calculated_WinRate', 
+            color_continuous_scale='Viridis', 
+            height=400,
+            hover_data={'Clean_Races': True}
         )
-        fig_style.update_layout(yaxis={'categoryorder':'array', 'categoryarray': desired_order[::-1]}, xaxis_title="Avg Win Rate (%)", yaxis_title=None)
-        fig_style.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-        st.plotly_chart(style_fig(fig_style, height=500), width="stretch", config=PLOT_CONFIG)
+        
+        fig_style.update_layout(
+            yaxis={'categoryorder':'array', 'categoryarray': desired_order[::-1]}, 
+            xaxis_title="Avg Win Rate (%)", 
+            yaxis_title=None
+        )
+        fig_style.update_traces(
+            texttemplate='%{text:.1f}%', 
+            textposition='outside',
+            hovertemplate='<b>%{y}</b><br>Win Rate: %{x:.1f}%<br>Entries: %{customdata[0]}<extra></extra>'
+        )
+        st.plotly_chart(style_fig(fig_style, height=400), width="stretch", config=PLOT_CONFIG)
         show_description("style")
 
     with tab3:
