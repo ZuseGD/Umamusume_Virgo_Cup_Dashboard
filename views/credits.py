@@ -9,16 +9,12 @@ def show_view():
     st.markdown("---")
     
     col1, col2 = st.columns(2)
-    
     with col1:
         st.subheader("Zuse")
         st.caption("Website Designer & Graphs Team")
         if os.path.exists("images/image.png"):
             st.image("images/image.png", width=150)
-        st.markdown("""
-        - **Discord:** @zusethegoose
-        - **GitHub:** [ZuseGD](https://github.com/ZuseGD)
-        """)
+        st.markdown("- **Discord:** @zusethegoose\n- **GitHub:** [ZuseGD](https://github.com/ZuseGD)")
         
     with col2:
         st.subheader("MooMooCows")
@@ -28,8 +24,6 @@ def show_view():
         st.markdown("Helped promote the project and leads the community.")
     
     st.markdown("---")
-    
-    # (Rest of file remains same as previous turn, ensuring paths are correct if needed)
     st.subheader("🏆 The Team")
     c1, c2 = st.columns(2)
     with c1:

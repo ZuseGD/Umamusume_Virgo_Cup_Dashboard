@@ -4,10 +4,9 @@ from PIL import Image
 import os
 
 # 1. Page Config (Must be first)
-# Using moologo2.jpg as the favicon if it exists, otherwise falling back to emoji
 page_icon = "🏆"
-if os.path.exists("images/moologo2.jpg"):
-    page_icon = Image.open("images/moologo2.jpg")
+if os.path.exists("images/moologo2.png"):
+    page_icon = Image.open("images/moologo2.png")
 
 st.set_page_config(
     page_title="Virgo Cup CM5", 
@@ -16,62 +15,54 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. Hide Sidebar CSS
+# 2. CSS to Hide Sidebar & Add Navbar
 st.markdown("""
 <style>
     [data-testid="stSidebar"] {display: none;}
     [data-testid="collapsedControl"] {display: none;}
+    div[data-testid="stVerticalBlock"] > div:has(div[data-testid="stRadio"]) {
+        position: sticky; top: 0; z-index: 999; background: #0E1117; padding-bottom: 10px; border-bottom: 1px solid #333;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# 3. Load Data Globally
+# 3. Load Data
 try:
     df, team_df = load_data()
 except:
     st.error("Database Connection Failed")
     st.stop()
 
-# 4. TOP NAVIGATION BAR
+# 4. TOP NAVIGATION
 st.markdown("## 🏆 Virgo Cup Analytics")
-nav_cols = st.columns([1, 1, 1, 1, 1])
-
-if 'current_page' not in st.session_state:
-    st.session_state.current_page = "Home"
-
-def set_page(page_name):
-    st.session_state.current_page = page_name
-
-with nav_cols[0]:
-    if st.button("🌍 Home", use_container_width=True): set_page("Home")
-with nav_cols[1]:
-    if st.button("⚔️ Teams", use_container_width=True): set_page("Teams")
-with nav_cols[2]:
-    if st.button("🐴 Umas", use_container_width=True): set_page("Umas")
-with nav_cols[3]:
-    if st.button("🃏 Resources", use_container_width=True): set_page("Resources")
-with nav_cols[4]:
-    if st.button("ℹ️ Credits", use_container_width=True): set_page("Credits")
+# Using radio button horizontally as a navbar
+page = st.radio(
+    "Navigation", 
+    ["🌍 Home", "⚔️ Teams", "🐴 Umas", "🃏 Resources", "ℹ️ Credits"], 
+    horizontal=True,
+    label_visibility="collapsed"
+)
 
 st.markdown("---")
 
 # 5. ROUTING
-if st.session_state.current_page == "Home":
+if page == "🌍 Home":
     from views import home
     home.show_view(df, team_df)
 
-elif st.session_state.current_page == "Teams":
+elif page == "⚔️ Teams":
     from views import teams
     teams.show_view(df, team_df)
 
-elif st.session_state.current_page == "Umas":
+elif page == "🐴 Umas":
     from views import umas
     umas.show_view(df, team_df)
 
-elif st.session_state.current_page == "Resources":
+elif page == "🃏 Resources":
     from views import resources
     resources.show_view(df, team_df)
 
-elif st.session_state.current_page == "Credits":
+elif page == "ℹ️ Credits":
     from views import credits
     credits.show_view()
 

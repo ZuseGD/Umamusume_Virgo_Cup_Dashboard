@@ -18,7 +18,7 @@ def show_view(df, team_df):
         
         c1, c2 = st.columns(2)
         c1.metric("Win Rate", f"{avg_wr:.1f}%")
-        c2.metric("Unique Players", int(unique_players))
+        c2.metric("Unique Users", int(unique_players))
         
         strat_stats = uma_data.groupby('Clean_Style')['Calculated_WinRate'].agg(['mean', 'count'])
         fig_drill = px.bar(strat_stats, x='mean', y=strat_stats.index, orientation='h', title=f"Strategy Breakdown for {target_uma}", template='plotly_dark', height=400)
