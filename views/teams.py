@@ -32,7 +32,7 @@ def show_view(df, team_df):
             )
             fig_comps.update_layout(yaxis_title=None, xaxis_title="Avg Win Rate (%)")
             fig_comps.update_traces(texttemplate='%{text} Entries', textposition='inside')
-            st.plotly_chart(style_fig(fig_comps, height=chart_height), use_container_width=True, config=PLOT_CONFIG)
+            st.plotly_chart(style_fig(fig_comps, height=chart_height), width="stretch", config=PLOT_CONFIG)
         else:
             st.info("Not enough data.")
 
@@ -60,7 +60,7 @@ def show_view(df, team_df):
         )
         fig_style.update_layout(yaxis={'categoryorder':'array', 'categoryarray': desired_order[::-1]}, xaxis_title="Avg Win Rate (%)", yaxis_title=None)
         fig_style.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-        st.plotly_chart(style_fig(fig_style, height=500), use_container_width=True, config=PLOT_CONFIG)
+        st.plotly_chart(style_fig(fig_style, height=500), width="stretch", config=PLOT_CONFIG)
 
     with tab3:
         st.subheader("⚠️ Impact of Runaways")
@@ -85,4 +85,4 @@ def show_view(df, team_df):
         )
         fig_runner.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
         fig_runner.update_layout(xaxis_title=None, showlegend=False)
-        st.plotly_chart(style_fig(fig_runner, height=500), use_container_width=True, config=PLOT_CONFIG)
+        st.plotly_chart(style_fig(fig_runner, height=500), width="stretch", config=PLOT_CONFIG)

@@ -76,7 +76,7 @@ def show_view(df, team_df):
 
     fig_leader.update_traces(texttemplate='Wins: %{text} | WR: %{marker.color:.1f}%', textposition='inside', hovertemplate='<b>%{y}</b><br>Team: %{customdata[0]}<br>Score: %{x:.1f}<extra></extra>')
     fig_leader.update_layout(xaxis_title="Performance Score", yaxis_title=None)
-    st.plotly_chart(style_fig(fig_leader, height=700), use_container_width=True, config=PLOT_CONFIG)
+    st.plotly_chart(style_fig(fig_leader, height=700), width="stretch", config=PLOT_CONFIG)
 
     # MONEY
     st.subheader("💰 Spending vs. Win Rate")
@@ -86,4 +86,4 @@ def show_view(df, team_df):
         points="all", template='plotly_dark', color_discrete_sequence=px.colors.qualitative.Bold, height=600
     )
     fig_money.update_layout(showlegend=False, yaxis_title="Win Rate (%)", xaxis_title="Spending Tier")
-    st.plotly_chart(style_fig(fig_money, height=600), use_container_width=True, config=PLOT_CONFIG)
+    st.plotly_chart(style_fig(fig_money, height=600), width="stretch", config=PLOT_CONFIG)

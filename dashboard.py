@@ -76,15 +76,15 @@ def set_page(page_name):
     st.session_state.current_page = page_name
 
 with nav_cols[0]:
-    if st.button("🌍 Home", use_container_width=True): set_page("Home")
+    if st.button("🌍 Home", width="stretch"): set_page("Home")
 with nav_cols[1]:
-    if st.button("⚔️ Teams", use_container_width=True): set_page("Teams")
+    if st.button("⚔️ Teams", width="stretch"): set_page("Teams")
 with nav_cols[2]:
-    if st.button("🐴 Umas", use_container_width=True): set_page("Umas")
+    if st.button("🐴 Umas", width="stretch"): set_page("Umas")
 with nav_cols[3]:
-    if st.button("🃏 Resources", use_container_width=True): set_page("Resources")
+    if st.button("🃏 Resources", width="stretch"): set_page("Resources")
 with nav_cols[4]:
-    if st.button("ℹ️ Credits", use_container_width=True): set_page("Credits")
+    if st.button("ℹ️ Credits", width="stretch"): set_page("Credits")
 
 st.markdown("---")
 
