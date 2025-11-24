@@ -1,5 +1,5 @@
 import streamlit as st
-from utils import load_data, footer_html, DESCRIPTIONS
+from utils import load_data, footer_html, DESCRIPTIONS, load_ocr_data
 from PIL import Image
 import os
 
@@ -41,6 +41,8 @@ except:
     st.error("Database Connection Failed")
     st.stop()
 
+ocr_df = load_ocr_data()
+
 # 4. GLOBAL SIDEBAR FILTERS
 st.sidebar.header("⚙️ Global Filters")
 
@@ -67,7 +69,7 @@ if selected_day:
 
 # 5. TOP NAVIGATION
 st.markdown("## 🏆 Virgo Cup Analytics")
-nav_cols = st.columns([1, 1, 1, 1, 1])
+nav_cols = st.columns([1, 1, 1, 1, 1, 1])
 
 if 'current_page' not in st.session_state:
     st.session_state.current_page = "Home"
@@ -85,6 +87,8 @@ with nav_cols[3]:
     if st.button("🃏 Resources", width="stretch"): set_page("Resources")
 with nav_cols[4]:
     if st.button("ℹ️ Credits", width="stretch"): set_page("Credits")
+with nav_cols[5]:
+    if st.button("📸 OCR Data", width="stretch"): set_page("OCR")
 
 st.markdown("---")
 
@@ -149,6 +153,10 @@ elif st.session_state.current_page == "Resources":
 elif st.session_state.current_page == "Credits":
     from views import credits
     credits.show_view()
+
+elif st.session_state.current_page == "OCR":
+    from views import ocr
+    ocr.show_view(ocr_df)
 
 # 8. FOOTER
 st.markdown(footer_html, unsafe_allow_html=True)

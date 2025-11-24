@@ -213,6 +213,44 @@ def load_data():
     except Exception as e:
         st.error(f"Data Error: {e}")
         return pd.DataFrame(), pd.DataFrame()
+    
+@st.cache_data(ttl=300) # Cache for 5 minutes
+def load_ocr_data(filepath="data\r2d2.parquet"):
+    try:
+        if not os.path.exists(filepath):
+            return pd.DataFrame()
+            
+        df = pd.read_parquet(filepath)
+        
+        # --- 1. CLEANING MISSING VALUES ---
+        # Remove empty names
+        df.dropna(subset=['name'], inplace=True)
+        
+        # Fill stats with median
+        stat_cols = ['Speed', 'Stamina', 'Power', 'Guts', 'Wit', 'score']
+        for col in stat_cols:
+            if col in df.columns:
+                # Force numeric first to turn "12OO" into NaN
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+                df[col] = df[col].fillna(df[col].median())
+                df[col] = df[col].astype(int)
+
+        # Fill text with 'Unknown'
+        text_cols = ['rank', 'skills', 'Turf', 'Dirt', 'Sprint', 'Mile', 'Medium', 'Long'] 
+        for col in text_cols:
+            if col in df.columns:
+                df[col] = df[col].fillna('Unknown')
+                
+        # --- 2. OUTLIER CAPPING ---
+        # Cap stats at 2000 (adjust based on game scenario)
+        for col in stat_cols:
+             if col in df.columns:
+                df[col] = df[col].clip(upper=2000)
+
+        return df
+    except Exception as e:
+        st.error(f"Error loading Parquet: {e}")
+        return pd.DataFrame()
 
 # Common Footer
 footer_html = """
