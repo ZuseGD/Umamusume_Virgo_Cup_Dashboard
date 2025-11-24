@@ -83,6 +83,8 @@ def show_view(df, team_df):
 
     with tab2:
         st.subheader("🏃 Performance by Running Style")
+        
+        # --- HELPER: STANDARDIZE & SORT STYLES ---
         def standardize_style(style):
             s = str(style).lower().strip()
             if 'oonige' in s or 'escape' in s or 'runaway' in s: return 'Runaway'
@@ -92,7 +94,7 @@ def show_view(df, team_df):
             if 'late' in s: return 'Late Surger'
             if 'end' in s or 'closer' in s: return 'End Closer'
             return 'Unknown'
-        
+
         def get_style_comp(style_list):
             # 1. Standardize each style in the list
             # 2. Sort them (Critical for "Pace, End" == "End, Pace")
@@ -139,15 +141,38 @@ def show_view(df, team_df):
             fig_style_bubble.add_hline(y=avg_wr, line_dash="dot", annotation_text="Avg Win Rate")
             fig_style_bubble.add_vline(x=avg_pop, line_dash="dot", annotation_text="Avg Popularity")
 
-            st.plotly_chart(style_fig(fig_style_bubble, height=500), width="stretch", config=PLOT_CONFIG)
+            final_fig = style_fig(fig_style_bubble, height=500)
+            
+            # 2. Override the legend position (Right Side, Vertical)
+            final_fig.update_layout(
+                legend=dict(
+                    orientation="v", 
+                    yanchor="top", y=1, 
+                    xanchor="left", x=1.02
+                )
+            )
+
+            st.plotly_chart(style_fig(final_fig, height=500), width="stretch", config=PLOT_CONFIG)
             show_description("teams_meta") # Reusing team meta description
         else:
             st.info("Not enough data to show style combinations.")
 
         st.markdown("---")
 
-        # 3. BAR CHART (Existing)
-        st.markdown("#### 📋 Detailed Rankings")
+        # --- CHART 2: INDIVIDUAL STYLE PERFORMANCE (Bar) ---
+        st.markdown("#### 📋 Individual Style Performance")
+        
+        # Process individual styles from the raw DF (exploded view)
+        indiv_style_df = df.copy()
+        indiv_style_df['Standard_Style'] = indiv_style_df['Clean_Style'].apply(standardize_style)
+        
+        style_stats = indiv_style_df.groupby('Standard_Style').agg({
+            'Calculated_WinRate': 'mean', 
+            'Clean_Races': 'count'
+        }).reset_index()
+        
+        # Filter and Sort
+        style_stats = style_stats[(style_stats['Clean_Races'] > 5) & (style_stats['Standard_Style'] != 'Unknown')]
         desired_order = ['Runaway', 'Front Runner', 'Pace Chaser', 'Late Surger', 'End Closer']
         
         fig_style = px.bar(
