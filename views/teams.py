@@ -150,7 +150,7 @@ def show_view(df, team_df):
                     xanchor="left", x=0       # Align to the left
                 ),
                 # Add a little top margin so the legend doesn't get cut off
-                margin=dict(t=10, l=0, r=0, b=0) 
+                margin=dict(t=600, l=0, r=0, b=0) 
             )
 
             st.plotly_chart(style_fig(final_fig, height=500), width="stretch", config=PLOT_CONFIG)
