@@ -33,6 +33,7 @@ def show_view(ocr_df):
     st.plotly_chart(style_fig(fig_dist), width="stretch", config=PLOT_CONFIG)
     
     # 3. SCATTER PLOT (Score vs Stat)
+    '''
     st.subheader("💠 Score Efficiency")
     fig_scatter = px.scatter(
         ocr_df,
@@ -44,6 +45,7 @@ def show_view(ocr_df):
         template='plotly_dark'
     )
     st.plotly_chart(style_fig(fig_scatter), width="stretch", config=PLOT_CONFIG)
+    '''
 
     # 4. RAW DATA TABLE
     with st.expander("📂 View Raw Data"):
