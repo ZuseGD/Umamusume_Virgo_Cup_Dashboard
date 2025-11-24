@@ -1,10 +1,17 @@
 import streamlit as st
 from utils import load_data, footer_html
+from PIL import Image
+import os
 
-# 1. Page Config (Hides Sidebar by default)
+# 1. Page Config (Must be first)
+# Using moologo2.jpg as the favicon if it exists, otherwise falling back to emoji
+page_icon = "🏆"
+if os.path.exists("moologo2.jpg"):
+    page_icon = Image.open("moologo2.jpg")
+
 st.set_page_config(
     page_title="Virgo Cup CM5", 
-    page_icon="🏆", 
+    page_icon=page_icon, 
     layout="wide", 
     initial_sidebar_state="collapsed"
 )
