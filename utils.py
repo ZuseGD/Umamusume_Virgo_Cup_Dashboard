@@ -87,7 +87,7 @@ def style_fig(fig, height=600):
     return fig
 
 # --- DATA LOADING ---
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=600)
 def load_data():
     try:
         df = pd.read_csv(SHEET_URL)

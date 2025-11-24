@@ -7,7 +7,7 @@ import os
 # Using moologo2.jpg as the favicon if it exists, otherwise falling back to emoji
 page_icon = "🏆"
 if os.path.exists("images/moologo2.jpg"):
-    page_icon = Image.open("moologo2.jpg")
+    page_icon = Image.open("images/moologo2.jpg")
 
 st.set_page_config(
     page_title="Virgo Cup CM5", 
@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. Hide Sidebar CSS (Optional: Removes the arrow entirely if you want pure top nav)
+# 2. Hide Sidebar CSS
 st.markdown("""
 <style>
     [data-testid="stSidebar"] {display: none;}
@@ -33,10 +33,8 @@ except:
 
 # 4. TOP NAVIGATION BAR
 st.markdown("## 🏆 Virgo Cup Analytics")
-# Using columns for a "Navbar" look
 nav_cols = st.columns([1, 1, 1, 1, 1])
 
-# Simple State Management for Navigation
 if 'current_page' not in st.session_state:
     st.session_state.current_page = "Home"
 
