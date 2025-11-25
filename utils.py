@@ -249,9 +249,9 @@ def render_filters(df):
 
 # --- DATA LOADING ---
 @st.cache_data(ttl=300) # Cache for 5 minutes
-def load_data():
+def load_data(sheet_url):
     try:
-        df = pd.read_csv(SHEET_URL)
+        df = pd.read_csv(sheet_url)
         
         # 1. SANITIZE
         string_cols = df.select_dtypes(include=['object']).columns
