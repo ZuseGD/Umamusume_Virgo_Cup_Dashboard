@@ -2,27 +2,69 @@ import streamlit as st
 import plotly.express as px
 import pandas as pd
 from utils import style_fig, PLOT_CONFIG, calculate_score, show_description
+import base64
+import os
+
+def get_base64_image(image_path):
+    """Helper to convert image to base64 for HTML embedding"""
+    try:
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    except:
+        return None
 
 def show_view(df, team_df, current_config):
     # --- 1. DATA SUBMISSION (Clean Design) ---
     form_url = current_config.get('form_url')
     status_msg = current_config.get('status_msg', "Forms unavailable")
 
+    banner_path = "images/survey_banner.png"
+
     if form_url:
-        # Uses 'st.info' for a cleaner, system-notification look (Blue)
         with st.container():
-            st.info("📊 **Data Collection is Open:** Contribute your run stats to help our analytics!")
+            # OPTION A: Custom Image Button (If file exists)
+            if os.path.exists(banner_path):
+                img_b64 = get_base64_image(banner_path)
+                if img_b64:
+                    # HTML for Clickable Image with Hover Effect
+                    st.markdown(
+                        f"""
+                        <a href="{form_url}" target="_blank">
+                            <img src="data:image/png;base64,{img_b64}" class="survey-img-btn">
+                        </a>
+                        <style>
+                            .survey-img-btn {{
+                                width: 100%;
+                                border-radius: 12px;
+                                transition: transform 0.2s, box-shadow 0.2s;
+                                border: 2px solid #333;
+                            }}
+                            .survey-img-btn:hover {{
+                                transform: scale(1.01);
+                                box-shadow: 0 0 15px rgba(0, 204, 150, 0.4); /* Green Glow */
+                                border-color: #00CC96;
+                            }}
+                        </style>
+                        """,
+                        unsafe_allow_html=True
+                    )
             
-            # Button: Professional text, Outline style (Not a solid block)
-            st.link_button(
-                label="📝 Submit Data via Google Forms", 
-                url=form_url, 
-                type="secondary",        # <--- Changed from 'primary' to 'secondary'
-                use_container_width=True # Still full width to be hard to miss
-            )
+            # OPTION B: Standard Button (Fallback)
+            else:
+        # Uses 'st.info' for a cleaner, system-notification look (Blue)
+                with st.container():
+                    st.info("📊 **Data Collection is Open:** Contribute your run stats to help our analytics!")
+            
+                # Button: Professional text, Outline style (Not a solid block)
+                st.link_button(
+                    label="📝 Submit Data via Google Forms", 
+                    url=form_url, 
+                    type="secondary",        # <--- Changed from 'primary' to 'secondary'
+                    use_container_width=True # Still full width to be hard to miss
+                )
     else:
         # Subtle text for inactive events
-        st.caption(f"ℹ️ Survey Status: {status_msg}")
+      st.caption(f"ℹ️ Survey Status: {status_msg}")
     
 
     st.link_button(

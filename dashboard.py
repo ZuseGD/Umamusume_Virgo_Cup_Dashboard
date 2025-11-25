@@ -125,7 +125,6 @@ nav_btn(nav_cols[3], "🃏 Resources", "Resources")
 nav_btn(nav_cols[4], "📸 OCR", "OCR")
 nav_btn(nav_cols[5], "📚 Guides", "Guides")
 
-st.markdown("---")
 
 # 8. ROUTING
 if st.session_state.current_page == "Home":
