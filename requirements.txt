@@ -4,3 +4,4 @@ numpy
 streamlit
 statsmodels
 pyarrow
+requests
