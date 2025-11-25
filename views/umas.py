@@ -32,7 +32,7 @@ def show_view(df, team_df):
         strat_stats.columns = ['Strategy', 'Win_Rate', 'Entries']
         
         # Calculate Strategy Distribution % (e.g., 80% of Oguris are Christmas)
-        strat_stats['Style_Pick_Rate'] = (strat_stats['Entries'] / len(uma_data)) * 100
+        strat_stats['Style_Dist'] = (strat_stats['Entries'] / len(uma_data)) * 100
 
         # Chart: Strategy Breakdown
         fig_drill = px.bar(
@@ -44,14 +44,14 @@ def show_view(df, team_df):
             template='plotly_dark', 
             height=400,
             # Pass new Pick Rate to hover
-            hover_data={'Entries': True, 'Win_Rate': ':.1f', 'Style_Pick_Rate': ':.1f', 'Strategy': False}
+            hover_data={'Entries': True, 'Win_Rate': ':.1f', 'Style_Dist': ':.1f', 'Strategy': False}
         )
         
         fig_drill.update_traces(
             texttemplate='%{x:.1f}%', 
             textposition='inside',
-            # Tooltip: Strategy -> Win Rate -> Pick Rate -> Count
-            hovertemplate='<b>%{y}</b><br>Win Rate: %{x:.1f}%<br>Usage: %{customdata[1]:.1f}%<br>Entries: %{customdata[0]}<extra></extra>'
+            # Tooltip: Strategy -> Win Rate -> Distribution % -> Count
+            hovertemplate='<b>%{y}</b><br>Win Rate: %{x:.1f}%<br>Usage Split: %{customdata[2]:.1f}%<br>Count: %{customdata[0]}<extra></extra>'
         )
         
         fig_drill.update_layout(xaxis_title="Win Rate (%)", yaxis_title=None)
@@ -91,14 +91,15 @@ def show_view(df, team_df):
         uma_stats, 
         x='Pick_Rate',              # <--- UPDATED: Now uses Pick Rate %
         y='Calculated_WinRate',
-        size='Clean_Races',         # Keep size as count to visualize volume weight
+        size='Pick_Rate',           # Size by pick rate
         color='Calculated_WinRate',
         color_continuous_scale='Viridis',
         title="Uma Tier List: Pick Rate vs Performance",
         template='plotly_dark',
         hover_name='Clean_Uma',
         labels={'Pick_Rate': 'Pick Rate (%)', 'Calculated_WinRate': 'Win Rate (%)'},
-        height=600
+        # Add entries to hover for detail
+        hover_data={'Clean_Races': True, 'Pick_Rate': ':.2f', 'Calculated_WinRate': ':.1f'}
     )
     
     # Add Average Reference Lines
@@ -124,7 +125,7 @@ def show_view(df, team_df):
         text='Pick_Rate',          # <--- UPDATED: Text shows Pick Rate %
         template='plotly_dark', 
         # Pass extra data for tooltip
-        hover_data={'Clean_Uma': True, 'Short_Name': False, 'Clean_Races': True},
+        hover_data={'Clean_Uma': True, 'Short_Name': False, 'Clean_Races': False, 'Pick_Rate': ':.2f'},
         height=chart_height
     )
     
@@ -138,7 +139,7 @@ def show_view(df, team_df):
     fig_uma.update_traces(
         texttemplate='WR: %{x:.1f}% | Pick: %{text:.1f}%', 
         textposition='inside',
-        hovertemplate='<b>%{customdata[0]}</b><br>Win Rate: %{x:.1f}%<br>Pick Rate: %{text:.1f}%<br>Entries: %{customdata[2]}<extra></extra>'
+        hovertemplate='<b>%{customdata[0]}</b><br>Win Rate: %{x:.1f}%<br>Pick Rate: %{customdata[3]}%<br>Entries: %{customdata[2]}<extra></extra>'
     )
     
     st.plotly_chart(style_fig(fig_uma, height=chart_height), width="stretch", config=PLOT_CONFIG)
