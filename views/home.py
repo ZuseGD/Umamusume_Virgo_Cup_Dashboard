@@ -24,7 +24,6 @@ def show_view(df, team_df, current_config):
         # Subtle text for inactive events
         st.caption(f"ℹ️ Survey Status: {status_msg}")
     
-    st.markdown("---")
 
     st.link_button(
                 label="☕ Support the Project", 
