@@ -16,7 +16,6 @@ st.set_page_config(page_title="UM Dashboard", page_icon=page_icon, layout="wide"
 # 2. Hide Sidebar CSS
 st.markdown("""
 <style>
-    [data-testid="stSidebar"] {display: none;}
     [data-testid="collapsedControl"] {display: none;}
     div.stButton > button {
         width: 100%;
