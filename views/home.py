@@ -34,7 +34,7 @@ def show_view(df, team_df, current_config):
                         </a>
                         <style>
                             .survey-img-btn {{
-                                width: 100%;
+                                width: 70%;
                                 border-radius: 12px;
                                 transition: transform 0.2s, box-shadow 0.2s;
                                 border: 2px solid #333;
