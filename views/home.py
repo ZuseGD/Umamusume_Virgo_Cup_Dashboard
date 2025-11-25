@@ -4,24 +4,25 @@ import pandas as pd
 from utils import style_fig, PLOT_CONFIG, calculate_score, show_description
 
 def show_view(df, team_df, current_config):
-    # --- 1. BIG SURVEY BUTTON (Call to Action) ---
+    # --- 1. DATA SUBMISSION (Clean Design) ---
     form_url = current_config.get('form_url')
     status_msg = current_config.get('status_msg', "Forms unavailable")
 
-    # We use a container to group this section visually
-    with st.container():
-        if form_url:
-            # Active Event: Big Warning Box + Giant Button
-            st.warning("📢 **EVENT IS LIVE:** We need your data! Please submit your runs below.")
+    if form_url:
+        # Uses 'st.info' for a cleaner, system-notification look (Blue)
+        with st.container():
+            st.info("📊 **Data Collection is Open:** Contribute your run stats to help improve the Meta Tier List.")
+            
+            # Button: Professional text, Outline style (Not a solid block)
             st.link_button(
-                label="✍️ CLICK HERE TO FILL OUT THE SURVEY", 
+                label="📝 Submit Data via Google Forms", 
                 url=form_url, 
-                type="primary",        # Makes the button filled/highlighted
-                use_container_width=True # Makes it STRETCH across the screen
+                type="secondary",        # <--- Changed from 'primary' to 'secondary'
+                use_container_width=True # Still full width to be hard to miss
             )
-        else:
-            # Inactive Event: Informational Message
-            st.info(f"ℹ️ **Survey Status:** {status_msg}")
+    else:
+        # Subtle text for inactive events
+        st.caption(f"ℹ️ Survey Status: {status_msg}")
 
     st.markdown("---")
     
