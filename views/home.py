@@ -3,7 +3,28 @@ import plotly.express as px
 import pandas as pd
 from utils import style_fig, PLOT_CONFIG, calculate_score, show_description
 
-def show_view(df, team_df):
+def show_view(df, team_df, current_config):
+    # --- 1. BIG SURVEY BUTTON (Call to Action) ---
+    form_url = current_config.get('form_url')
+    status_msg = current_config.get('status_msg', "Forms unavailable")
+
+    # We use a container to group this section visually
+    with st.container():
+        if form_url:
+            # Active Event: Big Warning Box + Giant Button
+            st.warning("📢 **EVENT IS LIVE:** We need your data! Please submit your runs below.")
+            st.link_button(
+                label="✍️ CLICK HERE TO FILL OUT THE SURVEY", 
+                url=form_url, 
+                type="primary",        # Makes the button filled/highlighted
+                use_container_width=True # Makes it STRETCH across the screen
+            )
+        else:
+            # Inactive Event: Informational Message
+            st.info(f"ℹ️ **Survey Status:** {status_msg}")
+
+    st.markdown("---")
+    
     # --- UPDATE NOTICE ---
     with st.expander("✨ What's New (Nov 24 Update)", expanded=True):
         st.markdown("""
