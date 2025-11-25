@@ -27,14 +27,19 @@ def show_view(df, team_df):
         c2.metric("Pick Rate", f"{uma_pick_rate:.1f}%")
         c3.metric("Unique Users", int(unique_players))
         
-        # Prepare Strategy Data
-        strat_stats = uma_data.groupby('Clean_Style')['Calculated_WinRate'].agg(['mean', 'count']).reset_index()
-        strat_stats.columns = ['Strategy', 'Win_Rate', 'Entries']
+        # 1. PREPARE DATA: Aggregate by Summing Races (True Volume)
+        # We sum 'Clean_Races' to get the total volume of matches played
+        strat_stats = uma_data.groupby('Clean_Style').agg({
+            'Calculated_WinRate': 'mean',
+            'Clean_Races': 'sum'  # <--- UPDATED: Summing races for volume
+        }).reset_index()
+        strat_stats.columns = ['Strategy', 'Win_Rate', 'Race_Volume']
         
-        # Calculate Strategy Distribution % (e.g., 80% of Oguris are Christmas)
-        strat_stats['Style_Dist'] = (strat_stats['Entries'] / len(uma_data)) * 100
+        # Calculate Strategy Distribution %
+        total_vol = strat_stats['Race_Volume'].sum()
+        strat_stats['Style_Dist'] = (strat_stats['Race_Volume'] / total_vol) * 100
 
-        # Chart: Strategy Breakdown
+        # 2. CHART: Strategy Breakdown
         fig_drill = px.bar(
             strat_stats, 
             x='Win_Rate', 
@@ -43,15 +48,15 @@ def show_view(df, team_df):
             title=f"Strategy Breakdown for {target_uma}", 
             template='plotly_dark', 
             height=400,
-            # Pass new Pick Rate to hover
-            hover_data={'Entries': True, 'Win_Rate': ':.1f', 'Style_Dist': ':.1f', 'Strategy': False}
+            # Pass Race_Volume to hover
+            hover_data={'Race_Volume': True, 'Win_Rate': ':.1f', 'Style_Dist': ':.1f', 'Strategy': False}
         )
         
         fig_drill.update_traces(
             texttemplate='%{x:.1f}%', 
             textposition='inside',
-            # Tooltip: Strategy -> Win Rate -> Distribution % -> Count
-            hovertemplate='<b>%{y}</b><br>Win Rate: %{x:.1f}%<br>Usage Split: %{customdata[2]:.1f}%<br>Count: %{customdata[0]}<extra></extra>'
+            # Tooltip: Strategy -> Win Rate -> Distribution % -> True Race Volume
+            hovertemplate='<b>%{y}</b><br>Win Rate: %{x:.1f}%<br>Usage Split: %{customdata[2]:.1f}%<br>Races: %{customdata[0]}<extra></extra>'
         )
         
         fig_drill.update_layout(xaxis_title="Win Rate (%)", yaxis_title=None)
