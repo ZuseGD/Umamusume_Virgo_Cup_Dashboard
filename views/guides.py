@@ -2,7 +2,7 @@ import streamlit as st
 from utils import style_fig, PLOT_CONFIG, calculate_score, show_description
 
 def show_view():
-    st.warning("⚠️ **NOTE:** This guide is section is WIP AND tailored for the **Libra Cup (2025)** event. Please ensure you're preparing for the correct event.")
+    st.warning("⚠️ **NOTE:** This guide is WIP IGNORE EVERYTHING BELOW")
     st.header("📚 Libra Cup Preparation Guide")
     
     # --- 1. COURSE INFO ---
