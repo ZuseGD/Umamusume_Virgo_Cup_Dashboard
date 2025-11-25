@@ -107,11 +107,7 @@ elif st.session_state.current_page == "Resources":
     resources.show_view(df, team_df)
 elif st.session_state.current_page == "OCR":
     from views import ocr
-    from utils import load_ocr_data
-    # Check if parquet exists
-    pq_file = current_config.get('parquet_file', '')
-    ocr_df = load_ocr_data(pq_file)
-    ocr.show_view(ocr_df)
+    ocr.show_view(current_config)
 elif st.session_state.current_page == "Guides":
     from views import guides
     guides.show_view(current_config)

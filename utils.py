@@ -248,7 +248,7 @@ def render_filters(df):
     return df
 
 # --- DATA LOADING ---
-@st.cache_data(ttl=300) # Cache for 5 minutes
+@st.cache_data(ttl=3600) # Cache for 1 hour
 def load_data(sheet_url):
     try:
         df = pd.read_csv(sheet_url)
