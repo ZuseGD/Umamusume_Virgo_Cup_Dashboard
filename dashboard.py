@@ -11,36 +11,6 @@ if os.path.exists("images/moologo2.png"):
 
 st.set_page_config(page_title="UM Dashboard", page_icon=page_icon, layout="wide")
 
-st.markdown("""
-<style>
-    /* 1. Make the Sidebar Visible */
-    [data-testid="stSidebar"] {
-        display: block !important;
-        min-width: 250px;
-    }
-    
-    /* 2. Force the Collapse/Expand Button to ALWAYS show (No autohide) */
-    [data-testid="collapsedControl"] {
-        display: block !important;
-        opacity: 1 !important; /* Forces button to stay 100% visible */
-        color: #ffffff !important; /* Ensures icon is visible on dark bg */
-    }
-
-    /* 3. Navigation Buttons */
-    div.stButton > button {
-        width: 100%;
-        border-radius: 5px;
-        height: 3em;
-        font-weight: bold;
-        border: 1px solid #444;
-    }
-    div.stButton > button:hover {
-        border-color: #00CC96;
-        color: #00CC96;
-    }
-</style>
-            
-""", unsafe_allow_html=True)
 #  EVENT SELECTION
 st.sidebar.header("📅 Event Selector")
 event_names = list(CM_LIST.keys())
