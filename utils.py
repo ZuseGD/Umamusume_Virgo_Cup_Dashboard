@@ -344,12 +344,12 @@ def load_data(sheet_url):
         return pd.DataFrame(), pd.DataFrame()
     
 @st.cache_data(ttl=300) # Cache for 5 minutes
-def load_ocr_data(filepath="data/r2d2.parquet"):
+def load_ocr_data(parquet_file):
     try:
-        if not os.path.exists(filepath):
+        if not os.path.exists(parquet_file):
             return pd.DataFrame()
             
-        df = pd.read_parquet(filepath)
+        df = pd.read_parquet(parquet_file)
 
         # --- 🛡️ SECURITY: SANITIZE INPUTS ---
         string_cols = df.select_dtypes(include=['object']).columns
