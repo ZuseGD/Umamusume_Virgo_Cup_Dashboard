@@ -15,12 +15,18 @@ def show_view(current_config):
 
     # 3. Display Images
     for img_path in images:
-        if os.path.exists(img_path):
-            st.image(img_path, use_column_width=True)
+        # Case A: It's a Web URL (Display directly)
+        if img_path.startswith("http"):
+            st.image(img_path, use_container_width=True)
+            
+        # Case B: It's a Local File (Check existence first)
+        elif os.path.exists(img_path):
+            st.image(img_path, use_container_width=True)
+            
+        # Case C: File missing or broken link
         else:
-            # Helpful error message for you
-            st.warning(f"⚠️ Missing Image: `{img_path}`")
-            st.caption("Please upload your Canva image to the `images/` folder and ensure the name matches `cm_config.py`.")
+            st.warning(f"⚠️ Image not found: `{img_path}`")
+            st.caption("Please check the URL or file path in `cm_config.py`.")
 
     st.markdown("---")
     
