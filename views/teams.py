@@ -57,39 +57,7 @@ def show_view(df, team_df):
             
             st.markdown("---")
 
-            # 3. BAR CHART (Rankings)
-            st.markdown("#### 📋 Detailed Rankings")
-            
-            # Short Name
-            comp_stats['Short_Comp'] = comp_stats['Team_Comp'].apply(
-                lambda x: x[:25] + "..." if len(x) > 25 else x
-            )
-            
-            # Dynamic Height
-            n_items = len(comp_stats.head(15))
-            chart_height = dynamic_height(n_items, min_height=500, per_item=50)
-            
-            fig_comps = px.bar(
-                comp_stats.sort_values('Calculated_WinRate', ascending=True).head(14),
-                x='Calculated_WinRate', 
-                y='Short_Comp', 
-                orientation='h', 
-                color='Calculated_WinRate',
-                color_continuous_scale='Plasma', 
-                text='Pick_Rate', # Show %
-                template='plotly_dark', 
-                height=chart_height,
-                hover_name='Team_Comp',
-                hover_data={'Entries': True}
-            )
-            fig_comps.update_layout(yaxis_title="Team Composition", xaxis_title="Avg Win Rate (%)")
-            fig_comps.update_traces(texttemplate='Pick: %{text:.1f}%', textposition='inside')
-            
-            st.plotly_chart(style_fig(fig_comps, height=chart_height), width="stretch", config=PLOT_CONFIG)
-            show_description("teams_meta")
-            
-        else:
-            st.info("Not enough data. (Need >5 entries per team to display)")
+        
 
     # --- TAB 2: RUNNING STYLE ---
     with tab2:
