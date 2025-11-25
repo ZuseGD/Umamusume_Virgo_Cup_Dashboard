@@ -93,7 +93,6 @@ def show_view(df, team_df, current_config):
 
     st.markdown("---")
 
-def show_view(df, team_df, current_config):
     st.link_button(
                 label="☕ Support the Project", 
                 url='https://paypal.me/paypal.me/JgamersZuse', 
