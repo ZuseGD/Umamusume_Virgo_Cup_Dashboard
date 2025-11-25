@@ -66,7 +66,7 @@ def show_view(df, team_df):
             )
             
             # Dynamic Height
-            n_items = len(comp_stats.head(14))
+            n_items = len(comp_stats.head(15))
             chart_height = dynamic_height(n_items, min_height=500, per_item=50)
             
             fig_comps = px.bar(
