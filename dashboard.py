@@ -33,8 +33,6 @@ else:
     st.sidebar.info(f"🚫 {status_msg}")
 # -------------------------------
 
-st.sidebar.markdown("---")
-
 #  LOAD DATA
 try:
     # Check for local file existence if not a URL
