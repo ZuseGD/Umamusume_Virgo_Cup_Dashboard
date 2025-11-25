@@ -11,7 +11,7 @@ def show_view(df, team_df, current_config):
     if form_url:
         # Uses 'st.info' for a cleaner, system-notification look (Blue)
         with st.container():
-            st.info("📊 **Data Collection is Open:** Contribute your run stats to help improve the Meta Tier List.")
+            st.info("📊 **Data Collection is Open:** Contribute your run stats to help our analytics!")
             
             # Button: Professional text, Outline style (Not a solid block)
             st.link_button(
@@ -24,7 +24,14 @@ def show_view(df, team_df, current_config):
         # Subtle text for inactive events
         st.caption(f"ℹ️ Survey Status: {status_msg}")
 
-    st.markdown("---")
+    st.subheader("☕ Support the Project")
+    st.markdown("""
+    <a href="https://paypal.me/paypal.me/JgamersZuse" target="_blank" style="text-decoration: none;">
+        <button style="background-color:#00457C; color:white; border:none; padding:10px 20px; border-radius:5px; font-weight:bold; cursor:pointer;">
+            Paypal Donation
+        </button>
+    </a>
+    """, unsafe_allow_html=True)
     
     # --- UPDATE NOTICE ---
     with st.expander("✨ What's New (Nov 24 Update)", expanded=True):
