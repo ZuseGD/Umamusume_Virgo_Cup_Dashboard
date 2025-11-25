@@ -11,16 +11,6 @@ if os.path.exists("images/moologo2.png"):
 
 st.set_page_config(page_title="UM Dashboard", page_icon=page_icon, layout="wide", initial_sidebar_state="collapsed")
 
-# 2. CSS
-
-# 2. Hide Sidebar CSS
-st.markdown("""
-<style>
-    [data-testid="stSidebar"] {min-width: 250px;}
-    div.stButton > button {width: 100%; border-radius: 5px; height: 3em; font-weight: bold; border: 1px solid #444;}
-    div.stButton > button:hover {border-color: #00CC96; color: #00CC96;}
-</style>
-""", unsafe_allow_html=True)
 
 # 3. EVENT SELECTION
 st.sidebar.header("📅 Event Selector")

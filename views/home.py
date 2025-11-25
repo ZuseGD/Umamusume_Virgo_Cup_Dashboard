@@ -7,10 +7,29 @@ def show_view(df, team_df):
     # --- UPDATE NOTICE ---
     with st.expander("✨ What's New (Nov 24 Update)", expanded=True):
         st.markdown("""
-        - 📸 **New Feature:** Added [OCR Data Analysis](#) tab (Parquet Data).
-        - 👑 **Leaderboard Fixed:** Now ranks by Total Volume + Win Rate properly.
-        - 📱 **Mobile Friendly:** Charts now resize dynamically for phone screens.
-        - 💠 **Tier List:** Added "Popularity vs. Performance" Quadrant Chart.
+        Patch Notes: Virgo & Libra Update
+
+🐛 Critical Fixes
+
+    Leaderboard Accuracy: Fixed a bug where players could be double-counted or have inflated win rates (e.g., >100%). The system now strictly counts verified daily logs and ignores conflicting summary data.
+
+    Fairer Scoring: Updated the ranking formula. Players who "grind" (play more races) are now rewarded more fairly compared to players with lucky high win rates on few races.
+
+✨ New Features
+
+    Event Selector: Added a dropdown menu to switch between tournaments (e.g., Virgo Cup vs. Libra Cup) instantly.
+
+    Interactive Guides: Added a "Guides" tab with high-quality track maps and tier lists that you can zoom, pan, and view in full screen.
+
+    OCR Data Tab: Added a dedicated section to analyze data scanned from screenshots.
+
+📈 Improvements
+
+    Better Charts: Graphs now display "Pick Rate %" (popularity) instead of confusing raw numbers, making the "Meta" easier to read.
+
+    Mobile Friendly: All charts now automatically resize to fit phone screens without squishing the labels.
+
+    Detailed Tooltips: Hovering over charts now shows exact "Race Volume" and "Usage Splits" for deeper insight.
         """)
 
     
