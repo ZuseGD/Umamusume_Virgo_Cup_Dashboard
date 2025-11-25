@@ -1,6 +1,6 @@
 import streamlit as st
 import os
-from utils import load_data, footer_html, load_ocr_data
+from virgo_utils import load_data, footer_html, load_ocr_data
 from PIL import Image
 from cm_config import CM_LIST
 
@@ -142,7 +142,7 @@ elif st.session_state.current_page == "Resources":
     resources.show_view(df, team_df)
 elif st.session_state.current_page == "OCR":
     from views import ocr
-    from utils import load_ocr_data
+    from virgo_utils import load_ocr_data
     pq_file = current_config.get('parquet_file', '')
     ocr_df = load_ocr_data(pq_file)
     ocr.show_view(ocr_df)

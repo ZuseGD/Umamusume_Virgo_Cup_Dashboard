@@ -3,7 +3,7 @@ import plotly.express as px
 import pandas as pd
 import os
 import base64
-from utils import style_fig, PLOT_CONFIG, calculate_score, show_description
+from virgo_utils import style_fig, PLOT_CONFIG, calculate_score, show_description
 
 def get_base64_image(image_path):
     """Helper to convert image to base64 for HTML embedding"""

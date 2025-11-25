@@ -1,7 +1,7 @@
 import streamlit as st
 import plotly.express as px
 import pandas as pd
-from utils import style_fig, PLOT_CONFIG, load_ocr_data, dynamic_height
+from virgo_utils import style_fig, PLOT_CONFIG, load_ocr_data, dynamic_height
 
 def show_view(current_config):
     # 1. Get Config
