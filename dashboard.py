@@ -16,74 +16,71 @@ st.set_page_config(page_title="UM Dashboard", page_icon=page_icon, layout="wide"
 # 2. Hide Sidebar CSS
 st.markdown("""
 <style>
-    [data-testid="collapsedControl"] {display: none;}
-    div.stButton > button {
-        width: 100%;
-        border-radius: 5px;
-        height: 3em;
-        font-weight: bold;
-        border: 1px solid #444;
-    }
-    div.stButton > button:hover {
-        border-color: #00CC96;
-        color: #00CC96;
-    }
+    [data-testid="stSidebar"] {min-width: 250px;}
+    div.stButton > button {width: 100%; border-radius: 5px; height: 3em; font-weight: bold; border: 1px solid #444;}
+    div.stButton > button:hover {border-color: #00CC96; color: #00CC96;}
 </style>
 """, unsafe_allow_html=True)
 
+# 3. EVENT SELECTION
 st.sidebar.header("📅 Event Selector")
 event_names = list(CM_LIST.keys())
-selected_event_name = st.sidebar.selectbox("Select Event", event_names, index=0)
+selected_event_name = st.sidebar.selectbox("Select Event", event_names, index=0, key="event_selector")
 current_config = CM_LIST[selected_event_name]
+
 st.sidebar.markdown("---")
 
-
-
-# 3. Load Data
+# 4. LOAD DATA
 try:
+    # Check for local file existence if not a URL
+    if not current_config['sheet_url'].startswith("http"):
+        if not os.path.exists(current_config['sheet_url']):
+            st.error(f"❌ File not found: **{current_config['sheet_url']}**")
+            st.info("Please ensure the CSV file is in the same folder as `dashboard.py`.")
+            st.stop()
+
     df, team_df = load_data(current_config['sheet_url'])
-except:
-    st.error("Failed to load data for this event.")
+    
+    if df.empty:
+        st.error("⚠️ Data loaded but is empty. Check CSV format.")
+        st.stop()
+        
+except Exception as e:
+    st.error(f"❌ Critical Data Error: {e}")
     st.stop()
 
-# FILTERS
+# 5. FILTERS
 st.sidebar.header("⚙️ Global Filters")
-groups = list(df['Clean_Group'].unique())
-selected_group = st.sidebar.multiselect("CM Group", groups, default=groups)
 
-rounds = sorted(list(df['Round'].unique()))
-selected_round = st.sidebar.multiselect("Round", rounds, default=rounds)
+# Apply Filters (With Unique Keys to prevent DuplicateID Error)
+if 'Clean_Group' in df.columns:
+    groups = list(df['Clean_Group'].unique())
+    # ADDED key="filter_group"
+    selected_group = st.sidebar.multiselect("CM Group", groups, default=groups, key="filter_group") 
+    if selected_group:
+        df = df[df['Clean_Group'].isin(selected_group)]
+        team_df = team_df[team_df['Clean_Group'].isin(selected_group)]
 
-days = sorted(list(df['Day'].unique()))
-selected_day = st.sidebar.multiselect("Day", days, default=days)
+if 'Round' in df.columns:
+    rounds = sorted(list(df['Round'].unique()))
+    # ADDED key="filter_round"
+    selected_round = st.sidebar.multiselect("Round", rounds, default=rounds, key="filter_round")
+    if selected_round:
+        df = df[df['Round'].isin(selected_round)]
+        team_df = team_df[team_df['Round'].isin(selected_round)]
 
-ocr_df = load_ocr_data()
+if 'Day' in df.columns:
+    days = sorted(list(df['Day'].unique()))
+    # ADDED key="filter_day"
+    selected_day = st.sidebar.multiselect("Day", days, default=days, key="filter_day")
+    if selected_day:
+        df = df[df['Day'].isin(selected_day)]
+        team_df = team_df[team_df['Day'].isin(selected_day)]
 
-# Group Filter
-groups = list(df['Clean_Group'].unique())
-selected_group = st.sidebar.multiselect("CM Group", groups, default=groups)
-
-# Round/Day Filter
-rounds = sorted(list(df['Round'].unique()))
-days = sorted(list(df['Day'].unique()))
-selected_round = st.sidebar.multiselect("Round", rounds, default=rounds)
-selected_day = st.sidebar.multiselect("Day", days, default=days)
-
-# APPLY FILTERS
-if selected_group:
-    df = df[df['Clean_Group'].isin(selected_group)]
-    team_df = team_df[team_df['Clean_Group'].isin(selected_group)]
-if selected_round:
-    df = df[df['Round'].isin(selected_round)]
-    team_df = team_df[team_df['Round'].isin(selected_round)]
-if selected_day:
-    df = df[df['Day'].isin(selected_day)]
-    team_df = team_df[team_df['Day'].isin(selected_day)]
-
-#  HEADER
+# 6. HEADER
 st.title(f"{current_config['icon']} {selected_event_name} Dashboard")
 
-# NAVIGATION
+# 7. NAVIGATION
 nav_cols = st.columns(6)
 if 'current_page' not in st.session_state: st.session_state.current_page = "Home"
 def set_page(p): st.session_state.current_page = p
@@ -103,48 +100,7 @@ with nav_cols[5]:
 
 st.markdown("---")
 
-# --- GLOBAL FILTERS (Visible on every page) ---
-        # We use an expander so it is accessible but doesn't clutter the view
-with st.expander("⚙️ Global Filters (Round, Day, Group)", expanded=False):
-    f1, f2, f3 = st.columns(3)
-        
-        # 1. Group Filter
-    with f1:
-        # Get unique groups, sorted
-        groups = sorted(list(df['Clean_Group'].unique()))
-        selected_group = st.multiselect("Filter Group", groups, default=groups)
-            
-    # 2. Round Filter
-    with f2:
-        # Get unique rounds (e.g., Round 1, Round 2)
-        rounds = sorted(list(df['Round'].unique()))
-        selected_round = st.multiselect("Filter Round", rounds, default=rounds)
-            
-    # 3. Day Filter
-    with f3:
-        # Get unique days (e.g., Day 1, Day 2)
-        days = sorted(list(df['Day'].unique()))
-        selected_day = st.multiselect("Filter Day", days, default=days)
-
-    # --- APPLY FILTERS TO DATA ---
-    # This updates BOTH the individual data (df) and team data (team_df)
-    # passing the filtered versions to your views.
-
-    if selected_group:
-        df = df[df['Clean_Group'].isin(selected_group)]
-        team_df = team_df[team_df['Clean_Group'].isin(selected_group)]
-
-    if selected_round:
-        df = df[df['Round'].isin(selected_round)]
-        team_df = team_df[team_df['Round'].isin(selected_round)]
-
-    if selected_day:
-        df = df[df['Day'].isin(selected_day)]
-        team_df = team_df[team_df['Day'].isin(selected_day)]
-    with st.expander("⚠️ Data Disclaimer (Survivorship Bias)"):
-        st.markdown(DESCRIPTIONS["bias"])
-
-# 7. ROUTING
+# 8. ROUTING
 if st.session_state.current_page == "Home":
     from views import home
     home.show_view(df, team_df)
@@ -159,14 +115,15 @@ elif st.session_state.current_page == "Resources":
     resources.show_view(df, team_df)
 elif st.session_state.current_page == "OCR":
     from views import ocr
-    # Pass specific parquet file if needed, or update load_ocr_data to take arg
     from utils import load_ocr_data
-    ocr_df = load_ocr_data(current_config['parquet_file'])
+    # Check if parquet exists
+    pq_file = current_config.get('parquet_file', '')
+    ocr_df = load_ocr_data(pq_file)
     ocr.show_view(ocr_df)
 elif st.session_state.current_page == "Guides":
     from views import guides
     guides.show_view()
-elif st.session_state.current_page == "Credits": # Hidden from top nav but reachable
+elif st.session_state.current_page == "Credits":
     from views import credits
     credits.show_view()
 
