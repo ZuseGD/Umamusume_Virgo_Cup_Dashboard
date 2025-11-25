@@ -60,7 +60,7 @@ def show_view(df, team_df, current_config):
     # --- RIGHT SIDE: SURVEY BUTTON ---
     with col_btn:
         form_url = current_config.get('form_url')
-        banner_path = "images/survey_banner.png"
+        banner_path = "images/survey_banners.png"
 
         if form_url:
             # 1. Image Button (Priority)
