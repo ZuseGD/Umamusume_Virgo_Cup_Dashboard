@@ -22,7 +22,6 @@ def show_view(df, team_df, current_config):
 
     # --- LEFT SIDE: HEADER & UPDATES ---
     with col_header:
-        st.header("Global Overview")
         
         # Update Notice (Tucked neatly under the header)
         with st.expander("✨ What's New (Nov 24 Update)", expanded=False):
@@ -51,6 +50,13 @@ def show_view(df, team_df, current_config):
 
     Detailed Tooltips: Hovering over charts now shows exact "Race Volume" and "Usage Splits" for deeper insight.
         """)
+    st.link_button(
+                label="☕ Support the Project", 
+                url='https://paypal.me/paypal.me/JgamersZuse', 
+                type="secondary",        # <--- Changed from 'primary' to 'secondary'
+                use_container_width=True,
+                use_container_height=True
+            )
 
     # --- RIGHT SIDE: SURVEY BUTTON ---
     with col_btn:
@@ -102,20 +108,8 @@ def show_view(df, team_df, current_config):
         else:
             # Placeholder if no event is active
             st.empty()
-
-
-
-    st.link_button(
-                label="☕ Support the Project", 
-                url='https://paypal.me/paypal.me/JgamersZuse', 
-                type="secondary",        # <--- Changed from 'primary' to 'secondary'
-                use_container_width=True # Still full width to be hard to miss
-            )
-    
-    
         
 
-    
     st.header("Global Overview")
     
     # Metrics
