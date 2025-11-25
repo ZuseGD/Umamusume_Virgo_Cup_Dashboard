@@ -5,6 +5,13 @@ from utils import style_fig, PLOT_CONFIG, calculate_score, show_description
 import base64
 import os
 
+import streamlit as st
+import plotly.express as px
+import pandas as pd
+import os
+import base64
+from utils import style_fig, PLOT_CONFIG, calculate_score, show_description
+
 def get_base64_image(image_path):
     """Helper to convert image to base64 for HTML embedding"""
     try:
@@ -14,34 +21,56 @@ def get_base64_image(image_path):
         return None
 
 def show_view(df, team_df, current_config):
-    # --- 1. DATA SUBMISSION (Clean Design) ---
-    form_url = current_config.get('form_url')
-    status_msg = current_config.get('status_msg', "Forms unavailable")
+    
+    # --- TOP LAYOUT (Header Left | Button Right) ---
+    # Create two columns: Left (Main Title) vs Right (Action Button)
+    # gap="large" adds spacing between the title and the button
+    col_header, col_btn = st.columns([3, 2], gap="medium")
 
-    banner_path = "images/survey_banner.png"
+    # --- LEFT SIDE: HEADER & UPDATES ---
+    with col_header:
+        st.header("Global Overview")
+        
+        # Update Notice (Tucked neatly under the header)
+        with st.expander("✨ What's New (Nov 24 Update)", expanded=False):
+            st.markdown("""
+            - 📸 **New Feature:** Added [OCR Data Analysis](#) tab.
+            - 👑 **Leaderboard Fixed:** Now ranks by Total Volume + Win Rate.
+            - 📱 **Mobile Friendly:** Charts resize dynamically.
+            - 💠 **Tier List:** Added "Popularity vs. Performance" Quadrant Chart.
+            """)
 
-    if form_url:
-        with st.container():
-            # OPTION A: Custom Image Button (If file exists)
+    # --- RIGHT SIDE: SURVEY BUTTON ---
+    with col_btn:
+        form_url = current_config.get('form_url')
+        banner_path = "images/survey_banner.png"
+
+        if form_url:
+            # 1. Image Button (Priority)
             if os.path.exists(banner_path):
                 img_b64 = get_base64_image(banner_path)
                 if img_b64:
-                    # HTML for Clickable Image with Hover Effect
+                    # HTML for Clickable Image (Right Aligned)
                     st.markdown(
                         f"""
-                        <a href="{form_url}" target="_blank">
-                            <img src="data:image/png;base64,{img_b64}" class="survey-img-btn">
-                        </a>
+                        <div style="display: flex; justify-content: flex-end;">
+                            <a href="{form_url}" target="_blank">
+                                <img src="data:image/png;base64,{img_b64}" class="survey-img-btn">
+                            </a>
+                        </div>
                         <style>
                             .survey-img-btn {{
-                                width: 70%;
+                                width: 100%;          /* Responsive width */
+                                max-width: 350px;     /* Cap size so it's not huge */
+                                height: auto;
                                 border-radius: 12px;
                                 transition: transform 0.2s, box-shadow 0.2s;
                                 border: 2px solid #333;
+                                margin-bottom: 10px;
                             }}
                             .survey-img-btn:hover {{
-                                transform: scale(1.01);
-                                box-shadow: 0 0 15px rgba(0, 204, 150, 0.4); /* Green Glow */
+                                transform: translateY(-3px); /* Float up effect */
+                                box-shadow: 0 4px 20px rgba(0, 204, 150, 0.4); /* Green Glow */
                                 border-color: #00CC96;
                             }}
                         </style>
@@ -49,24 +78,22 @@ def show_view(df, team_df, current_config):
                         unsafe_allow_html=True
                     )
             
-            # OPTION B: Standard Button (Fallback)
+            # 2. Standard Button (Fallback)
             else:
-        # Uses 'st.info' for a cleaner, system-notification look (Blue)
-                with st.container():
-                    st.info("📊 **Data Collection is Open:** Contribute your run stats to help our analytics!")
-            
-                # Button: Professional text, Outline style (Not a solid block)
+                # If no image, show a clean button aligned right
                 st.link_button(
-                    label="📝 Submit Data via Google Forms", 
+                    label="📝 Submit Run Data (Google Form)", 
                     url=form_url, 
-                    type="secondary",        # <--- Changed from 'primary' to 'secondary'
-                    use_container_width=True # Still full width to be hard to miss
+                    type="primary", 
+                    use_container_width=True
                 )
-    else:
-        # Subtle text for inactive events
-      st.caption(f"ℹ️ Survey Status: {status_msg}")
-    
+        else:
+            # Placeholder if no event is active
+            st.empty()
 
+    st.markdown("---")
+
+def show_view(df, team_df, current_config):
     st.link_button(
                 label="☕ Support the Project", 
                 url='https://paypal.me/paypal.me/JgamersZuse', 
