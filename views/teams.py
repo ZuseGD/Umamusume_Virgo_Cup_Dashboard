@@ -66,11 +66,11 @@ def show_view(df, team_df):
             )
             
             # Dynamic Height
-            n_items = len(comp_stats.head(10))
+            n_items = len(comp_stats.head(14))
             chart_height = dynamic_height(n_items, min_height=500, per_item=50)
             
             fig_comps = px.bar(
-                comp_stats.sort_values('Calculated_WinRate', ascending=True).head(15),
+                comp_stats.sort_values('Calculated_WinRate', ascending=True).head(14),
                 x='Calculated_WinRate', 
                 y='Short_Comp', 
                 orientation='h', 
