@@ -52,7 +52,7 @@ def show_view(df, team_df, current_config):
         """)
         st.link_button(
                 label="☕ Support the Project", 
-                url='https://paypal.me/paypal.me/JgamersZuse', 
+                url='https://ko-fi.com/zusethegoose', 
                 type="secondary",        # <--- Changed from 'primary' to 'secondary'
                 use_container_width=True
             )
@@ -60,7 +60,7 @@ def show_view(df, team_df, current_config):
     # --- RIGHT SIDE: SURVEY BUTTON ---
     with col_btn:
         form_url = current_config.get('form_url')
-        banner_path = "images/survey_banners.png"
+        banner_path = "images/survey_banner.png"
 
         if form_url:
             # 1. Image Button (Priority)
