@@ -1,13 +1,6 @@
 import streamlit as st
 import plotly.express as px
 import pandas as pd
-from utils import style_fig, PLOT_CONFIG, calculate_score, show_description
-import base64
-import os
-
-import streamlit as st
-import plotly.express as px
-import pandas as pd
 import os
 import base64
 from utils import style_fig, PLOT_CONFIG, calculate_score, show_description

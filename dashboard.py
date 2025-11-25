@@ -1,8 +1,9 @@
 import streamlit as st
-from utils import load_data, footer_html, DESCRIPTIONS, load_ocr_data
+import os
+from utils import load_data, footer_html, load_ocr_data
 from PIL import Image
 from cm_config import CM_LIST
-import os
+
 
 # 1. Page Config
 page_icon = "🏆"
