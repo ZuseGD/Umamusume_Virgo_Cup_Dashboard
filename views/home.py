@@ -50,7 +50,7 @@ def show_view(df, team_df, current_config):
 
     Detailed Tooltips: Hovering over charts now shows exact "Race Volume" and "Usage Splits" for deeper insight.
         """)
-    st.link_button(
+        st.link_button(
                 label="☕ Support the Project", 
                 url='https://paypal.me/paypal.me/JgamersZuse', 
                 type="secondary",        # <--- Changed from 'primary' to 'secondary'
