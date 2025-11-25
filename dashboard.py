@@ -143,7 +143,7 @@ st.markdown("---")
 # 8. ROUTING
 if st.session_state.current_page == "Home":
     from views import home
-    home.show_view(df, team_df)
+    home.show_view(df, team_df, current_config)
 elif st.session_state.current_page == "Teams":
     from views import teams
     teams.show_view(df, team_df)
