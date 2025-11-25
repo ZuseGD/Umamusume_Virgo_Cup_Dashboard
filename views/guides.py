@@ -50,38 +50,34 @@ def render_interactive_image(path):
     image = None
     
     # A. Load Image Data (Local or Web)
-    try:
-        if path.startswith("http"):
-            response = requests.get(path)
-            image = Image.open(BytesIO(response.content))
-        elif os.path.exists(path):
-            image = Image.open(path)
-    except Exception as e:
-        st.error(f"⚠️ Could not load image: `{path}`")
-        return
-
     if image:
-        # B. Create Plotly Figure
-        # 'binary_string=True' is efficient for large images
-        fig = px.imshow(image, binary_string=True)
+        st.markdown(f"### 🖼️ {os.path.basename(path)}")
         
-        # C. Configure Layout for "Map-like" feel
+        # --- 1. ADD DIRECT LINK (Best for readability) ---
+        if path.startswith("http"):
+            st.link_button("🔍 Open Full Resolution Image (New Tab)", path)
+        
+        st.caption("🔍 **Controls:** Scroll to Zoom • Drag to Pan • Double-Click to Reset")
+
+        # --- 2. CREATE HIGH-QUALITY FIGURE ---
+        # binary_format="png" prevents JPEG artifacts on text
+        # binary_compression_level=0 ensures maximum quality
+        fig = px.imshow(
+            image, 
+            binary_string=True, 
+            binary_format="png", 
+            binary_compression_level=0
+    )
+        
+        # C. Configure Layout
         fig.update_layout(
-            # Remove axes and ticks
             xaxis={'showticklabels': False, 'visible': False},
             yaxis={'showticklabels': False, 'visible': False},
-            # Remove margins so image fills the container
             margin=dict(l=0, r=0, t=0, b=0),
-            # Enable Panning by default
             dragmode='pan',
-            # Set a fixed height for the "viewport" (User scrolls inside this window)
             height=800, 
             hovermode=False
         )
         
         # D. Render
-        st.markdown(f"### 🖼️ {os.path.basename(path)}")
-        st.caption("🔍 **Controls:** Scroll to Zoom • Drag to Pan • Double-Click to Reset")
-        
-        # config={'scrollZoom': True} is the key to enabling mouse wheel zoom
         st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
