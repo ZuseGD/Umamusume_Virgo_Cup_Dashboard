@@ -19,7 +19,13 @@ CM_LIST = {
         "guide_images": [
             "images/cm6/libra1.png",
             "images/cm6/libra2.png",
-            "images/cm6/libra3.png"
+            "images/cm6/libra3.png",
+            "images/cm6/libra4.png",
+            "images/cm6/libra5.png",
+            "images/cm6/libra6.png",
+            "images/cm6/libra7.png",
+            "images/cm6/libra8.png",
+            "images/cm6/libra9.png",
         ]
     }
 }
