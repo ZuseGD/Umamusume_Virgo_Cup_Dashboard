@@ -23,15 +23,15 @@ def show_view(df, team_df, current_config):
     else:
         # Subtle text for inactive events
         st.caption(f"ℹ️ Survey Status: {status_msg}")
+    
+    st.markdown("---")
 
-    st.subheader("☕ Support the Project")
-    st.markdown("""
-    <a href="https://paypal.me/paypal.me/JgamersZuse" target="_blank" style="text-decoration: none;">
-        <button style="background-color:#00457C; color:white; border:none; padding:10px 20px; border-radius:5px; font-weight:bold; cursor:pointer;">
-            Paypal Donation
-        </button>
-    </a>
-    """, unsafe_allow_html=True)
+    st.link_button(
+                label="☕ Support the Project", 
+                url='https://paypal.me/paypal.me/JgamersZuse', 
+                type="secondary",        # <--- Changed from 'primary' to 'secondary'
+                use_container_width=True # Still full width to be hard to miss
+            )
     
     # --- UPDATE NOTICE ---
     with st.expander("✨ What's New (Nov 24 Update)", expanded=True):
