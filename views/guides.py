@@ -47,7 +47,7 @@ def render_interactive_image(path):
     Loads an image and displays it using Plotly to enable
     Pan (Drag) and Zoom (Scroll) capabilities.
     """
-    image = None
+    image = path
     
     # A. Load Image Data (Local or Web)
     if image:
