@@ -54,8 +54,7 @@ def show_view(df, team_df, current_config):
                 label="☕ Support the Project", 
                 url='https://paypal.me/paypal.me/JgamersZuse', 
                 type="secondary",        # <--- Changed from 'primary' to 'secondary'
-                use_container_width=True,
-                use_container_height=True
+                use_container_width=True
             )
 
     # --- RIGHT SIDE: SURVEY BUTTON ---
