@@ -122,7 +122,7 @@ elif st.session_state.current_page == "OCR":
     ocr.show_view(ocr_df)
 elif st.session_state.current_page == "Guides":
     from views import guides
-    guides.show_view()
+    guides.show_view(current_config)
 elif st.session_state.current_page == "Credits":
     from views import credits
     credits.show_view()

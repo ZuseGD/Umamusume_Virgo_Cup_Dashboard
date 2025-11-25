@@ -1,64 +1,35 @@
 import streamlit as st
-from utils import style_fig, PLOT_CONFIG, calculate_score, show_description
+import os
 
-def show_view():
-    st.warning("⚠️ **NOTE:** This guide is WIP IGNORE EVERYTHING BELOW")
-    st.header("📚 Libra Cup Preparation Guide")
+def show_view(current_config):
+    # 1. Header
+    event_name = current_config.get('id', 'Champion Meeting').replace('_', ' ').title()
+    st.header(f"📚 Guides: {event_name}")
     
-    # --- 1. COURSE INFO ---
-    with st.expander("📍 Track Details & Passive Skills", expanded=True):
-        c1, c2 = st.columns([1, 2])
-        with c1:
-            # Replace with your actual track image path
-            # st.image("images/track_diagram.png", caption="Kyoto 3000m") 
-            st.info("🖼️ (Add Track Image Here)")
-        
-        with c2:
-            st.markdown("""
-            ### **Kyoto 3000m (Long)**
-            - **Surface:** Turf / Right / In
-            - **Season:** Autumn 🍂
-            - **Weather:** Sunny ☀️ / Good 🟢
-            - **Course Constants:**
-                - **Uphill:** No significant uphill
-                - **Downhill:** Late downhill section
-            """)
-            
-            st.markdown("#### ✅ Recommended Passives")
-            st.markdown("""
-            - **Right Turn** (右回り)
-            - **Autumn Girl** (秋ウマ娘)
-            - **Kyoto Racecourse** (京都レース場)
-            - **Non-Heavy Track** (良バ場)
-            """)
-
-    # --- 2. STAT TARGETS ---
-    st.subheader("📊 Stat Targets")
-    tab1, tab2 = st.tabs(["🏆 Grade League (Uncapped)", "🔰 Open League (B+)"])
+    # 2. Load Images from Config
+    images = current_config.get('guide_images', [])
     
-    with tab1:
-        st.markdown("Targets for a competitive **UE / UD** rank build:")
-        s1, s2, s3, s4, s5 = st.columns(5)
-        s1.metric("Speed", "1600+")
-        s2.metric("Stamina", "1200+", "1 Gold Recov")
-        s3.metric("Power", "1200+")
-        s4.metric("Guts", "1000+")
-        s5.metric("Wisdom", "1000+")
-        st.warning("⚠️ **Stamina Note:** 3000m is very long. Ensure you have at least 1 Gold Recovery skill + 1200 Stamina.")
+    if not images:
+        st.info("ℹ️ No guide images found for this event.")
+        return
 
-    with tab2:
-        st.markdown("Targets for **B+ (Rank 8199)** cap:")
-        st.markdown("- **Speed:** 1200 (Hard Cap)")
-        st.markdown("- **Stamina:** Manage carefully to hit distance but stay under rank.")
-        
+    # 3. Display Images
+    for img_path in images:
+        if os.path.exists(img_path):
+            st.image(img_path, use_column_width=True)
+        else:
+            # Helpful error message for you
+            st.warning(f"⚠️ Missing Image: `{img_path}`")
+            st.caption("Please upload your Canva image to the `images/` folder and ensure the name matches `cm_config.py`.")
+
     st.markdown("---")
-
-    # --- 3. EXTERNAL RESOURCES ---
+    
+    # 4. External Resources (Static Footer)
     st.subheader("🔗 Useful Resources")
     c1, c2, c3 = st.columns(3)
     with c1:
-        st.link_button("📖 GameTora Guide", "https://gametora.com/umamusume")
+        st.link_button("📖 GameTora Wiki", "https://gametora.com/umamusume")
     with c2:
-        st.link_button("📺 MooMooCows (YouTube)", "https://www.youtube.com/@MooMooCows")
+        st.link_button("📺 MooMooCows", "https://www.youtube.com/@MooMooCows")
     with c3:
-        st.link_button("🐦 ULC Discord", "https://discord.gg/umamusume")
+        st.link_button("🐦 MooMooCows Discord", "https://discord.gg/SY2aWGu53S")
