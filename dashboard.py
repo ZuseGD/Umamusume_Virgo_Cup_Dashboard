@@ -18,19 +18,6 @@ selected_event_name = st.sidebar.selectbox("Select Event", event_names, index=0,
 current_config = CM_LIST[selected_event_name]
 
 
-'''st.sidebar.header("📝 Data Submission")
-form_url = current_config.get('form_url')
-status_msg = current_config.get('status_msg', "Forms are currently unavailable.")
-
-if form_url:
-    st.sidebar.link_button(
-        "✍️ Fill Out Survey", 
-        form_url, 
-        type="primary", 
-        use_container_width=True
-    )
-else:
-    st.sidebar.info(f"🚫 {status_msg}")'''
 
 st.markdown("""
 <style>
