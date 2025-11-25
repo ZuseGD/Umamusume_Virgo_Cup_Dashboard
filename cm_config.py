@@ -5,9 +5,7 @@ CM_LIST = {
         "sheet_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vTR8Pa4QQVSNwepSe9dYnro3ZaVEpYQmBdZUzumuLL-U2IR3nKVh-_GbZeJHT2x9aCqnp7P-0hPm5Zd/pub?gid=221070242&single=true&output=csv",
         "parquet_file": "r2d2.parquet",
         "guide_images": [
-            "images/cm5/virgo1.png",
-            "images/cm5/virgo2.png",
-            "images/cm5/virgo3.png"
+            "images/cm5/virgo1.png"
         ]
     },
     "Libra Cup (2025)": {
@@ -17,15 +15,7 @@ CM_LIST = {
         "sheet_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vTR8Pa4QQVSNwepSe9dYnro3ZaVEpYQmBdZUzumuLL-U2IR3nKVh-_GbZeJHT2x9aCqnp7P-0hPm5Zd/pub?gid=221070242&single=true&output=csv",
         "parquet_file": "libra.parquet" ,
         "guide_images": [
-            "images/cm6/libra1.png",
-            "images/cm6/libra2.png",
-            "images/cm6/libra3.png",
-            "images/cm6/libra4.png",
-            "images/cm6/libra5.png",
-            "images/cm6/libra6.png",
-            "images/cm6/libra7.png",
-            "images/cm6/libra8.png",
-            "images/cm6/libra9.png",
+            "images/cm6/libra1.png"
         ]
     }
 }
