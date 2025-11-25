@@ -21,35 +21,28 @@ def show_view(current_config):
         for img_path in images:
             render_interactive_image(img_path)
 
-    st.markdown("---")
 
-    # CREDITS SECTION
-    st.subheader("🙏 Credits")
-    st.markdown("""
-    A huge thank you to the team behind these resources:
-    - **Strategy & Guide:** [MooMooCows](https://www.youtube.com/@MooMooCows)
-    - **Graphics & Visuals:** MooMooCows' Canva Helpers
-    """)
-    
-    # External Resources (Static Footer)
-    st.subheader("🔗 Useful Resources")
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.link_button("📖 GameTora Wiki", "https://gametora.com/umamusume")
-    with c2:
-        st.link_button("📺 MooMooCows", "https://www.youtube.com/@MooMooCows")
-    with c3:
-        st.link_button("🐦 MooMooCows Discord", "https://discord.gg/SY2aWGu53S")
+
 
 
 def render_interactive_image(path):
     """
-    Loads an image and displays it using Plotly to enable
-    Pan (Drag) and Zoom (Scroll) capabilities.
+    Loads an image and displays it using Plotly with high-quality settings
+    and a direct link to the source.
     """
-    image = path
+    image = None
     
-    # A. Load Image Data (Local or Web)
+    # A. Load Image Data
+    try:
+        if path.startswith("http"):
+            response = requests.get(path)
+            image = Image.open(BytesIO(response.content))
+        elif os.path.exists(path):
+            image = Image.open(path)
+    except Exception as e:
+        st.error(f"⚠️ Could not load image: `{path}`")
+        return
+
     if image:
         st.markdown(f"### 🖼️ {os.path.basename(path)}")
         
@@ -67,7 +60,7 @@ def render_interactive_image(path):
             binary_string=True, 
             binary_format="png", 
             binary_compression_level=0
-    )
+        )
         
         # C. Configure Layout
         fig.update_layout(
@@ -81,3 +74,21 @@ def render_interactive_image(path):
         
         # D. Render
         st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
+
+# CREDITS SECTION
+st.subheader("🙏 Credits")
+st.markdown("""
+A huge thank you to the team behind these resources:
+- **Strategy & Guide:** [MooMooCows](https://www.youtube.com/@MooMooCows)
+- **Graphics & Visuals:** MooMooCows' Canva Helpers
+""")
+    
+# External Resources (Static Footer)
+st.subheader("🔗 Useful Resources")
+c1, c2, c3 = st.columns(3)
+with c1:
+    st.link_button("📖 GameTora Wiki", "https://gametora.com/umamusume")
+with c2:
+    st.link_button("📺 MooMooCows", "https://www.youtube.com/@MooMooCows")
+with c3:
+    st.link_button("🐦 MooMooCows Discord", "https://discord.gg/SY2aWGu53S")
