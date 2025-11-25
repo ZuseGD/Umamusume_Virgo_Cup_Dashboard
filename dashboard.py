@@ -9,18 +9,47 @@ page_icon = "🏆"
 if os.path.exists("images/moologo2.png"):
     page_icon = Image.open("images/moologo2.png")
 
-st.set_page_config(page_title="UM Dashboard", page_icon=page_icon, layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="UM Dashboard", page_icon=page_icon, layout="wide")
 
+st.markdown("""
+<style>
+    /* 1. Make the Sidebar Visible */
+    [data-testid="stSidebar"] {
+        display: block !important;
+        min-width: 250px;
+    }
+    
+    /* 2. Force the Collapse/Expand Button to ALWAYS show (No autohide) */
+    [data-testid="collapsedControl"] {
+        display: block !important;
+        opacity: 1 !important; /* Forces button to stay 100% visible */
+        color: #ffffff !important; /* Ensures icon is visible on dark bg */
+    }
 
-# 3. EVENT SELECTION
+    /* 3. Navigation Buttons */
+    div.stButton > button {
+        width: 100%;
+        border-radius: 5px;
+        height: 3em;
+        font-weight: bold;
+        border: 1px solid #444;
+    }
+    div.stButton > button:hover {
+        border-color: #00CC96;
+        color: #00CC96;
+    }
+</style>
+            
+""", unsafe_allow_html=True)
+#  EVENT SELECTION
 st.sidebar.header("📅 Event Selector")
 event_names = list(CM_LIST.keys())
 selected_event_name = st.sidebar.selectbox("Select Event", event_names, index=0, key="event_selector")
 current_config = CM_LIST[selected_event_name]
 
-st.sidebar.markdown("---")
 
-# 4. LOAD DATA
+
+#  LOAD DATA
 try:
     # Check for local file existence if not a URL
     if not current_config['sheet_url'].startswith("http"):
@@ -39,7 +68,10 @@ except Exception as e:
     st.error(f"❌ Critical Data Error: {e}")
     st.stop()
 
-# 5. FILTERS
+
+st.sidebar.markdown("---")
+
+#  FILTERS
 st.sidebar.header("⚙️ Global Filters")
 
 # Apply Filters (With Unique Keys to prevent DuplicateID Error)
