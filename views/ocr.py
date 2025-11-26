@@ -194,7 +194,7 @@ def show_view(current_config):
                     color_discrete_map={'High WR': '#00CC96', 'Low WR': '#EF553B'},
                     title=f"Stat Distribution: High vs Low Win Rate ({target_style})"
                 )
-                st.plotly_chart(style_fig(fig_box), use_container_width=True, config=PLOT_CONFIG)
+                st.plotly_chart(style_fig(fig_box), width='stretch', config=PLOT_CONFIG)
 
     # --- TAB 2: SKILLS ANALYSIS ---
     with tab2:
@@ -237,7 +237,7 @@ def show_view(current_config):
                     color='Lift', color_continuous_scale='Viridis'
                 )
                 fig_lift.update_layout(yaxis={'categoryorder':'total ascending'})
-                st.plotly_chart(style_fig(fig_lift, height=600), use_container_width=True, config=PLOT_CONFIG)
+                st.plotly_chart(style_fig(fig_lift, height=600), width='stretch', config=PLOT_CONFIG)
             else:
                 st.warning("Not enough data variance to compare winners vs losers.")
 
@@ -253,7 +253,7 @@ def show_view(current_config):
                 dist_stats = dist_stats[dist_stats[target_dist].isin(['S', 'A'])]
                 if not dist_stats.empty:
                     fig_dist = px.bar(dist_stats, x=target_dist, y='Calculated_WinRate', color=target_dist, template='plotly_dark', title=f"{target_dist} S vs A")
-                    st.plotly_chart(style_fig(fig_dist, height=400), use_container_width=True, config=PLOT_CONFIG)
+                    st.plotly_chart(style_fig(fig_dist, height=400), width='stretch', config=PLOT_CONFIG)
 
         if 'Turf' in merged_df.columns:
             with c2:
@@ -262,9 +262,4 @@ def show_view(current_config):
                 turf_stats = turf_stats[turf_stats['Turf'].isin(['S', 'A'])]
                 if not turf_stats.empty:
                     fig_turf = px.bar(turf_stats, x='Turf', y='Calculated_WinRate', color='Turf', template='plotly_dark', title="Turf S vs A")
-                    st.plotly_chart(style_fig(fig_turf, height=400), use_container_width=True, config=PLOT_CONFIG)
-
-    # --- TAB 4: RAW DATA ---
-    with tab4:
-        st.subheader("🔎 Merged Dataset")
-        st.dataframe(merged_df)
+                    st.plotly_chart(style_fig(fig_turf, height=400), width='stretch', config=PLOT_CONFIG)
