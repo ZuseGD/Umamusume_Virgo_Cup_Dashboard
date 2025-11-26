@@ -2,12 +2,91 @@ import streamlit as st
 import plotly.express as px
 import pandas as pd
 import numpy as np
+import re
 from virgo_utils import style_fig, PLOT_CONFIG, load_ocr_data, load_data, dynamic_height, parse_uma_details
 
+# --- CONFIGURATION ---
+
+# 1. LIST OF ORIGINAL UMAS (Base Names)
+# Add all your "Base" characters here.
+ORIGINAL_UMAS = [
+    "Maruzensky", "Taiki Shuttle", "Oguri Cap", "El Condor Pasa", "Grass Wonder",
+    "Silence Suzuka", "Gold Ship", "Vodka", "Daiwa Scarlet", "Mejiro Ryan",
+    "Rice Shower", "Winning Ticket", "Haru Urara", "Matikanefukukitaru",
+    "Nice Nature", "King Halo", "Agnes Tachyon", "Super Creek", "Mayaano Top Gun",
+    "Mihono Bourbon", "Tokai Teio", "Symboli Rudolf", "Air Groove", "Seiun Sky",
+    # ... Add more as needed
+]
+
+# 2. VARIANT KEYWORDS
+# Maps keywords found in [Brackets] to a Suffix.
+# Example: [Hot Summer] -> "Summer" -> Checks for "Maruzensky (Summer)"
+VARIANT_MAP = {
+    "Summer": "Summer",
+    "Hot Summer": "Summer",
+    "Valentine": "Valentine",
+    "Christmas": "Christmas",
+    "Holiday": "Christmas",
+    "Wedding": "Wedding",
+    "Bridal": "Wedding",
+    "Monk": "Monk",
+    "Fantasy": "Fantasy",
+    "Halloween": "Halloween",
+    "New Year": "New Year"
+}
+
+def smart_match_name(raw_name, valid_csv_names):
+    """
+    Tries to find the best match in the CSV list.
+    Priority:
+    1. Variant Match (e.g., "Maruzensky (Summer)")
+    2. Base Match (e.g., "Maruzensky")
+    """
+    if pd.isna(raw_name): return "Unknown"
+    raw_name = str(raw_name)
+
+    # 1. Extract Base Name & Title
+    # OCR Format: "[Title] Base Name"
+    base_match = re.search(r'\]\s*(.*)', raw_name)
+    title_match = re.search(r'\[(.*?)\]', raw_name)
+    
+    base_name = base_match.group(1).strip() if base_match else raw_name.strip()
+    title_text = title_match.group(1) if title_match else ""
+
+    # 2. Detect Variant Suffix
+    variant_suffix = None
+    for keyword, suffix in VARIANT_MAP.items():
+        if keyword.lower() in title_text.lower():
+            variant_suffix = suffix
+            break
+    
+    # 3. Construct Potential Names
+    candidates = []
+    
+    # Candidate A: Explicit Variant (e.g., "Maruzensky (Summer)")
+    if variant_suffix:
+        candidates.append(f"{base_name} ({variant_suffix})")
+        candidates.append(f"{variant_suffix} {base_name}")
+
+    # Candidate B: Base Name (Default)
+    candidates.append(base_name)
+    
+    # 4. Check against Valid CSV Names
+    # We look for the first candidate that actually exists in the match data
+    for cand in candidates:
+        # Case-insensitive check
+        match = next((valid for valid in valid_csv_names if valid.lower() == cand.lower()), None)
+        if match:
+            return match
+            
+    # 5. Fallback: If no match found, check if it's a known Original
+    # This helps even if the CSV name is slightly different (e.g. spacing)
+    if base_name in ORIGINAL_UMAS:
+        return base_name
+        
+    return base_name # Return simplified name as last resort
+
 def show_view(current_config):
-
-    st.warning("⚠️ This OCR Analysis feature is still in beta and only includes ROUNDS DATA. Results may vary based on OCR accuracy and data quality. Please verify findings independently.")
-
     # 1. Get Config & Load Data
     event_name = current_config.get('id', 'Event').replace('_', ' ').title()
     parquet_file = current_config.get('parquet_file', '')
@@ -18,7 +97,6 @@ def show_view(current_config):
     with st.spinner("Loading and Merging Datasets..."):
         # Load Raw OCR Data
         ocr_df = load_ocr_data(parquet_file)
-        
         # Load Match Data (CSV)
         match_df, _ = load_data(sheet_url)
 
@@ -30,26 +108,26 @@ def show_view(current_config):
         return
 
     # --- 2. DATA MERGING & CLEANING ---
-    # We need to link the Build (OCR) to the Win Rate (CSV)
     
-    # A. Normalize Names for Matching
-    # Clean OCR IGNs
+    # A. Get Valid Names from CSV for Matching
+    valid_csv_names = match_df['Clean_Uma'].dropna().unique().tolist()
+    
+    # B. Apply Smart Matching
+    # This links the messy OCR name to the clean CSV name
+    ocr_df['Match_Uma'] = ocr_df['name'].apply(lambda x: smart_match_name(x, valid_csv_names))
+    
+    # C. Prepare Join Keys
     ocr_df['Match_IGN'] = ocr_df['ign'].astype(str).str.lower().str.strip()
-    # Clean CSV IGNs
     match_df['Match_IGN'] = match_df['Clean_IGN'].astype(str).str.lower().str.strip()
-    
-    # Clean OCR Uma Names to match CSV format (e.g., "Oguri Cap")
-    ocr_df['Match_Uma'] = parse_uma_details(ocr_df['name'])
-    
-    # B. Calculate Win Rates per Trainer+Uma in the CSV
-    # We aggregate first to get the average performance of that Trainer's Oguri
-    performance_df = match_df.groupby(['Match_IGN', 'Clean_Uma', 'Clean_Style']).agg({
+    match_df['Match_Uma'] = match_df['Clean_Uma'].astype(str).str.strip() # Ensure exact match
+
+    # D. Aggregate Win Rates
+    performance_df = match_df.groupby(['Match_IGN', 'Match_Uma', 'Clean_Style']).agg({
         'Calculated_WinRate': 'mean',
         'Clean_Races': 'sum'
-    }).reset_index().rename(columns={'Clean_Uma': 'Match_Uma'})
+    }).reset_index()
 
-    # C. MERGE
-    # Inner Join: We only want builds that actually have match data
+    # E. Merge
     merged_df = pd.merge(
         ocr_df, 
         performance_df, 
@@ -57,199 +135,136 @@ def show_view(current_config):
         how='inner'
     )
     
+    # --- DIAGNOSTICS ---
+    if merged_df.empty:
+        st.error("⚠️ 0 Matches Found! Debugging Info:")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("**OCR Names (Processed):**")
+            st.write(ocr_df['Match_Uma'].unique()[:10])
+        with c2:
+            st.markdown("**CSV Names (Available):**")
+            st.write(valid_csv_names[:10])
+        return
+
     st.success(f"✅ Successfully linked {len(merged_df)} builds to race results!")
 
     # --- 3. DASHBOARD TABS ---
     tab1, tab2, tab3, tab4 = st.tabs([
-        "📊 Best Stats & Distribution", 
+        "📊 Best Stats", 
         "⚡ Best Skills", 
-        "🧬 Aptitude Impact (S vs A)",
+        "🧬 Aptitude (S vs A)",
         "🔎 Raw Data"
     ])
 
     # --- TAB 1: STATS ANALYSIS ---
     with tab1:
         st.subheader("🏆 Optimal Stat Distribution by Style")
-        
-        # 1. Filter by Style
-        styles = sorted(merged_df['Clean_Style'].unique())
-        target_style = st.selectbox("Select Running Style:", styles)
-        
-        style_data = merged_df[merged_df['Clean_Style'] == target_style]
-        
-        if not style_data.empty:
-            # 2. Define "Winners" vs "Others"
-            # High WR = Top 25% of performers
-            wr_threshold = style_data['Calculated_WinRate'].quantile(0.75)
-            winners = style_data[style_data['Calculated_WinRate'] >= wr_threshold]
+        if 'Clean_Style' in merged_df.columns:
+            styles = sorted(merged_df['Clean_Style'].unique())
+            target_style = st.selectbox("Select Running Style:", styles)
             
-            st.markdown(f"**Analysis of {len(style_data)} {target_style}s** (High WR Threshold: >{wr_threshold:.1f}%)")
+            style_data = merged_df[merged_df['Clean_Style'] == target_style]
             
-            # 3. Compare Means
-            stats = ['Speed', 'Stamina', 'Power', 'Guts', 'Wit']
-            
-            # Check if columns exist (handle missing Guts/Wit if old scenario)
-            valid_stats = [s for s in stats if s in style_data.columns]
-            
-            if not winners.empty:
-                avg_winner = winners[valid_stats].mean().rename("High Win Rate Avg")
-                avg_all = style_data[valid_stats].mean().rename("Global Avg")
+            if not style_data.empty:
+                wr_threshold = style_data['Calculated_WinRate'].quantile(0.75)
+                winners = style_data[style_data['Calculated_WinRate'] >= wr_threshold]
                 
-                comp_df = pd.concat([avg_winner, avg_all], axis=1)
-                comp_df['Delta'] = comp_df['High Win Rate Avg'] - comp_df['Global Avg']
+                stat_cols = ['Speed', 'Stamina', 'Power', 'Guts', 'Wit']
+                valid_stats = [s for s in stat_cols if s in style_data.columns]
                 
-                # Display Metrics
-                cols = st.columns(len(valid_stats))
-                for i, stat in enumerate(valid_stats):
-                    val = avg_winner[stat]
-                    delta = comp_df.loc[stat, 'Delta']
-                    cols[i].metric(stat, f"{val:.0f}", f"{delta:+.0f}")
+                if not winners.empty:
+                    avg_winner = winners[valid_stats].mean()
+                    avg_all = style_data[valid_stats].mean()
+                    
+                    st.markdown(f"**{target_style} Winners (WR > {wr_threshold:.1f}%)** vs **Average**")
+                    cols = st.columns(len(valid_stats))
+                    for i, stat in enumerate(valid_stats):
+                        delta = avg_winner[stat] - avg_all[stat]
+                        cols[i].metric(stat, f"{avg_winner[stat]:.0f}", f"{delta:+.0f}")
                 
-                # 4. Box Plots for Distribution
-                st.markdown("#### Stat Distribution: High WR vs Low WR")
-                # Melt for plotting
-                style_data['Tier'] = np.where(style_data['Calculated_WinRate'] >= wr_threshold, 'High WR', 'Low WR')
-                melted = style_data.melt(id_vars=['Tier'], value_vars=valid_stats, var_name='Stat', value_name='Value')
+                # Distribution Plot
+                st.markdown("#### Stat Ranges")
+                style_data['Performance'] = np.where(style_data['Calculated_WinRate'] >= wr_threshold, 'High WR', 'Low WR')
+                melted = style_data.melt(id_vars=['Performance'], value_vars=valid_stats, var_name='Stat', value_name='Value')
                 
                 fig_box = px.box(
-                    melted, x='Stat', y='Value', color='Tier',
+                    melted, x='Stat', y='Value', color='Performance',
                     template='plotly_dark',
                     color_discrete_map={'High WR': '#00CC96', 'Low WR': '#EF553B'},
-                    title=f"Stat Ranges for {target_style} (High vs Low Win Rate)"
+                    title=f"Stat Distribution: High vs Low Win Rate ({target_style})"
                 )
                 st.plotly_chart(style_fig(fig_box), use_container_width=True, config=PLOT_CONFIG)
-            else:
-                st.warning("Not enough data to calculate top performers.")
 
     # --- TAB 2: SKILLS ANALYSIS ---
     with tab2:
         st.subheader("⚡ Skill Meta Analysis")
-        
-        # Filter by Uma (Optional)
+        # Filter by Match_Uma (which is now cleaned)
         all_umas = ["All"] + sorted(merged_df['Match_Uma'].unique())
-        target_uma = st.selectbox("Filter by Uma:", all_umas)
+        target_uma = st.selectbox("Filter by Character:", all_umas)
         
         skill_source = merged_df if target_uma == "All" else merged_df[merged_df['Match_Uma'] == target_uma]
         
         if 'skills' in skill_source.columns and not skill_source.empty:
-            # Clean and Explode Skills
-            # Handle string representation of lists if necessary
             s_df = skill_source[['Calculated_WinRate', 'skills']].dropna().copy()
+            if s_df['skills'].dtype == object:
+                 s_df['skills'] = s_df['skills'].astype(str).str.replace(r"[\[\]']", "", regex=True).str.split(',')
             
-            try:
-                # If likely string "['SkillA', 'SkillB']", clean it
-                if s_df['skills'].dtype == object:
-                     s_df['skills'] = s_df['skills'].astype(str).str.replace(r"[\[\]']", "", regex=True).str.split(',')
-                
-                exploded = s_df.explode('skills')
-                exploded['skills'] = exploded['skills'].str.strip()
-                exploded = exploded[exploded['skills'] != ""]
-                
-                # Compare Top 25% WR vs Bottom 50% WR
-                high_thresh = exploded['Calculated_WinRate'].quantile(0.75)
-                low_thresh = exploded['Calculated_WinRate'].quantile(0.50)
-                
-                high_tier = exploded[exploded['Calculated_WinRate'] >= high_thresh]
-                low_tier = exploded[exploded['Calculated_WinRate'] <= low_thresh]
-                
-                # Calculate Frequencies
+            exploded = s_df.explode('skills')
+            exploded['skills'] = exploded['skills'].str.strip()
+            exploded = exploded[exploded['skills'] != ""]
+            
+            high_thresh = exploded['Calculated_WinRate'].quantile(0.75)
+            low_thresh = exploded['Calculated_WinRate'].quantile(0.50)
+            
+            high_tier = exploded[exploded['Calculated_WinRate'] >= high_thresh]
+            low_tier = exploded[exploded['Calculated_WinRate'] <= low_thresh]
+            
+            if not high_tier.empty and not low_tier.empty:
                 top_freq = high_tier['skills'].value_counts(normalize=True).rename("Top_Freq")
                 low_freq = low_tier['skills'].value_counts(normalize=True).rename("Low_Freq")
                 
-                # Merge and Calculate Lift
                 lift_df = pd.concat([top_freq, low_freq], axis=1).fillna(0)
-                # Filter noise (must appear in at least 1% of top builds)
                 lift_df = lift_df[lift_df['Top_Freq'] > 0.01]
-                
-                # Lift = (Top% - Low%) * 100
                 lift_df['Lift'] = (lift_df['Top_Freq'] - lift_df['Low_Freq']) * 100
                 lift_df = lift_df.sort_values('Lift', ascending=False).head(20)
                 
                 fig_lift = px.bar(
                     lift_df, x='Lift', y=lift_df.index, orientation='h',
-                    title=f"Skill 'Lift' (Difference in Usage % between Winners and Losers)",
+                    title=f"Skill 'Lift' (Difference in Usage between Winners and Losers)",
                     template='plotly_dark',
-                    labels={'index': 'Skill', 'Lift': 'Usage Difference (%)'},
+                    labels={'index': 'Skill', 'Lift': 'Usage Diff (%)'},
                     color='Lift', color_continuous_scale='Viridis'
                 )
+                fig_lift.update_layout(yaxis={'categoryorder':'total ascending'})
                 st.plotly_chart(style_fig(fig_lift, height=600), use_container_width=True, config=PLOT_CONFIG)
-                
-                st.info("Skills with positive Lift are correlated with higher Win Rates.")
-                
-            except Exception as e:
-                st.error(f"Error parsing skills: {e}")
+            else:
+                st.warning("Not enough data variance to compare winners vs losers.")
 
-    # --- TAB 3: APTITUDES (S vs A) ---
+    # --- TAB 3: APTITUDE ANALYSIS ---
     with tab3:
-        st.subheader("🧬 Does S Rank Matter?")
-        st.markdown("Comparing average Win Rates for builds with **S** vs **A** aptitude.")
-
-        # Map Match Styles to Parquet Columns
-        # Parquet has: 'Front', 'Pace', 'Late', 'End' (and Turf/Mile)
-        # We need to map standard styles to these columns
-        style_map = {
-            'Front Runner': 'Front',   # Leader
-            'Pace Chaser': 'Pace',     # Betweener
-            'Late Surger': 'Late',     # ??? (Sometimes Betweener/Closer split)
-            'End Closer': 'End',       # Closer
-            'Runaway': 'Front'         # Fallback (Runners often share Front aptitude or column is missing)
-        }
-        
-        c1, c2, c3 = st.columns(3)
-        
-        # 1. TURF ANALYSIS
-        with c1:
-            if 'Turf' in merged_df.columns:
-                st.markdown("#### 🌱 Turf Aptitude")
-                turf_stats = merged_df.groupby('Turf')['Calculated_WinRate'].mean().reset_index()
-                # Filter for S and A only
-                turf_stats = turf_stats[turf_stats['Turf'].isin(['S', 'A'])]
-                
-                if not turf_stats.empty:
-                    fig_turf = px.bar(turf_stats, x='Turf', y='Calculated_WinRate', color='Turf', template='plotly_dark', title="Turf S vs A")
-                    fig_turf.update_layout(showlegend=False, yaxis_title="Win Rate %")
-                    st.plotly_chart(style_fig(fig_turf, height=300), use_container_width=True, config=PLOT_CONFIG)
-
-        # 2. DISTANCE ANALYSIS (Mile/Medium/etc)
-        with c2:
-            # Detect distance col (Mile, Medium, etc.) based on event?
-            # For Virgo it's Mile.
-            target_dist = 'Mile' 
-            if target_dist in merged_df.columns:
+        st.subheader("🧬 Aptitude Impact (S vs A)")
+        c1, c2 = st.columns(2)
+        target_dist = 'Mile' 
+        if target_dist in merged_df.columns:
+            with c1:
                 st.markdown(f"#### 📏 {target_dist} Aptitude")
                 dist_stats = merged_df.groupby(target_dist)['Calculated_WinRate'].mean().reset_index()
                 dist_stats = dist_stats[dist_stats[target_dist].isin(['S', 'A'])]
-                
                 if not dist_stats.empty:
                     fig_dist = px.bar(dist_stats, x=target_dist, y='Calculated_WinRate', color=target_dist, template='plotly_dark', title=f"{target_dist} S vs A")
-                    fig_dist.update_layout(showlegend=False, yaxis_title=None)
-                    st.plotly_chart(style_fig(fig_dist, height=300), use_container_width=True, config=PLOT_CONFIG)
-        
-        # 3. STYLE ANALYSIS
-        with c3:
-            st.markdown("#### 🏃 Running Style Aptitude")
-            # We look at the specific aptitude column required for the runner's chosen style
-            # e.g. If they ran 'Front Runner', we check their 'Front' aptitude
-            
-            valid_rows = []
-            for _, row in merged_df.iterrows():
-                style = row['Clean_Style']
-                col = style_map.get(style)
-                if col and col in merged_df.columns:
-                    aptitude = row[col]
-                    if aptitude in ['S', 'A']:
-                        valid_rows.append({'Aptitude': aptitude, 'WinRate': row['Calculated_WinRate']})
-            
-            if valid_rows:
-                style_apt_df = pd.DataFrame(valid_rows)
-                style_stats = style_apt_df.groupby('Aptitude')['WinRate'].mean().reset_index()
-                
-                fig_style = px.bar(style_stats, x='Aptitude', y='WinRate', color='Aptitude', template='plotly_dark', title="Relevant Style S vs A")
-                fig_style.update_layout(showlegend=False, yaxis_title=None)
-                st.plotly_chart(style_fig(fig_style, height=300), use_container_width=True, config=PLOT_CONFIG)
-            else:
-                st.info("Could not map styles to aptitude columns.")
+                    st.plotly_chart(style_fig(fig_dist, height=400), use_container_width=True, config=PLOT_CONFIG)
+
+        if 'Turf' in merged_df.columns:
+            with c2:
+                st.markdown("#### 🌱 Turf Aptitude")
+                turf_stats = merged_df.groupby('Turf')['Calculated_WinRate'].mean().reset_index()
+                turf_stats = turf_stats[turf_stats['Turf'].isin(['S', 'A'])]
+                if not turf_stats.empty:
+                    fig_turf = px.bar(turf_stats, x='Turf', y='Calculated_WinRate', color='Turf', template='plotly_dark', title="Turf S vs A")
+                    st.plotly_chart(style_fig(fig_turf, height=400), use_container_width=True, config=PLOT_CONFIG)
 
     # --- TAB 4: RAW DATA ---
     with tab4:
+        st.subheader("🔎 Merged Dataset")
         st.dataframe(merged_df)
