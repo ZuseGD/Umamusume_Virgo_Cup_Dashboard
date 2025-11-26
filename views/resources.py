@@ -83,5 +83,5 @@ def show_view(df, team_df):
             markers=True, template='plotly_dark', text='Calculated_WinRate', height=500
         )
         fig_trend.update_traces(textposition="top center", texttemplate='%{text:.1f}%')
-        st.plotly_chart(style_fig(fig_trend, height=500), use_container_width=True, config=PLOT_CONFIG)
+        st.plotly_chart(style_fig(fig_trend, height=500), width='stretch', config=PLOT_CONFIG)
         show_description("evolution")

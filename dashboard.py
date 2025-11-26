@@ -7,8 +7,9 @@ from cm_config import CM_LIST
 
 # 1. Page Config
 page_icon = "🏆"
-if os.path.exists("images/moologo2.png"):
-    page_icon = Image.open("images/moologo2.png")
+icon_path = "images/moologo2.png"
+if os.path.exists(icon_path):
+    page_icon = icon_path
 
 st.set_page_config(page_title="UM Dashboard", page_icon=page_icon, layout="wide")
 
@@ -115,7 +116,7 @@ def nav_btn(col, label, page_name):
             type=btn_type, 
             on_click=set_page, 
             args=(page_name,), 
-            use_container_width=True
+            width='stretch'
         )
 
 # Render Buttons

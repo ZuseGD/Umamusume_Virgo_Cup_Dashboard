@@ -54,7 +54,7 @@ def show_view(df, team_df, current_config):
                 label="☕ Support the Project", 
                 url='https://paypal.me/JgamersZuse', 
                 type="secondary",        # <--- Changed from 'primary' to 'secondary'
-                use_container_width=True
+                width='stretch'
             )
 
     # --- RIGHT SIDE: SURVEY BUTTON ---
@@ -102,8 +102,7 @@ def show_view(df, team_df, current_config):
                     label="📝 Submit Run Data (Google Form)", 
                     url=form_url, 
                     type="primary", 
-                    use_container_width=True
-                )
+                    width='stretch'                )
         else:
             # Placeholder if no event is active
             st.empty()
