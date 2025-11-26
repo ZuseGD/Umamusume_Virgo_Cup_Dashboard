@@ -52,7 +52,7 @@ def show_view(df, team_df, current_config):
         """)
         st.link_button(
                 label="☕ Support the Project", 
-                url='https://ko-fi.com/zusethegoose', 
+                url='https://paypal.me/JgamersZuse', 
                 type="secondary",        # <--- Changed from 'primary' to 'secondary'
                 use_container_width=True
             )
