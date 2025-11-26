@@ -153,7 +153,7 @@ def show_view(df, team_df, current_config):
             x="Calculated_WinRate", 
             nbins=20, 
             title="Distribution of Player Win Rates",
-            template='plotly_dark',
+            #template='plotly_dark',
             labels={'Calculated_WinRate': 'Win Rate %'}
         )
         fig_dist.update_layout(bargap=0.1, yaxis_title="Player Count")
@@ -168,7 +168,7 @@ def show_view(df, team_df, current_config):
             x='Clean_Group', 
             y='Calculated_WinRate',
             title="Average Win Rate by Group",
-            template='plotly_dark',
+            #template='plotly_dark',
             color='Calculated_WinRate',
             color_continuous_scale='Redor'
         )
@@ -226,7 +226,7 @@ def show_view(df, team_df, current_config):
         orientation='h', 
         color='Global_WinRate',
         text='Clean_Wins', 
-        template='plotly_dark', 
+        #template='plotly_dark', 
         color_continuous_scale='Turbo', 
         height=700,
         hover_data={'Team_Comp': True, 'Display_IGN': False} 
@@ -247,7 +247,7 @@ def show_view(df, team_df, current_config):
     team_df_sorted = team_df.sort_values('Sort_Money')
     fig_money = px.box(
         team_df_sorted, x='Original_Spent', y='Calculated_WinRate', color='Original_Spent',
-        points="all", template='plotly_dark', color_discrete_sequence=px.colors.qualitative.Bold, height=600
+        points="all", #template='plotly_dark', color_discrete_sequence=px.colors.qualitative.Bold, height=600
     )
     fig_money.update_layout(showlegend=False, yaxis_title="Win Rate (%)", xaxis_title="Spending Tier")
     st.plotly_chart(style_fig(fig_money, height=600), width="stretch", config=PLOT_CONFIG)
