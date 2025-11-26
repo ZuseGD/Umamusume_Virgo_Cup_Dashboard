@@ -3,13 +3,6 @@ import plotly.express as px
 import pandas as pd
 import numpy as np
 import re
-from virgo_utils import style_fig, PLOT_CONFIG, load_ocr_data, load_data, dynamic_height, parse_uma_details
-
-import streamlit as st
-import plotly.express as px
-import pandas as pd
-import numpy as np
-import re
 from virgo_utils import style_fig, PLOT_CONFIG, load_ocr_data, load_data, parse_uma_details, dynamic_height, show_description
 
 # --- CONFIGURATION ---
