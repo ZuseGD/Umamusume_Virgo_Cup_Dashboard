@@ -26,29 +26,19 @@ def show_view(df, team_df, current_config):
         # Update Notice (Tucked neatly under the header)
         with st.expander("✨ What's New (Nov 24 Update)", expanded=False):
             st.markdown("""
-        Patch Notes: Virgo & Libra Update
+        **Patch Notes: Advanced OCR & Taiki Analysis**
 
-🐛 Critical Fixes
+        🔮 **New OCR Meta Analysis:**
+        - **Linked Datasets:** The OCR tab now automatically links build data (Stats/Skills) to match results (Win Rates) to find what *actually* wins.
+        - **Taiki Impact:** A dedicated tab to measure the specific "Taiki Boost" vs the field.
+        - **Stats & Skills Filters:** You can now filter Best Stats/Skills by both **Character** AND **Running Style**.
+        - **Unique Level:** Added analysis to see if grinding for Unique Lv 6 improves Win Rates.
 
-    Leaderboard Accuracy: Fixed a bug where players could be double-counted or have inflated win rates (e.g., >100%). The system now strictly counts verified daily logs and ignores conflicting summary data.
-
-    Fairer Scoring: Updated the ranking formula. Players who "grind" (play more races) are now rewarded more fairly compared to players with lucky high win rates on few races.
-
-✨ New Features
-
-    Event Selector: Added a dropdown menu to switch between tournaments (e.g., Virgo Cup vs. Libra Cup) instantly.
-
-    Interactive Guides: Added a "Guides" tab with high-quality track maps and tier lists that you can zoom, pan, and view in full screen.
-
-    OCR Data Tab: Added a dedicated section to analyze data scanned from screenshots.
-
-📈 Improvements
-
-    Better Charts: Graphs now display "Pick Rate %" (popularity) instead of confusing raw numbers, making the "Meta" easier to read.
-
-    Mobile Friendly: All charts now automatically resize to fit phone screens without squishing the labels.
-
-    Detailed Tooltips: Hovering over charts now shows exact "Race Volume" and "Usage Splits" for deeper insight.
+        📈 **General Improvements:**
+        - **Smart Matching:** Improved logic to match OCR names (e.g., "[Summer] Maruzensky") to CSV names ("Maruzensky").
+        - **Performance:** Optimized data loading for large datasets.
+        - **Bug Fixes:** Resolved various minor bugs reported by users.
+    
         """)
         st.link_button(
                 label="☕ Support the Project", 

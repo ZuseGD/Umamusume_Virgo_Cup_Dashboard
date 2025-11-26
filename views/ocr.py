@@ -5,6 +5,13 @@ import numpy as np
 import re
 from virgo_utils import style_fig, PLOT_CONFIG, load_ocr_data, load_data, dynamic_height, parse_uma_details
 
+import streamlit as st
+import plotly.express as px
+import pandas as pd
+import numpy as np
+import re
+from virgo_utils import style_fig, PLOT_CONFIG, load_ocr_data, load_data, parse_uma_details, dynamic_height, show_description
+
 # --- CONFIGURATION ---
 
 # 1. LIST OF ORIGINAL UMAS (Base Names)
@@ -65,7 +72,6 @@ def smart_match_name(raw_name, valid_csv_names):
     return base_name 
 
 def show_view(current_config):
-    st.warning("⚠️ This OCR Analysis feature is experimental and may contain inaccuracies.")
     # 1. Get Config & Load Data
     event_name = current_config.get('id', 'Event').replace('_', ' ').title()
     parquet_file = current_config.get('parquet_file', '')
@@ -111,65 +117,81 @@ def show_view(current_config):
     st.success(f"✅ Successfully linked {len(merged_df)} builds to race results!")
 
     # --- 3. DASHBOARD TABS ---
-    # UPDATED TABS: Removed "Raw Data", Added "Unique Level"
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "📊 Best Stats", 
         "⚡ Best Skills", 
+        "🐎 Taiki Impact",
         "🧬 Aptitude (S vs A)",
         "🆙 Unique Level"
     ])
 
-    # --- TAB 1: STATS ANALYSIS ---
+    # --- TAB 1: STATS ANALYSIS (UPDATED WITH DUAL FILTERS) ---
     with tab1:
-        st.subheader("🏆 Optimal Stat Distribution by Style")
-        if 'Clean_Style' in merged_df.columns:
-            styles = sorted(merged_df['Clean_Style'].unique())
-            target_style = st.selectbox("Select Running Style:", styles)
+        st.subheader("🏆 Optimal Stat Distribution")
+        st.caption("Filter by **Character** and **Style** to find the winning stat spread.")
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            # Character Filter
+            all_umas = ["All"] + sorted(merged_df['Match_Uma'].unique())
+            target_uma = st.selectbox("Select Character:", all_umas, key="stats_uma")
+        with c2:
+            # Style Filter
+            styles = ["All"] + sorted(merged_df['Clean_Style'].unique())
+            target_style = st.selectbox("Select Running Style:", styles, key="stats_style")
             
-            style_data = merged_df[merged_df['Clean_Style'] == target_style]
+        # Apply Filters
+        style_data = merged_df.copy()
+        if target_uma != "All":
+            style_data = style_data[style_data['Match_Uma'] == target_uma]
+        if target_style != "All":
+            style_data = style_data[style_data['Clean_Style'] == target_style]
             
-            if not style_data.empty:
-                wr_threshold = style_data['Calculated_WinRate'].quantile(0.75)
-                winners = style_data[style_data['Calculated_WinRate'] >= wr_threshold]
+        if not style_data.empty:
+            wr_threshold = style_data['Calculated_WinRate'].quantile(0.75)
+            winners = style_data[style_data['Calculated_WinRate'] >= wr_threshold]
+            
+            stat_cols = ['Speed', 'Stamina', 'Power', 'Guts', 'Wit']
+            valid_stats = [s for s in stat_cols if s in style_data.columns]
+            
+            if not winners.empty:
+                avg_winner = winners[valid_stats].mean()
+                avg_all = style_data[valid_stats].mean()
                 
-                stat_cols = ['Speed', 'Stamina', 'Power', 'Guts', 'Wit']
-                valid_stats = [s for s in stat_cols if s in style_data.columns]
-                
-                if not winners.empty:
-                    avg_winner = winners[valid_stats].mean()
-                    avg_all = style_data[valid_stats].mean()
-                    
-                    st.markdown(f"**{target_style} Winners (WR > {wr_threshold:.1f}%)** vs **Average**")
-                    cols = st.columns(len(valid_stats))
-                    for i, stat in enumerate(valid_stats):
-                        delta = avg_winner[stat] - avg_all[stat]
-                        cols[i].metric(stat, f"{avg_winner[stat]:.0f}", f"{delta:+.0f}")
-                
-                # Distribution Plot
-                style_data['Performance'] = np.where(style_data['Calculated_WinRate'] >= wr_threshold, 'High WR', 'Low WR')
-                melted = style_data.melt(id_vars=['Performance'], value_vars=valid_stats, var_name='Stat', value_name='Value')
-                
-                fig_box = px.box(
-                    melted, x='Stat', y='Value', color='Performance',
-                    template='plotly_dark',
-                    color_discrete_map={'High WR': '#00CC96', 'Low WR': '#EF553B'},
-                    title=f"Stat Ranges: Winners vs Losers ({target_style})"
-                )
-                st.plotly_chart(style_fig(fig_box), width='stretch', config=PLOT_CONFIG)
+                st.markdown(f"**Winners (WR > {wr_threshold:.1f}%)** vs **Average**")
+                cols = st.columns(len(valid_stats))
+                for i, stat in enumerate(valid_stats):
+                    delta = avg_winner[stat] - avg_all[stat]
+                    cols[i].metric(stat, f"{avg_winner[stat]:.0f}", f"{delta:+.0f}")
+            
+            # Distribution Plot
+            st.markdown("#### Stat Ranges")
+            style_data['Performance'] = np.where(style_data['Calculated_WinRate'] >= wr_threshold, 'High WR', 'Low WR')
+            melted = style_data.melt(id_vars=['Performance'], value_vars=valid_stats, var_name='Stat', value_name='Value')
+            
+            fig_box = px.box(
+                melted, x='Stat', y='Value', color='Performance',
+                template='plotly_dark',
+                color_discrete_map={'High WR': '#00CC96', 'Low WR': '#EF553B'},
+                title=f"Stat Ranges: Winners vs Losers"
+            )
+            st.plotly_chart(style_fig(fig_box), width='stretch', config=PLOT_CONFIG)
+            show_description("ocr_stats")
+        else:
+            st.warning("No data matches this combination of Character and Style.")
 
     # --- TAB 2: SKILLS ANALYSIS ---
     with tab2:
         st.subheader("⚡ Skill Meta Analysis")
         st.caption("Identify skills that appear significantly more often in Winning Builds.")
 
-        # UPDATED FILTERS: Add Style Selection
         c1, c2 = st.columns(2)
         with c1:
             all_umas = ["All"] + sorted(merged_df['Match_Uma'].unique())
-            target_uma = st.selectbox("Filter by Character:", all_umas)
+            target_uma = st.selectbox("Filter by Character:", all_umas, key="skills_uma")
         with c2:
             all_styles = ["All"] + sorted(merged_df['Clean_Style'].unique())
-            target_style = st.selectbox("Filter by Style (Skills):", all_styles)
+            target_style = st.selectbox("Filter by Style:", all_styles, key="skills_style")
         
         # Apply Logic
         skill_source = merged_df.copy()
@@ -187,7 +209,6 @@ def show_view(current_config):
             exploded['skills'] = exploded['skills'].str.strip()
             exploded = exploded[exploded['skills'] != ""]
             
-            # Compare Top 25% vs Bottom 50%
             if not exploded.empty:
                 high_thresh = exploded['Calculated_WinRate'].quantile(0.75)
                 low_thresh = exploded['Calculated_WinRate'].quantile(0.50)
@@ -213,13 +234,69 @@ def show_view(current_config):
                     )
                     fig_lift.update_layout(yaxis={'categoryorder':'total ascending'})
                     st.plotly_chart(style_fig(fig_lift, height=600), width='stretch', config=PLOT_CONFIG)
+                    show_description("ocr_skills")
                 else:
                     st.warning("Not enough data variance to calculate lift.")
         else:
             st.info("No skill data available for current selection.")
 
-    # --- TAB 3: APTITUDE ANALYSIS ---
+    # --- TAB 3: TAIKI IMPACT (NEW) ---
     with tab3:
+        st.subheader("🐎 Taiki Shuttle Impact Analysis")
+        st.markdown("Quantifying the **'Taiki Boost'**: How much better is Taiki Shuttle compared to the field?")
+        
+        # 1. Filter for Taiki
+        taiki_mask = merged_df['Match_Uma'].str.contains("Taiki", case=False)
+        taiki_df = merged_df[taiki_mask]
+        other_df = merged_df[~taiki_mask]
+        
+        if not taiki_df.empty:
+            # 2. Calculate Metrics
+            taiki_wr = taiki_df['Calculated_WinRate'].mean()
+            global_wr = other_df['Calculated_WinRate'].mean()
+            wr_delta = taiki_wr - global_wr
+            
+            # 3. Display KPIs
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Taiki Win Rate", f"{taiki_wr:.1f}%", f"{wr_delta:+.1f}% vs Global")
+            c2.metric("Sample Size", f"{len(taiki_df)} Builds")
+            c3.metric("Global Average WR", f"{global_wr:.1f}%")
+            
+            st.markdown("---")
+            
+            # 4. Comparative Distribution
+            st.markdown("#### Win Rate Distribution: Taiki vs The Field")
+            
+            # Combine for plotting
+            taiki_df_plot = taiki_df[['Calculated_WinRate']].copy()
+            taiki_df_plot['Group'] = 'Taiki Shuttle'
+            
+            other_df_plot = other_df[['Calculated_WinRate']].copy()
+            other_df_plot['Group'] = 'Rest of Field'
+            
+            # Sample down 'Other' to make histogram readable if needed, or just plot all
+            combined_plot = pd.concat([taiki_df_plot, other_df_plot])
+            
+            fig_hist = px.histogram(
+                combined_plot, 
+                x='Calculated_WinRate', 
+                color='Group',
+                barmode='overlay',
+                nbins=20,
+                opacity=0.7,
+                template='plotly_dark',
+                title="Win Rate Histogram Comparison",
+                color_discrete_map={'Taiki Shuttle': '#00CC96', 'Rest of Field': '#636EFA'}
+            )
+            st.plotly_chart(style_fig(fig_hist), width='stretch', config=PLOT_CONFIG)
+            
+            show_description("taiki_impact")
+            
+        else:
+            st.warning("No Taiki Shuttle data found in the linked dataset.")
+
+    # --- TAB 4: APTITUDE ANALYSIS ---
+    with tab4:
         st.subheader("🧬 Aptitude Impact (S vs A)")
         c1, c2 = st.columns(2)
         target_dist = 'Mile' 
@@ -242,18 +319,15 @@ def show_view(current_config):
                     fig_turf.update_traces(texttemplate='%{text:.1f}%')
                     st.plotly_chart(style_fig(fig_turf, height=400), width='stretch', config=PLOT_CONFIG)
 
-    # --- TAB 4: UNIQUE LEVEL ANALYSIS (NEW) ---
-    with tab4:
+    # --- TAB 5: UNIQUE LEVEL ANALYSIS ---
+    with tab5:
         st.subheader("🆙 Unique Skill Level Impact")
         st.markdown("Does grinding for **Unique Skill Level (1-6)** significantly impact Win Rate?")
         
         if 'ultimate_level' in merged_df.columns:
-            # Group by Level
             lvl_stats = merged_df.groupby('ultimate_level')['Calculated_WinRate'].agg(['mean', 'count']).reset_index()
             lvl_stats.columns = ['Level', 'WinRate', 'Count']
-            
-            # Filter low samples (optional)
-            lvl_stats = lvl_stats[lvl_stats['Count'] >= 3] # Min 3 builds to show
+            lvl_stats = lvl_stats[lvl_stats['Count'] >= 3] 
             
             if not lvl_stats.empty:
                 fig_lvl = px.bar(
@@ -269,10 +343,7 @@ def show_view(current_config):
                 fig_lvl.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
                 fig_lvl.update_layout(xaxis=dict(tickmode='linear', dtick=1))
                 st.plotly_chart(style_fig(fig_lvl), width='stretch', config=PLOT_CONFIG)
-                
-                # Distribution Table
-                st.markdown("#### Sample Size by Level")
-                st.dataframe(lvl_stats.set_index('Level'))
+                show_description("ocr_unique")
             else:
                 st.warning("Not enough data on Unique Levels.")
         else:
