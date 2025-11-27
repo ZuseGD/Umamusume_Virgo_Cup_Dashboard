@@ -3,7 +3,7 @@ import plotly.express as px
 import pandas as pd
 import numpy as np
 import re
-from virgo_utils import style_fig, PLOT_CONFIG, load_ocr_data, load_data, parse_uma_details, dynamic_height, show_description
+from virgo_utils import style_fig, PLOT_CONFIG, load_ocr_data, load_data, show_description
 
 # --- CONFIGURATION ---
 
@@ -22,9 +22,12 @@ ORIGINAL_UMAS = [
 VARIANT_MAP = {
     "Summer": "Summer", "Hot Summer": "Summer",
     "Valentine": "Valentine", "Christmas": "Christmas", "Holiday": "Christmas",
-    "Wedding": "Wedding", "Bridal": "Wedding",
-    "Monk": "Monk", "Fantasy": "Fantasy",
-    "Halloween": "Halloween", "New Year": "New Year"
+    "Happy Heart": "Summer", "Carnival": "Festival",
+    "Wedding": "Wedding", "Bouquet": "Wedding",
+    "Saintly Jade": "Fantasy", "Kukulkan": "Fantasy",
+    "Mummy": "Halloween", "New Year": "New Year",
+    "Vampire": "Halloween", "Festival": "Festival",
+    "Quercus": "Wedding", "End": "Anime", "Beyond": "Anime"
 }
 
 def smart_match_name(raw_name, valid_csv_names):
