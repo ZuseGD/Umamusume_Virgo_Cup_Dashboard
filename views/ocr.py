@@ -22,12 +22,13 @@ ORIGINAL_UMAS = [
 VARIANT_MAP = {
     "Summer": "Summer", "Hot Summer": "Summer",
     "Valentine": "Valentine", "Christmas": "Christmas", "Holiday": "Christmas",
-    "Happy Heart": "Summer", "Carnival": "Festival",
+    "Hopp'n Happy Heart": "Summer", "Carnival": "Festival",
     "Wedding": "Wedding", "Bouquet": "Wedding",
-    "Saintly Jade": "Fantasy", "Kukulkan": "Fantasy",
-    "Mummy": "Halloween", "New Year": "New Year",
-    "Vampire": "Halloween", "Festival": "Festival",
-    "Quercus": "Wedding", "End": "Anime", "Beyond": "Anime"
+    "Saintly Jade Cleric": "Fantasy", "Kukulkan": "Fantasy",
+    "Chiffon-Wrapped Mummy": "Halloween", "New Year": "New Year",
+    "Vampire Makeover!": "Halloween", "Festival": "Festival",
+    "Quercus Civilis": "Wedding", "End of the Skies": "Anime", "Beyond the Horizon": "Anime",
+    "Lucky Tidings": "Full Armor", "Princess": "Princess"
 }
 
 def smart_match_name(raw_name, valid_csv_names):
