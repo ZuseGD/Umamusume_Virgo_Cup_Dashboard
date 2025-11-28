@@ -445,17 +445,20 @@ def load_ocr_data(parquet_file):
         st.error(f"Error loading Parquet: {e}")
         return pd.DataFrame()
 
+# --- UPDATED LOAD FINALS DATA ---
 @st.cache_data(ttl=3600)
 def load_finals_data(csv_path, parquet_path):
-    """
-    UPDATED: Loads Finals CSV + Parquet.
-    Extracts 'Role' to distinguish Aces vs Debuffers.
-    """
     if not csv_path or not os.path.exists(csv_path):
         return pd.DataFrame(), pd.DataFrame()
 
     try:
         raw_df = pd.read_csv(csv_path)
+        
+        # Identify Metadata Columns
+        col_spent = find_column(raw_df, ['spent', 'money', 'eur/usd'])
+        col_kitasan = find_column(raw_df, ['kitasan', 'speed: kitasan'])
+        col_fine = find_column(raw_df, ['fine motion', 'wit: fine'])
+        
         processed_rows = []
         
         for _, row in raw_df.iterrows():
@@ -463,10 +466,15 @@ def load_finals_data(csv_path, parquet_path):
             result = str(row.get('Finals race result', 'Unknown'))
             is_win = 1 if result == '1st' else 0
             
+            # Extract Player Metadata
+            spending = row.get(col_spent, 'Unknown') if col_spent else 'Unknown'
+            card_kitasan = row.get(col_kitasan, 'Unknown') if col_kitasan else 'Unknown'
+            card_fine = row.get(col_fine, 'Unknown') if col_fine else 'Unknown'
+            
             for i in range(1, 4):
                 uma_name = row.get(f'Own Team - Uma {i}')
                 style = row.get(f'Own team - Uma {i} - Running Style')
-                role = row.get(f'Own team - Uma {i} - Role', 'Unknown') # <--- EXTRACT ROLE
+                role = row.get(f'Own team - Uma {i} - Role', 'Unknown')
                 
                 if pd.notna(uma_name) and str(uma_name).strip() != "":
                     processed_rows.append({
@@ -474,13 +482,21 @@ def load_finals_data(csv_path, parquet_path):
                         'Display_IGN': ign,
                         'Clean_Uma': parse_uma_details(pd.Series([uma_name]))[0],
                         'Clean_Style': style,
-                        'Clean_Role': role, # <--- NEW
+                        'Clean_Role': role,
                         'Result': result,
+                        'Spending_Text': spending,
+                        'Card_Kitasan': card_kitasan,
+                        'Card_Fine': card_fine,
                         'Calculated_WinRate': is_win * 100, 
                         'Is_Winner': is_win
                     })
         
         finals_matches = pd.DataFrame(processed_rows)
+        
+        # Post-Process Spending for Sorting
+        if not finals_matches.empty:
+            finals_matches['Sort_Money'] = clean_currency_numeric(finals_matches['Spending_Text'])
+
     except Exception as e:
         st.error(f"Error parsing Finals CSV: {e}")
         return pd.DataFrame(), pd.DataFrame()
@@ -490,7 +506,6 @@ def load_finals_data(csv_path, parquet_path):
             return finals_matches, pd.DataFrame()
             
         ocr_df = pd.read_parquet(parquet_path)
-        
         if 'ign' in ocr_df.columns:
             ocr_df['Match_IGN'] = ocr_df['ign'].astype(str).str.lower().str.strip()
         
@@ -499,7 +514,6 @@ def load_finals_data(csv_path, parquet_path):
             ocr_df['Match_Uma'] = ocr_df['name'].apply(lambda x: smart_match_name(x, valid_names))
             finals_matches['Match_Uma'] = finals_matches['Clean_Uma']
             
-            # Merge logic
             merged_df = pd.merge(
                 ocr_df, 
                 finals_matches, 
@@ -513,7 +527,6 @@ def load_finals_data(csv_path, parquet_path):
     except Exception as e:
         st.error(f"Error merging Finals Parquet: {e}")
         return finals_matches, pd.DataFrame()
-
 # Common Footer
 footer_html = """
 <style>
