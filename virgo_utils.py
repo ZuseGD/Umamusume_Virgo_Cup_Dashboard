@@ -16,7 +16,6 @@ PLOT_CONFIG = {
     'modeBarButtonsToRemove': ['sendDataToCloud', 'lasso2d', 'select2d', 'zoom2d', 'pan2d']
 }
 
-# ... [Keep CONSTANTS like DESCRIPTIONS, ORIGINAL_UMAS, VARIANT_MAP as is] ...
 DESCRIPTIONS = {} 
 
 ORIGINAL_UMAS = [
@@ -82,7 +81,6 @@ def find_column(df, keywords, case_sensitive=False):
             else:
                 if key.lower() in col.lower(): return col
     
-    # Fuzzy Match
     clean_cols = df.columns.str.lower().str.replace(r'[^a-z0-9]', '', regex=True)
     for i, col in enumerate(clean_cols):
         for key in keywords:
@@ -104,7 +102,6 @@ def clean_currency_numeric(series):
             .fillna(0))
 
 def parse_uma_details(series):
-    # Handles format "Name - Strategy - Role" -> Returns "Name"
     return series.astype(str).apply(lambda x: x.split(' - ')[0].strip().title())
 
 def calculate_score(wins, races):
@@ -133,14 +130,14 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
     try:
         raw_df = pd.read_csv(csv_path)
         
-        # Identify Columns
+        # Metadata
         col_spent = find_column(raw_df, ['spent', 'money', 'eur/usd', 'howmuchhaveyouspent'])
         col_runs = find_column(raw_df, ['career runs', 'runs per day', 'howmanycareer'])
         col_kitasan = find_column(raw_df, ['kitasan', 'speed: kitasan'])
         col_fine = find_column(raw_df, ['fine motion', 'wit: fine'])
         
-        # NEW: Identify Specific Winner Column
-        col_winner_name = find_column(raw_df, ['which uma won the finals lobby', 'lobby winner'])
+        # Specific Winner Column
+        col_winner_name = find_column(raw_df, ['which uma won the finals lobby', 'lobby winner', 'whichumawonthefinalslobby'])
 
         opp_cols = []
         for i in range(1, 4):
@@ -154,18 +151,17 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
             result = str(row.get('Finals race result', 'Unknown'))
             team_won = 1 if '1st' in str(result).lower() else 0
             
-            # Extract metadata
             spending = row.get(col_spent, 'Unknown') if col_spent else 'Unknown'
             runs_per_day = row.get(col_runs, 'Unknown') if col_runs else 'Unknown'
             card_kitasan = row.get(col_kitasan, 'Unknown') if col_kitasan else 'Unknown'
             card_fine = row.get(col_fine, 'Unknown') if col_fine else 'Unknown'
             
-            # Extract Lobby Winner Name (and clean it)
+            # Parse Specific Lobby Winner
             lobby_winner = "Unknown"
             if col_winner_name:
                 val = row.get(col_winner_name)
                 if pd.notna(val):
-                     # Use parse_uma_details logic on single string
+                     # Clean format like "Oguri Cap - Strategy"
                      lobby_winner = str(val).split(' - ')[0].strip().title()
 
             match_opponents = []
@@ -183,21 +179,14 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
                 if pd.notna(uma_name) and str(uma_name).strip() != "":
                     clean_name = parse_uma_details(pd.Series([uma_name]))[0]
                     
-                    # --- WINNER LOGIC ---
-                    # 1. Team Winner: Did the player place 1st?
-                    is_team_winner = team_won
-                    
-                    # 2. Specific Winner: Did THIS Uma win?
-                    # Logic: Player must have won AND this Uma's name matches the Lobby Winner name
-                    # Note: If user input "Oguri" vs "Oguri Cap", we rely on 'in' or fuzzy match. 
-                    # Since both go through 'parse_uma_details', exact match is likely sufficient, 
-                    # but we check 'in' to be safe.
+                    # Determine Specific Winner
+                    # Team must have won AND name must match lobby winner (fuzzy match)
                     is_specific_winner = 0
                     if team_won == 1:
-                        if clean_name.lower() == lobby_winner.lower():
-                            is_specific_winner = 1
-                        elif lobby_winner.lower() in clean_name.lower() or clean_name.lower() in lobby_winner.lower():
-                             # Fallback for variations
+                        # Check if clean_name matches lobby_winner (ignoring case/partial)
+                        c_low = clean_name.lower()
+                        w_low = lobby_winner.lower()
+                        if c_low == w_low or w_low in c_low or c_low in w_low:
                              is_specific_winner = 1
 
                     processed_rows.append({
@@ -212,8 +201,8 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
                         'Card_Kitasan': card_kitasan,
                         'Card_Fine': card_fine,
                         'Opponents': match_opponents,
-                        'Is_Winner': is_team_winner,          # For Team Comps
-                        'Is_Specific_Winner': is_specific_winner # For Stats/Tier Lists
+                        'Is_Winner': team_won,                 # Team Status
+                        'Is_Specific_Winner': is_specific_winner # Individual Status
                     })
         
         finals_matches = pd.DataFrame(processed_rows)
@@ -225,7 +214,6 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
         return pd.DataFrame(), pd.DataFrame()
 
     try:
-        # --- MERGE LOGIC (Same as before) ---
         merged_results = []
         valid_names = finals_matches['Clean_Uma'].unique().tolist() if not finals_matches.empty else []
 
@@ -268,7 +256,6 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
         st.error(f"Error merging Finals Parquet: {e}")
         return finals_matches, pd.DataFrame()
 
-# [Keep load_data and load_ocr_data as they were]
 @st.cache_data(ttl=3600)
 def load_data(sheet_url):
     try:
