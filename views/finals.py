@@ -86,7 +86,7 @@ def show_view(current_config):
             size='Entries',
             color='Win_Rate',
             hover_name='Uma',
-            text='Uma',
+            #text='Uma',
             title="Finals Meta: Meta Score vs Win Rate",
             labels={'Meta_Score': 'Meta Score (Impact)', 'Win_Rate': 'Win Rate (%)'},
             template='plotly_dark',
