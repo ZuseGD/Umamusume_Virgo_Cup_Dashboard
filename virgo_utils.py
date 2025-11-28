@@ -445,6 +445,83 @@ def load_ocr_data(parquet_file):
         st.error(f"Error loading Parquet: {e}")
         return pd.DataFrame()
 
+@st.cache_data(ttl=3600)
+def load_finals_data(csv_path, parquet_path):
+    """
+    New Loader specifically for FINALS.
+    1. Reads Wide-Format CSV (3 umas per row).
+    2. Reads OCR Parquet.
+    3. Merges them together.
+    """
+    if not csv_path or not os.path.exists(csv_path):
+        return pd.DataFrame(), pd.DataFrame()
+
+    # 1. PROCESS WIDE CSV -> LONG FORMAT
+    try:
+        raw_df = pd.read_csv(csv_path)
+        processed_rows = []
+        
+        for _, row in raw_df.iterrows():
+            ign = str(row.get('Player in-game name (IGN)', 'Unknown')).strip()
+            result = str(row.get('Finals race result', 'Unknown'))
+            is_win = 1 if result == '1st' else 0
+            
+            # Iterate through the 3 horse slots in the CSV
+            for i in range(1, 4):
+                uma_name = row.get(f'Own Team - Uma {i}')
+                style = row.get(f'Own team - Uma {i} - Running Style')
+                
+                # Only add if a horse name exists
+                if pd.notna(uma_name) and str(uma_name).strip() != "":
+                    processed_rows.append({
+                        'Match_IGN': ign.lower(), # Key for linking
+                        'Display_IGN': ign,
+                        'Clean_Uma': parse_uma_details(pd.Series([uma_name]))[0],
+                        'Clean_Style': style,
+                        'Result': result,
+                        'Calculated_WinRate': is_win * 100, # 1st place = 100% WR in finals context
+                        'Is_Winner': is_win
+                    })
+        
+        finals_matches = pd.DataFrame(processed_rows)
+    except Exception as e:
+        st.error(f"Error parsing Finals CSV: {e}")
+        return pd.DataFrame(), pd.DataFrame()
+
+    # 2. PROCESS PARQUET & MERGE
+    try:
+        if not parquet_path or not os.path.exists(parquet_path):
+            return finals_matches, pd.DataFrame()
+            
+        ocr_df = pd.read_parquet(parquet_path)
+        
+        # Prepare Join Key
+        if 'ign' in ocr_df.columns:
+            ocr_df['Match_IGN'] = ocr_df['ign'].astype(str).str.lower().str.strip()
+        
+        if not finals_matches.empty:
+            # Get list of valid names from CSV to help matching
+            valid_names = finals_matches['Clean_Uma'].unique().tolist()
+            
+            # Apply Smart Matching to OCR names
+            ocr_df['Match_Uma'] = ocr_df['name'].apply(lambda x: smart_match_name(x, valid_names))
+            finals_matches['Match_Uma'] = finals_matches['Clean_Uma'] # Already clean
+            
+            # Merge!
+            merged_df = pd.merge(
+                ocr_df, 
+                finals_matches, 
+                on=['Match_IGN', 'Match_Uma'], 
+                how='inner'
+            )
+            return finals_matches, merged_df
+        
+        return finals_matches, pd.DataFrame()
+        
+    except Exception as e:
+        st.error(f"Error merging Finals Parquet: {e}")
+        return finals_matches, pd.DataFrame()
+
 # Common Footer
 footer_html = """
 <style>
