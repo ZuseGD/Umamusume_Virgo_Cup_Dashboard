@@ -1,7 +1,6 @@
 import streamlit as st
 import os
-from virgo_utils import load_data, footer_html, load_ocr_data
-from PIL import Image
+from virgo_utils import  footer_html
 from cm_config import CM_LIST
 # dashboard.py (Update)
 from data_manager import get_data # Import the new manager
