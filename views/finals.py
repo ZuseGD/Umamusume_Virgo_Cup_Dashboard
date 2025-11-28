@@ -41,8 +41,7 @@ def resolve_lobby_winner(row, winner_ref, col_map):
 def show_view(current_config):
     st.header("🏆 Finals: Comprehensive Analysis")
     st.markdown("""
-    **Deep Dive into the Finals Meta.** This section analyzes the "Real" meta—what actually won in the A-Finals. 
-    It identifies the specific single winner of each lobby to avoid team-bias.
+    **Deep Dive into the Finals Meta.** 
     """)
     
     # 1. LOAD DATA
@@ -184,13 +183,11 @@ def show_view(current_config):
         "💸 Economics"
     ])
 
-    # --- NEW TAB: INDIVIDUAL WINNERS ---
-    with tab_oshi:
-        st.subheader("🥇 True Finals Lobby Winners")
-
         # --- TAB 1: OSHI & AWARDS (NEW) ---
     with tab_oshi:
         st.subheader("🏅 Performance Awards & Oshi Analysis")
+        st.markdown('''This section analyzes the "Real" meta... What actually won in the A Finals? 
+    It identifies the specific single winner of each lobby to avoid team-bias.''')
         
         if stats.empty:
             st.warning("Insufficient data to generate awards.")
@@ -219,7 +216,7 @@ def show_view(current_config):
             # CHART 2: BEST OSHI (Hidden Gems)
             with c1:
                 st.markdown("#### 💎 Best 'Oshi' (Hidden Gems)")
-                st.caption(f"Highest Win Rate characters with < {oshi_cutoff} Picks.")
+                st.caption(f"Highest Win Rate characters with < {oshi_cutoff} Picks with at least 3 Entries.")
                 
                 oshi_stats = stats[stats['Is_Oshi'] & (stats['Entries'] >= 3)].sort_values('Win_Rate', ascending=False).head(10)
                 
@@ -520,82 +517,9 @@ def show_view(current_config):
         global_agg['Win_Rate'] *= 100
         global_agg['First_Rate'] *= 100
 
-        # Row 1: The Bad (Fraud & Struggles)
-        col_g1, col_g2 = st.columns(2)
-
-        # 1. Fraud Award
-        with col_g1:
-            st.markdown("##### 🤡 The 'Fraud' Award")
-            st.caption("Highest usage (>200) with **lowest** Win Rates.")
-            
-            fraud_stats = global_agg[global_agg['Entries'] > 200].sort_values('Win_Rate', ascending=True).head(10).copy()
-            
-            if not fraud_stats.empty:
-                fig_fraud = px.bar(
-                    fraud_stats, x='Win_Rate', y='Uma', orientation='h', text='Entries',
-                    title="Lowest Win Rates (Min 200 Entries)",
-                    labels={'Win_Rate': 'Win Rate (%)', 'Uma': 'Character'},
-                    template='plotly_dark', color='Win_Rate', color_continuous_scale='Redor_r'
-                )
-                fig_fraud.update_traces(texttemplate='%{text} Entries', textposition='outside')
-                fig_fraud.update_yaxes(categoryorder='array', categoryarray=fraud_stats['Uma'][::-1]) 
-                st.plotly_chart(style_fig(fig_fraud, height=400), width='stretch', config=PLOT_CONFIG)
-            else:
-                st.info("No characters met the >200 entries criteria.")
-
-        # 2. Oshi Strugglers
-        with col_g2:
-            st.markdown("##### 💔 Oshi Strugglers")
-            st.caption("Niche picks (<200 Entries) with **lowest** 1st Place %.")
-            
-            # Filter < 200 but > 20 to avoid noise
-            struggle_stats = global_agg[(global_agg['Entries'] < 200) & (global_agg['Entries'] > 20)].sort_values('First_Rate', ascending=True).head(10).copy()
-            
-            if not struggle_stats.empty:
-                fig_struggle = px.bar(
-                    struggle_stats, x='First_Rate', y='Uma', orientation='h', text='Entries',
-                    title="Lowest 1st Place % (20 < Entries < 200)",
-                    labels={'First_Rate': '1st Place %', 'Uma': 'Character'},
-                    template='plotly_dark', color='First_Rate', color_continuous_scale='Redor_r'
-                )
-                fig_struggle.update_traces(texttemplate='%{text} Entries', textposition='outside')
-                fig_struggle.update_yaxes(categoryorder='array', categoryarray=struggle_stats['Uma'][::-1])
-                st.plotly_chart(style_fig(fig_struggle, height=400), width='stretch', config=PLOT_CONFIG)
-            else:
-                st.info("No data in range.")
-
-        st.markdown("---")
-        
-        # Row 2: The Good (Oshi Winners)
-        col_g3, col_g4 = st.columns(2)
-        
-        with col_g3:
-            st.markdown("##### 💎 Oshi Winners (Hidden Gems)")
-            st.caption("Niche picks (<200 Entries) with **highest** Win Rates.")
-            
-            # Filter < 200 but > 20, Sort Descending
-            oshi_winners = global_agg[(global_agg['Entries'] < 200) & (global_agg['Entries'] > 20)].sort_values('Win_Rate', ascending=False).head(10).copy()
-            
-            if not oshi_winners.empty:
-                fig_oshi = px.bar(
-                    oshi_winners, x='Win_Rate', y='Uma', orientation='h', text='Entries',
-                    title="Highest Win Rates (20 < Entries < 200)",
-                    labels={'Win_Rate': 'Win Rate (%)', 'Uma': 'Character'},
-                    template='plotly_dark', color='Win_Rate', color_continuous_scale='Greens'
-                )
-                fig_oshi.update_traces(texttemplate='%{text} Entries', textposition='outside')
-                fig_oshi.update_layout(yaxis={'categoryorder':'total ascending'})
-                st.plotly_chart(style_fig(fig_oshi, height=400), width='stretch', config=PLOT_CONFIG)
-            else:
-                st.info("No data in range.")
-
-        with col_g4:
-            st.info("ℹ️ 'Oshi' charts filter out meta characters (>200 entries) to highlight performance of less common picks.")
-
-        st.markdown("---")
         
         # 4. Placement Breakdown (Sorted Chart - 1st vs Did Not Win)
-        st.markdown("##### 🏅 Finals Placement Breakdown (1st vs Did Not Win)")
+        st.markdown("##### 🏅 Team Finals Placement Breakdown (1st vs Did Not Win)")
         
         # NEW LOGIC: Only two categories
         def norm_res_final(r):
@@ -624,7 +548,7 @@ def show_view(current_config):
         st.plotly_chart(style_fig(fig_place_counts), width='stretch', config=PLOT_CONFIG)
         
         # 5. Placement Distribution (%) (Sorted by 1st Place)
-        st.markdown("##### 📊 Placement Distribution (%) - Sorted by 1st Place")
+        st.markdown("##### 📊 Placement Distribution (%) - Sorted by 1st Place Teams")
         
         place_pivot['1st_Pct'] = (place_pivot['1st'] / place_pivot['Total']) * 100
         place_pivot['Loss_Pct'] = (place_pivot["Didn't Win"] / place_pivot['Total']) * 100
@@ -707,28 +631,3 @@ def show_view(current_config):
                     st.info("No runs data available.")
 
             st.markdown("---")
-            st.subheader("🃏 Support Card Impact")
-            
-            if 'Card_Kitasan' in econ_df.columns:
-                kitasan_stats = econ_df.groupby('Card_Kitasan').agg({'Is_Winner': ['mean', 'count']}).reset_index()
-                kitasan_stats.columns = ['Level', 'Win_Rate', 'Entries']
-                kitasan_stats['Win_Rate'] *= 100
-                kitasan_stats = kitasan_stats[kitasan_stats['Entries'] > 5].sort_values('Win_Rate', ascending=False)
-                
-                fig_kita = px.bar(
-                    kitasan_stats, x='Level', y='Win_Rate', color='Entries',
-                    title="Speed SSR: Kitasan Black", template='plotly_dark'
-                )
-                st.plotly_chart(style_fig(fig_kita, height=400), width='stretch', config=PLOT_CONFIG)
-            
-            if 'Card_Fine' in econ_df.columns:
-                fine_stats = econ_df.groupby('Card_Fine').agg({'Is_Winner': ['mean', 'count']}).reset_index()
-                fine_stats.columns = ['Level', 'Win_Rate', 'Entries']
-                fine_stats['Win_Rate'] *= 100
-                fine_stats = fine_stats[fine_stats['Entries'] > 5].sort_values('Win_Rate', ascending=False)
-                
-                fig_fine = px.bar(
-                    fine_stats, x='Level', y='Win_Rate', color='Entries',
-                    title="Wit SSR: Fine Motion", template='plotly_dark'
-                )
-                st.plotly_chart(style_fig(fig_fine, height=400), width='stretch', config=PLOT_CONFIG)
