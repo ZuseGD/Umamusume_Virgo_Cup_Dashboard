@@ -40,6 +40,7 @@ def show_view(current_config):
     # --- METRICS ---
     total_entries = matches_df['Display_IGN'].nunique()
     total_winners = matches_df[matches_df['Is_Winner'] == 1]['Display_IGN'].nunique()
+    # Filter for specific winners who also have scan data
     winners_with_scan = finals_ocr[finals_ocr['Is_Specific_Winner'] == 1]['Display_IGN'].nunique() if not finals_ocr.empty else 0
 
     m1, m2, m3 = st.columns(3)
@@ -62,18 +63,24 @@ def show_view(current_config):
     # --- TAB 1: META OVERVIEW ---
     with tab1:
         st.subheader("🏁 Character Tier List (Cumulative)")
-        st.markdown("**Meta Score vs. Individual Win Rate**")
-        st.caption("Calculated using Prelims Data + Specific Finals Winners.")
+        st.markdown("""
+        **Meta Score vs. Individual Win Rate (Prelims + Finals)**
+        - Integrates data from the entire event.
+        - Finals contribution uses **Individual Winner** logic (no triple counting).
+        """)
         
         if not sheet_df.empty:
             prelim_stats = sheet_df.groupby('Clean_Uma')[['Clean_Wins', 'Clean_Races']].sum()
         else:
             prelim_stats = pd.DataFrame(columns=['Clean_Wins', 'Clean_Races'])
             
+        # Use Specific Winner for accurate win rates
         finals_stats = matches_df.groupby('Clean_Uma').agg(
             Clean_Wins=('Is_Specific_Winner', 'sum'),
-            Clean_Races=('Match_IGN', 'count')
+            Clean_Races=('Is_Winner', 'count') # Use count for entries, not Is_Winner count
         )
+        # Correction: Clean_Races should be Count of rows (Entries), Clean_Wins is Sum of Is_Specific_Winner
+        finals_stats['Clean_Races'] = matches_df.groupby('Clean_Uma')['Match_IGN'].count()
 
         cum_stats = prelim_stats.add(finals_stats, fill_value=0)
         cum_stats = cum_stats[cum_stats['Clean_Races'] > 0]
@@ -112,6 +119,7 @@ def show_view(current_config):
     # --- TAB 2: TEAM COMPS ---
     with tab2:
         st.subheader("⚔️ Winning Team Compositions")
+        # Keep Team Winner Logic here (Is_Winner) because teams win, not individuals
         
         team_df = matches_df.groupby(['Display_IGN', 'Result']).agg({
             'Clean_Uma': lambda x: sorted(list(x)), 
@@ -166,6 +174,7 @@ def show_view(current_config):
             st.warning("Need Finals OCR + Prelims OCR data.")
         else:
             c1, c2 = st.columns(2)
+            # Use Specific Winners for accurate skill analysis
             winners_ocr = finals_ocr[finals_ocr['Is_Specific_Winner'] == 1].copy()
             
             with c1:
@@ -216,6 +225,7 @@ def show_view(current_config):
             with c2:
                 sel_style_stat = st.selectbox("Style:", ["All"] + sorted(finals_ocr['Clean_Style'].unique()), key="stat_style")
             
+            # Only Specific Winners
             w_df = finals_ocr[finals_ocr['Is_Specific_Winner'] == 1].copy()
             w_df['Group'] = 'Champions (Specific)'
             f_df = prelims_baseline.copy()
@@ -240,7 +250,9 @@ def show_view(current_config):
     # --- TAB 5: GLOBAL STATS ---
     with tab5:
         st.subheader("🌐 Global Event Statistics")
-        
+        st.caption("Win Rates now reflect **Individual** performance (Did THIS horse win?), not Team Wins.")
+
+        # Aggregation using Specific Winner
         global_agg = matches_df.groupby('Clean_Uma').agg({
             'Is_Specific_Winner': ['mean', 'count']
         }).reset_index()
@@ -249,7 +261,7 @@ def show_view(current_config):
 
         col_g1, col_g2 = st.columns(2)
 
-        # 1. Fraud Award
+        # 1. Fraud Award (High Usage, Low Specific Win Rate)
         with col_g1:
             st.markdown("##### 🤡 The 'Fraud' Award")
             st.caption("Highest usage (>200) with **lowest** Individual Win Rates.")
@@ -269,7 +281,7 @@ def show_view(current_config):
             else:
                 st.info("No characters met the >200 entries criteria.")
 
-        # 2. Oshi Strugglers
+        # 2. Oshi Strugglers (Low Usage, Low Win Rate)
         with col_g2:
             st.markdown("##### 💔 Oshi Strugglers")
             st.caption("Niche picks (20 < Entries < 200) with **lowest** Individual Win Rates.")
@@ -314,7 +326,7 @@ def show_view(current_config):
                 st.info("No data in range.")
 
         with col_g4:
-             st.info("ℹ️ Win Rates are now calculated based on **Individual** performance (did THIS specific horse win?), removing the team-win inflation.")
+             st.info("ℹ️ Note: Win Rates here are strictly **Individual**. A 33% win rate implies this specific character wins 1 in 3 races they enter, not just that their team wins.")
 
         st.markdown("---")
         
@@ -374,7 +386,7 @@ def show_view(current_config):
             with c1:
                 st.markdown("##### 💰 Win Rate by Spending Tier")
                 spend_stats = econ_df.groupby('Spending_Text').agg({
-                    'Is_Specific_Winner': ['mean', 'count'],
+                    'Is_Specific_Winner': ['mean', 'count'], # Specific win rate
                     'Sort_Money': 'mean' 
                 }).reset_index()
                 spend_stats.columns = ['Tier', 'Win_Rate', 'Entries', 'Sort_Val']
