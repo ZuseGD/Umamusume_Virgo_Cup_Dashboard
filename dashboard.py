@@ -4,7 +4,7 @@ from virgo_utils import load_data, footer_html, load_ocr_data
 from PIL import Image
 from cm_config import CM_LIST
 # dashboard.py (Update)
-from data_manager import get_data_loader # Import the new manager
+from data_manager import get_data # Import the new manager
 
 # 1. Page Config
 page_icon = "🏆"
@@ -12,149 +12,75 @@ icon_path = "images/moologo2.png"
 if os.path.exists(icon_path):
     page_icon = icon_path
 
-st.set_page_config(page_title="UM Dashboard", page_icon=page_icon, layout="wide")
+st.set_page_config(page_title="Moomamusume Dashboard", page_icon=page_icon, layout="wide")
 
-#  EVENT SELECTION
-st.sidebar.header("📅 Event Selector")
-event_names = list(CM_LIST.keys())
-selected_event_name = st.sidebar.selectbox("Select Event", event_names, index=0, key="event_selector")
-current_config = CM_LIST[selected_event_name]
-
-# [NEW] Data Source Toggle
-st.sidebar.markdown("---")
-st.sidebar.header("📊 Data Source")
-data_mode = st.sidebar.radio(
-    "Select Stage:",
-    options=["Prelims (R1 & R2)", "Finals"],
-    index=0
-)
-
-# --- LOAD DATA VIA OOP MANAGER ---
-loader = get_data_loader(data_mode) # Get the correct Strategy Class
-
-try:
-    # Polymorphic calls - the rest of your app doesn't need to know which file it is!
-    df, team_df = loader.load_matches(current_config)
-    
-    # Store the OCR path dynamically based on mode so views/ocr.py can find it
-    if data_mode == "Finals":
-        current_config['active_parquet'] = current_config.get('finals_parquet')
-    else:
-        current_config['active_parquet'] = current_config.get('parquet_file')
-
-except Exception as e:
-    st.error(f"Error loading {data_mode} data: {e}")
-    st.stop()
-
-
+# 2. CSS STYLING
 st.markdown("""
 <style>
     [data-testid="stSidebar"] {min-width: 250px;}
-    
-    /* Navigation Buttons Styling */
     div.stButton > button {
-        width: 100%;
-        border-radius: 8px;       /* Softer corners */
-        height: 3.5em;            /* Taller buttons */
-        font-size: 1.1rem;        /* Bigger text */
-        font-weight: bold;
-        border: 1px solid #444;
-        transition: all 0.2s ease-in-out;
+        width: 100%; border-radius: 8px; height: 3.0em; font-weight: bold;
+        border: 1px solid #444; transition: all 0.2s ease-in-out;
     }
-    
-    /* Hover Effect */
     div.stButton > button:hover {
-        border-color: #00CC96;
-        color: #00CC96;
-        transform: translateY(-2px); /* Slight lift effect */
+        border-color: #00CC96; color: #00CC96; transform: translateY(-2px);
     }
-    
-    /* Primary Button (Active Tab) Specifics */
     div.stButton > button[kind="primary"] {
-        background-color: #FF4B4B; /* Or your theme color */
-        border-color: #FF4B4B;
-        color: white;
+        background-color: #FF4B4B; border-color: #FF4B4B; color: white;
     }
 </style>
 """, unsafe_allow_html=True)
-# -------------------------------
 
-# 4. LOAD DATA
+# 3. SIDEBAR CONTROLS
+st.sidebar.header("📅 Event & Stage")
+event_names = list(CM_LIST.keys())
+selected_event_name = st.sidebar.selectbox("Select Event", event_names, index=0)
+current_config = CM_LIST[selected_event_name]
+
+# Stage Selector (Prelims vs Finals)
+data_stage = st.sidebar.radio("Select Stage", ["Prelims (R1 & R2)", "Finals"], index=0)
+mode_key = "Finals" if "Finals" in data_stage else "Prelims"
+
+# 4. LOAD DATA (Centralized & Cached)
 try:
-    if not current_config['sheet_url'].startswith("http"):
-        if not os.path.exists(current_config['sheet_url']):
-            st.error(f"❌ File not found: **{current_config['sheet_url']}**")
-            st.info("Please ensure the CSV file is in the same folder as `dashboard.py`.")
-            st.stop()
-
-    df, team_df = load_data(current_config['sheet_url'])
+    df, team_df, ocr_df = get_data(mode_key, current_config)
     
-    if df.empty:
-        st.error("⚠️ Data loaded but is empty. Check CSV format.")
+    if df.empty and mode_key == "Finals":
+        st.warning("⚠️ No Finals data found for this event yet.")
         st.stop()
         
 except Exception as e:
-    st.error(f"❌ Critical Data Error: {e}")
+    st.error(f"❌ Data Loading Error: {e}")
     st.stop()
 
-# 5. FILTERS
-st.sidebar.header("⚙️ Global Filters")
-
-if 'Clean_Group' in df.columns:
+# 5. GLOBAL FILTERS
+st.sidebar.header("⚙️ Filters")
+if not df.empty and 'Clean_Group' in df.columns:
     groups = list(df['Clean_Group'].unique())
-    selected_group = st.sidebar.multiselect("CM Group", groups, default=groups, key="filter_group") 
+    selected_group = st.sidebar.multiselect("Group", groups, default=groups)
     if selected_group:
         df = df[df['Clean_Group'].isin(selected_group)]
         team_df = team_df[team_df['Clean_Group'].isin(selected_group)]
 
-if 'Round' in df.columns:
-    rounds = sorted(list(df['Round'].unique()))
-    selected_round = st.sidebar.multiselect("Round", rounds, default=rounds, key="filter_round")
-    if selected_round:
-        df = df[df['Round'].isin(selected_round)]
-        team_df = team_df[team_df['Round'].isin(selected_round)]
-
-if 'Day' in df.columns:
-    days = sorted(list(df['Day'].unique()))
-    selected_day = st.sidebar.multiselect("Day", days, default=days, key="filter_day")
-    if selected_day:
-        df = df[df['Day'].isin(selected_day)]
-        team_df = team_df[team_df['Day'].isin(selected_day)]
-
 # 6. HEADER
-st.title(f"{current_config['icon']} {selected_event_name} Dashboard")
+st.title(f"{current_config['icon']} {selected_event_name} ({mode_key})")
 
-# 7. NAVIGATION (Updated with Highlight Logic)
-nav_cols = st.columns(6)
+# 7. NAVIGATION
 if 'current_page' not in st.session_state: st.session_state.current_page = "Home"
 
-def set_page(p):
-    st.session_state.current_page = p
+def set_page(p): st.session_state.current_page = p
 
-def nav_btn(col, label, page_name):
+nav_cols = st.columns(6)
+pages = ["Home", "Teams", "Umas", "Resources", "OCR", "Guides"]
+icons = ["🌍", "⚔️", "🐴", "🃏", "📸", "📚"]
+
+for col, page, icon in zip(nav_cols, pages, icons):
     with col:
-        # Determine style: Primary (Red/Filled) if active, Secondary (Ghost) if not
-        btn_type = "primary" if st.session_state.current_page == page_name else "secondary"
-        
-        # Use on_click to update state BEFORE the re-run, ensuring instant highlight
-        st.button(
-            label, 
-            type=btn_type, 
-            on_click=set_page, 
-            args=(page_name,), 
-            width='stretch'
-        )
-
-# Render Buttons
-nav_btn(nav_cols[0], "🌍 Home", "Home")
-nav_btn(nav_cols[1], "⚔️ Teams", "Teams")
-nav_btn(nav_cols[2], "🐴 Umas", "Umas")
-nav_btn(nav_cols[3], "🃏 Resources", "Resources")
-nav_btn(nav_cols[4], "📸 OCR", "OCR")
-nav_btn(nav_cols[5], "📚 Guides", "Guides")
-
+        btn_type = "primary" if st.session_state.current_page == page else "secondary"
+        st.button(f"{icon} {page}", type=btn_type, on_click=set_page, args=(page,))
 
 # 8. ROUTING
+# We pass the pre-loaded DataFrames to views so they don't have to load anything
 if st.session_state.current_page == "Home":
     from views import home
     home.show_view(df, team_df, current_config)
@@ -169,13 +95,10 @@ elif st.session_state.current_page == "Resources":
     resources.show_view(df, team_df)
 elif st.session_state.current_page == "OCR":
     from views import ocr
-    # Pass the config dictionary, let the view handle loading
-    ocr.show_view(current_config)
+    # Pass DataFrames directly! Efficient!
+    ocr.show_view(ocr_df, df) 
 elif st.session_state.current_page == "Guides":
     from views import guides
     guides.show_view(current_config)
-elif st.session_state.current_page == "Credits":
-    from views import credits
-    credits.show_view()
 
 st.markdown(footer_html, unsafe_allow_html=True)
