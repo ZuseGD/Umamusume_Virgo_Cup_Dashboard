@@ -5,3 +5,4 @@ streamlit
 statsmodels
 pyarrow
 requests
+matplotlib
