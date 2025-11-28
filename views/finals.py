@@ -59,13 +59,10 @@ def show_view(current_config):
         "💸 Economics & Cards"
     ])
 
-    # --- TAB 1: META OVERVIEW (CUMULATIVE) ---
+    # --- TAB 1: META OVERVIEW ---
     with tab1:
         st.subheader("🏁 Character Tier List (Cumulative)")
-        st.markdown("""
-        **Meta Score vs. Win Rate (Prelims + Finals)**
-        - Integrates data from the entire event to show true consistency.
-        """)
+        st.markdown("**Meta Score vs. Win Rate (Prelims + Finals)**")
         
         if not sheet_df.empty:
             prelim_stats = sheet_df.groupby('Clean_Uma')[['Clean_Wins', 'Clean_Races']].sum()
@@ -121,7 +118,6 @@ def show_view(current_config):
         }).reset_index()
         team_df['Team_Comp'] = team_df['Clean_Uma'].apply(lambda x: ", ".join(x))
         
-        # 1. Total Wins Chart
         comp_stats = team_df.groupby('Team_Comp').agg({'Is_Winner': ['count', 'sum']}).reset_index()
         comp_stats.columns = ['Team', 'Entries', 'Wins']
         comp_stats['Win_Rate'] = (comp_stats['Wins'] / comp_stats['Entries']) * 100
@@ -138,9 +134,7 @@ def show_view(current_config):
 
         st.markdown("---")
         
-        # 2. Team Placement Distribution (Gold/Silver/Bronze)
         st.subheader("🏅 Team Placement Distribution")
-        
         def norm_res(r):
             r = str(r).lower()
             if '1st' in r: return '1st'
@@ -149,24 +143,15 @@ def show_view(current_config):
             return 'Other'
             
         team_df['Clean_Result'] = team_df['Result'].apply(norm_res)
-        
-        # Filter for top teams by popularity to keep chart readable
         top_teams = team_df['Team_Comp'].value_counts().head(15).index.tolist()
         filtered_teams = team_df[team_df['Team_Comp'].isin(top_teams)]
-        
-        team_pivot = filtered_teams.pivot_table(
-            index='Team_Comp', columns='Clean_Result', values='Display_IGN', aggfunc='count', fill_value=0
-        )
-        
-        # Flatten for Plotly
+        team_pivot = filtered_teams.pivot_table(index='Team_Comp', columns='Clean_Result', values='Display_IGN', aggfunc='count', fill_value=0)
         team_long = team_pivot.reset_index().melt(id_vars='Team_Comp', var_name='Place', value_name='Count')
-        # Filter only 1st/2nd/3rd for cleaner chart
         team_long = team_long[team_long['Place'].isin(['1st', '2nd', '3rd'])]
         
         fig_team_place = px.bar(
             team_long, x='Count', y='Team_Comp', color='Place', orientation='h',
-            title="Placement Breakdown for Top 15 Teams",
-            template='plotly_dark',
+            title="Placement Breakdown for Top 15 Teams", template='plotly_dark',
             category_orders={'Place': ['1st', '2nd', '3rd']},
             color_discrete_map={'1st': '#FFD700', '2nd': '#C0C0C0', '3rd': '#CD7F32'}
         )
@@ -257,21 +242,28 @@ def show_view(current_config):
     with tab5:
         st.subheader("🌐 Global Event Statistics")
         
-        col_glob1, col_glob2 = st.columns(2)
+        # Prepare Data needed for all charts
+        def is_first(res): return 1 if str(res).lower() == '1st' else 0
+        matches_df['Is_1st'] = matches_df['Result'].apply(is_first)
+        
+        # Aggregation
+        global_agg = matches_df.groupby('Clean_Uma').agg({
+            'Is_Winner': ['mean', 'count'],
+            'Is_1st': ['mean']
+        }).reset_index()
+        global_agg.columns = ['Uma', 'Win_Rate', 'Entries', 'First_Rate']
+        global_agg['Win_Rate'] *= 100
+        global_agg['First_Rate'] *= 100
+
+        # Row 1: The Bad (Fraud & Struggles)
+        col_g1, col_g2 = st.columns(2)
 
         # 1. Fraud Award
-        with col_glob1:
+        with col_g1:
             st.markdown("##### 🤡 The 'Fraud' Award")
             st.caption("Highest usage (>200) with **lowest** Win Rates.")
             
-            fraud_stats = matches_df.groupby('Clean_Uma').agg({
-                'Is_Winner': ['mean', 'count']
-            }).reset_index()
-            fraud_stats.columns = ['Uma', 'Win_Rate', 'Entries']
-            
-            # Filter > 200, Sort Ascending (Low to High)
-            fraud_stats = fraud_stats[fraud_stats['Entries'] > 200].sort_values('Win_Rate', ascending=True).head(10).copy()
-            fraud_stats['Win_Rate'] *= 100
+            fraud_stats = global_agg[global_agg['Entries'] > 200].sort_values('Win_Rate', ascending=True).head(10).copy()
             
             if not fraud_stats.empty:
                 fig_fraud = px.bar(
@@ -286,36 +278,104 @@ def show_view(current_config):
             else:
                 st.info("No characters met the >200 entries criteria.")
 
-        # 2. 1st Place Struggle
-        with col_glob2:
-            st.markdown("##### 📉 1st Place Strugglers")
-            st.caption("Highest usage (>200) with **lowest** 1st Place %.")
-
-            def is_first(res): return 1 if str(res).lower() == '1st' else 0
+        # 2. Oshi Strugglers
+        with col_g2:
+            st.markdown("##### 💔 Oshi Strugglers")
+            st.caption("Niche picks (<200 Entries) with **lowest** 1st Place %.")
             
-            struggle_stats = matches_df.copy()
-            struggle_stats['Is_1st'] = struggle_stats['Result'].apply(is_first)
+            # Filter < 200 but > 20 to avoid noise
+            struggle_stats = global_agg[(global_agg['Entries'] < 200) & (global_agg['Entries'] > 20)].sort_values('First_Rate', ascending=True).head(10).copy()
             
-            struggle_agg = struggle_stats.groupby('Clean_Uma').agg({
-                'Is_1st': ['mean', 'count']
-            }).reset_index()
-            struggle_agg.columns = ['Uma', 'First_Rate', 'Entries']
-            
-            struggle_agg = struggle_agg[struggle_agg['Entries'] > 200].sort_values('First_Rate', ascending=True).head(10).copy()
-            struggle_agg['First_Rate'] *= 100
-            
-            if not struggle_agg.empty:
+            if not struggle_stats.empty:
                 fig_struggle = px.bar(
-                    struggle_agg, x='First_Rate', y='Uma', orientation='h', text='Entries',
-                    title="Lowest 1st Place % (Min 200 Entries)",
+                    struggle_stats, x='First_Rate', y='Uma', orientation='h', text='Entries',
+                    title="Lowest 1st Place % (20 < Entries < 200)",
                     labels={'First_Rate': '1st Place %', 'Uma': 'Character'},
                     template='plotly_dark', color='First_Rate', color_continuous_scale='Redor_r'
                 )
                 fig_struggle.update_traces(texttemplate='%{text} Entries', textposition='outside')
-                fig_struggle.update_yaxes(categoryorder='array', categoryarray=struggle_agg['Uma'][::-1])
+                fig_struggle.update_yaxes(categoryorder='array', categoryarray=struggle_stats['Uma'][::-1])
                 st.plotly_chart(style_fig(fig_struggle, height=400), width='stretch', config=PLOT_CONFIG)
             else:
-                st.info("No data.")
+                st.info("No data in range.")
+
+        st.markdown("---")
+        
+        # Row 2: The Good (Oshi Winners)
+        col_g3, col_g4 = st.columns(2)
+        
+        with col_g3:
+            st.markdown("##### 💎 Oshi Winners (Hidden Gems)")
+            st.caption("Niche picks (<200 Entries) with **highest** Win Rates.")
+            
+            # Filter < 200 but > 20, Sort Descending
+            oshi_winners = global_agg[(global_agg['Entries'] < 200) & (global_agg['Entries'] > 20)].sort_values('Win_Rate', ascending=False).head(10).copy()
+            
+            if not oshi_winners.empty:
+                fig_oshi = px.bar(
+                    oshi_winners, x='Win_Rate', y='Uma', orientation='h', text='Entries',
+                    title="Highest Win Rates (20 < Entries < 200)",
+                    labels={'Win_Rate': 'Win Rate (%)', 'Uma': 'Character'},
+                    template='plotly_dark', color='Win_Rate', color_continuous_scale='Greens'
+                )
+                fig_oshi.update_traces(texttemplate='%{text} Entries', textposition='outside')
+                fig_oshi.update_layout(yaxis={'categoryorder':'total ascending'})
+                st.plotly_chart(style_fig(fig_oshi, height=400), width='stretch', config=PLOT_CONFIG)
+            else:
+                st.info("No data in range.")
+
+        with col_g4:
+            st.info("ℹ️ 'Oshi' charts filter out meta characters (>200 entries) to highlight performance of less common picks.")
+
+        st.markdown("---")
+        
+        # 4. Placement Breakdown (Sorted Chart - 1st vs Did Not Win)
+        st.markdown("##### 🏅 Finals Placement Breakdown (1st vs Did Not Win)")
+        
+        # NEW LOGIC: Only two categories
+        def norm_res_final(r):
+            r = str(r).lower()
+            if '1st' in r: return '1st'
+            return 'Didn\'t Win'
+
+        matches_df['Clean_Result_Binary'] = matches_df['Result'].apply(norm_res_final)
+        
+        place_pivot = matches_df.pivot_table(index='Clean_Uma', columns='Clean_Result_Binary', values='Match_IGN', aggfunc='count', fill_value=0)
+        # Ensure cols exist
+        for c in ['1st', "Didn't Win"]:
+            if c not in place_pivot.columns: place_pivot[c] = 0
+            
+        place_pivot['Total'] = place_pivot.sum(axis=1)
+        place_pivot = place_pivot.sort_values('Total', ascending=False).head(20)
+        place_counts_long = place_pivot[['1st', "Didn't Win"]].reset_index().melt(id_vars='Clean_Uma', var_name='Place', value_name='Count')
+        
+        fig_place_counts = px.bar(
+            place_counts_long, x='Count', y='Clean_Uma', color='Place', orientation='h',
+            title="Placement Counts (Top 20 Most Popular)", template='plotly_dark',
+            category_orders={'Place': ['1st', "Didn't Win"]},
+            color_discrete_map={'1st': '#FFD700', "Didn't Win": '#333333'}
+        )
+        fig_place_counts.update_layout(yaxis={'categoryorder':'total ascending'})
+        st.plotly_chart(style_fig(fig_place_counts), width='stretch', config=PLOT_CONFIG)
+        
+        # 5. Placement Distribution (%) (Sorted by 1st Place)
+        st.markdown("##### 📊 Placement Distribution (%) - Sorted by 1st Place")
+        
+        place_pivot['1st_Pct'] = (place_pivot['1st'] / place_pivot['Total']) * 100
+        place_pivot['Loss_Pct'] = (place_pivot["Didn't Win"] / place_pivot['Total']) * 100
+        
+        place_pivot_sorted = place_pivot.sort_values('1st_Pct', ascending=True)
+        place_long_pct = place_pivot_sorted[['1st_Pct', 'Loss_Pct']].reset_index().melt(id_vars='Clean_Uma', var_name='Place', value_name='Pct')
+        place_long_pct['Place'] = place_long_pct['Place'].map({'1st_Pct': '1st', 'Loss_Pct': "Didn't Win"})
+
+        fig_place_pct = px.bar(
+            place_long_pct, x='Pct', y='Clean_Uma', color='Place', orientation='h',
+            title="Placement Shares (Sorted by 1st Place %)", template='plotly_dark',
+            category_orders={'Place': ['1st', "Didn't Win"]},
+            color_discrete_map={'1st': '#FFD700', "Didn't Win": '#333333'}
+        )
+        fig_place_pct.update_yaxes(categoryorder='array', categoryarray=place_pivot_sorted.index)
+        st.plotly_chart(style_fig(fig_place_pct), width='stretch', config=PLOT_CONFIG)
 
     # --- TAB 6: ECONOMICS & CARDS ---
     with tab6:
@@ -350,7 +410,6 @@ def show_view(current_config):
             with c2:
                 st.markdown("##### 🏃 Win Rate by Daily Grind")
                 if 'Runs_Text' in econ_df.columns:
-                    # Explicit filter for 'Unknown' (case-insensitive check)
                     runs_df = econ_df[~econ_df['Runs_Text'].astype(str).str.contains('Unknown', case=False)].copy()
                     
                     if not runs_df.empty:
@@ -378,7 +437,7 @@ def show_view(current_config):
                         fig_runs.update_traces(texttemplate='%{text} Entries', textposition='outside')
                         st.plotly_chart(style_fig(fig_runs), width='stretch', config=PLOT_CONFIG)
                     else:
-                        st.info("No valid run data (all entries marked Unknown).")
+                        st.info("No valid run data found.")
                 else:
                     st.info("No runs data available.")
 
