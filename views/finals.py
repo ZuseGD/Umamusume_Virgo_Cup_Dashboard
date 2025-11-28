@@ -48,7 +48,6 @@ def show_view(current_config):
     csv_path = current_config.get('finals_csv')
     pq_path = current_config.get('finals_parquet')
     prelims_pq = current_config.get('parquet_file') 
-    rounds_csv = current_config.get('sheet_url')
     
     if not csv_path:
         st.info("🚫 No Finals data configured.")
@@ -64,7 +63,7 @@ def show_view(current_config):
 
         prelims_raw = load_ocr_data(prelims_pq)
         matches_df, finals_ocr = load_finals_data(csv_path, pq_path, main_ocr_df=prelims_raw)
-        sheet_df, _ = load_data(rounds_csv)
+        sheet_df, _ = load_data(SHEET_URL)
     
     if matches_df.empty:
         st.warning("⚠️ Could not parse Finals data.")
@@ -85,6 +84,10 @@ def show_view(current_config):
             clean_c = str(c).replace(" (optional)", "").strip()
             ref_col_map[clean_c] = c
             ref_col_map[clean_c + " (optional)"] = c # Just in case
+            
+            # Handle "Opponent's" vs "Opponent" variations if needed
+            if "Opponent's" in clean_c:
+                ref_col_map[clean_c.replace("Opponent's", "Opponent")] = c
     
     true_winners = []
     if col_winner_ref:
