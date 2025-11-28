@@ -447,23 +447,27 @@ def load_ocr_data(parquet_file):
 
 # --- UPDATED LOAD FINALS DATA ---
 @st.cache_data(ttl=3600)
-def load_finals_data(csv_path, parquet_path):
+def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
+    """
+    Loads Finals CSV and attempts to merge with OCR data.
+    Priority 1: Finals Parquet (if provided)
+    Priority 2: Main OCR DataFrame (backfill)
+    """
     if not csv_path or not os.path.exists(csv_path):
         return pd.DataFrame(), pd.DataFrame()
 
     try:
         raw_df = pd.read_csv(csv_path)
         
-        # Identify Metadata Columns
+        # Metadata Columns
         col_spent = find_column(raw_df, ['spent', 'money', 'eur/usd'])
         col_runs = find_column(raw_df, ['career runs', 'runs per day'])
         col_kitasan = find_column(raw_df, ['kitasan', 'speed: kitasan'])
         col_fine = find_column(raw_df, ['fine motion', 'wit: fine'])
         
-        # Identify Opponent Columns (Robust Search)
+        # Opponent Columns (Kept generic, but view might skip them)
         opp_cols = []
         for i in range(1, 4):
-            # Try variations like "Opponent's Team - Uma 1" or "Opponent Team - Uma 1"
             c = find_column(raw_df, [f"opponent's team - uma {i}", f"opponent team - uma {i}", f"opponent team uma {i}"])
             opp_cols.append(c)
 
@@ -474,23 +478,20 @@ def load_finals_data(csv_path, parquet_path):
             result = str(row.get('Finals race result', 'Unknown'))
             is_win = 1 if result == '1st' else 0
             
-            # Extract Player Metadata
             spending = row.get(col_spent, 'Unknown') if col_spent else 'Unknown'
             runs_per_day = row.get(col_runs, 'Unknown') if col_runs else 'Unknown'
             card_kitasan = row.get(col_kitasan, 'Unknown') if col_kitasan else 'Unknown'
             card_fine = row.get(col_fine, 'Unknown') if col_fine else 'Unknown'
             
-            # Extract Opponents for this match
+            # Opponents
             match_opponents = []
             for c in opp_cols:
                 if c:
                     val = row.get(c)
                     if pd.notna(val) and str(val).strip() != "":
-                        # Parse opponent name using same logic as own name
-                        parsed_opp = parse_uma_details(pd.Series([val]))[0]
-                        match_opponents.append(parsed_opp)
+                        match_opponents.append(parse_uma_details(pd.Series([val]))[0])
             
-            # Each player has 3 Own Umas
+            # Own Team
             for i in range(1, 4):
                 uma_name = row.get(f'Own Team - Uma {i}')
                 style = row.get(f'Own team - Uma {i} - Running Style')
@@ -508,14 +509,12 @@ def load_finals_data(csv_path, parquet_path):
                         'Runs_Text': runs_per_day,
                         'Card_Kitasan': card_kitasan,
                         'Card_Fine': card_fine,
-                        'Opponents': match_opponents, # List of opponent names
+                        'Opponents': match_opponents,
                         'Calculated_WinRate': is_win * 100, 
                         'Is_Winner': is_win
                     })
         
         finals_matches = pd.DataFrame(processed_rows)
-        
-        # Post-Process Spending for Sorting
         if not finals_matches.empty:
             finals_matches['Sort_Money'] = clean_currency_numeric(finals_matches['Spending_Text'])
 
@@ -523,28 +522,57 @@ def load_finals_data(csv_path, parquet_path):
         st.error(f"Error parsing Finals CSV: {e}")
         return pd.DataFrame(), pd.DataFrame()
 
+    # --- MERGE LOGIC ---
     try:
-        if not parquet_path or not os.path.exists(parquet_path):
-            return finals_matches, pd.DataFrame()
-            
-        ocr_df = pd.read_parquet(parquet_path)
-        if 'ign' in ocr_df.columns:
-            ocr_df['Match_IGN'] = ocr_df['ign'].astype(str).str.lower().str.strip()
-        
-        if not finals_matches.empty:
-            valid_names = finals_matches['Clean_Uma'].unique().tolist()
-            ocr_df['Match_Uma'] = ocr_df['name'].apply(lambda x: smart_match_name(x, valid_names))
+        merged_results = []
+        valid_names = finals_matches['Clean_Uma'].unique().tolist() if not finals_matches.empty else []
+
+        # 1. Load Finals Parquet if available
+        finals_pq_df = pd.DataFrame()
+        if parquet_path and os.path.exists(parquet_path):
+            finals_pq_df = pd.read_parquet(parquet_path)
+            if 'ign' in finals_pq_df.columns:
+                finals_pq_df['Match_IGN'] = finals_pq_df['ign'].astype(str).str.lower().str.strip()
+            if 'name' in finals_pq_df.columns:
+                finals_pq_df['Match_Uma'] = finals_pq_df['name'].apply(lambda x: smart_match_name(x, valid_names))
+
+        # 2. Merge with Finals Parquet
+        if not finals_matches.empty and not finals_pq_df.empty:
             finals_matches['Match_Uma'] = finals_matches['Clean_Uma']
             
-            merged_df = pd.merge(
-                ocr_df, 
-                finals_matches, 
-                on=['Match_IGN', 'Match_Uma'], 
-                how='inner'
-            )
-            return finals_matches, merged_df
+            # First Merge
+            merged_1 = pd.merge(finals_pq_df, finals_matches, on=['Match_IGN', 'Match_Uma'], how='inner')
+            merged_results.append(merged_1)
         
-        return finals_matches, pd.DataFrame()
+        # 3. Backfill with Main OCR (Prelims/Rounds)
+        # Check which winners/entries are NOT yet merged
+        if main_ocr_df is not None and not main_ocr_df.empty and not finals_matches.empty:
+            # Re-prep main_ocr matching cols
+            if 'Match_IGN' not in main_ocr_df.columns and 'ign' in main_ocr_df.columns:
+                main_ocr_df['Match_IGN'] = main_ocr_df['ign'].astype(str).str.lower().str.strip()
+            if 'Match_Uma' not in main_ocr_df.columns and 'name' in main_ocr_df.columns:
+                main_ocr_df['Match_Uma'] = main_ocr_df['name'].apply(lambda x: smart_match_name(x, valid_names))
+                
+            # Identify what we already found
+            found_keys = set()
+            if merged_results:
+                # Create a key tuple (ign, uma)
+                for df in merged_results:
+                    for _, r in df.iterrows():
+                        found_keys.add((r['Match_IGN'], r['Match_Uma']))
+            
+            # Filter matches that haven't been found in parquet yet
+            finals_matches['match_key'] = list(zip(finals_matches['Match_IGN'], finals_matches['Match_Uma']))
+            missing_matches = finals_matches[~finals_matches['match_key'].isin(found_keys)].drop(columns=['match_key'])
+            
+            if not missing_matches.empty:
+                merged_2 = pd.merge(main_ocr_df, missing_matches, on=['Match_IGN', 'Match_Uma'], how='inner')
+                merged_results.append(merged_2)
+
+        # 4. Combine
+        final_merged_df = pd.concat(merged_results, ignore_index=True) if merged_results else pd.DataFrame()
+        
+        return finals_matches, final_merged_df
         
     except Exception as e:
         st.error(f"Error merging Finals Parquet: {e}")
