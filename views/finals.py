@@ -60,6 +60,7 @@ def show_view(current_config):
     ])
 
     # --- TAB 1: META OVERVIEW ---
+    # --- TAB 1: META OVERVIEW ---
     with tab1:
         st.subheader("🏁 Character Tier List (Cumulative)")
         st.markdown("**Meta Score vs. Individual Win Rate**")
@@ -82,32 +83,30 @@ def show_view(current_config):
         
         tier_data = cum_stats[cum_stats['Clean_Races'] >= 5].reset_index().rename(columns={'index': 'Uma'})
         
-        if not tier_data.empty:
-            slope, intercept = np.polyfit(tier_data['Meta_Score'], tier_data['Win_Rate'], 1)
-            x_trend = np.linspace(tier_data['Meta_Score'].min(), tier_data['Meta_Score'].max(), 100)
+        if not uma_stats.empty:
+            slope, intercept = np.polyfit(uma_stats['Meta_Score'], uma_stats['Win_Rate'], 1)
+            x_trend = np.linspace(uma_stats['Meta_Score'].min(), uma_stats['Meta_Score'].max(), 100)
             y_trend = slope * x_trend + intercept
 
-            mean_s = tier_data['Meta_Score'].mean()
-            std_s = tier_data['Meta_Score'].std()
-            max_s = tier_data['Meta_Score'].max() * 1.1
-            min_s = 0
+            mean_s = uma_stats['Meta_Score'].mean()
+            std_s = uma_stats['Meta_Score'].std()
+            max_s = uma_stats['Meta_Score'].max() * 1.1
 
             fig = px.scatter(
-                tier_data, x='Meta_Score', y='Win_Rate', size='Clean_Races', color='Win_Rate',
-                hover_name='Clean_Uma', title="Cumulative Meta: Impact vs Efficiency",
-                template='plotly_dark', color_continuous_scale='Viridis',
-                labels={'Meta_Score': 'Meta Score', 'Win_Rate': 'Win Rate (%)', 'Clean_Races': 'Total Races'}
+                uma_stats, x='Meta_Score', y='Win_Rate', size='Entries', color='Win_Rate',
+                hover_name='Uma', title="Finals Meta: Impact vs Efficiency",
+                template='plotly_dark', color_continuous_scale='Viridis'
             )
             fig.add_trace(go.Scatter(x=x_trend, y=y_trend, mode='lines', name='Trend', line=dict(color='white', width=2, dash='dash'), opacity=0.5))
             
             fig.add_vrect(x0=mean_s + std_s, x1=max_s, fillcolor="purple", opacity=0.15, annotation_text="S Tier")
             fig.add_vrect(x0=mean_s, x1=mean_s + std_s, fillcolor="green", opacity=0.1, annotation_text="A Tier")
             fig.add_vrect(x0=mean_s - std_s, x1=mean_s, fillcolor="yellow", opacity=0.05, annotation_text="B Tier")
-            fig.add_vrect(x0=min_s, x1=mean_s - std_s, fillcolor="red", opacity=0.05, annotation_text="C Tier")
+            fig.add_vrect(x0=0, x1=mean_s - std_s, fillcolor="red", opacity=0.05, annotation_text="C Tier")
 
             st.plotly_chart(style_fig(fig), width='stretch', config=PLOT_CONFIG)
         else:
-            st.info("Not enough cumulative data.")
+            st.info("Not enough data.")
 
     # --- TAB 2: TEAM COMPS ---
     with tab2:
@@ -371,6 +370,7 @@ def show_view(current_config):
         else:
             c1, c2 = st.columns(2)
             
+            # 1. Spending vs Win Rate
             with c1:
                 st.markdown("##### 💰 Win Rate by Spending Tier")
                 spend_stats = econ_df.groupby('Spending_Text').agg({
@@ -389,6 +389,7 @@ def show_view(current_config):
                 fig_spend.update_traces(texttemplate='%{text} Entries', textposition='outside')
                 st.plotly_chart(style_fig(fig_spend), width='stretch', config=PLOT_CONFIG)
             
+            # 2. Runs per Day vs Win Rate
             with c2:
                 st.markdown("##### 🏃 Win Rate by Daily Grind")
                 if 'Runs_Text' in econ_df.columns:
@@ -426,6 +427,8 @@ def show_view(current_config):
             st.markdown("---")
             st.subheader("🃏 Support Card Impact")
             
+            # 3. Kitasan Black Impact
+            st.markdown("##### 🏃 Speed SSR: Kitasan Black")
             if 'Card_Kitasan' in econ_df.columns:
                 kitasan_stats = econ_df.groupby('Card_Kitasan').agg({'Is_Specific_Winner': ['mean', 'count']}).reset_index()
                 kitasan_stats.columns = ['Level', 'Win_Rate', 'Entries']
@@ -438,6 +441,8 @@ def show_view(current_config):
                 )
                 st.plotly_chart(style_fig(fig_kita, height=400), width='stretch', config=PLOT_CONFIG)
             
+            # 4. Fine Motion Impact
+            st.markdown("##### 🧠 Wit SSR: Fine Motion")
             if 'Card_Fine' in econ_df.columns:
                 fine_stats = econ_df.groupby('Card_Fine').agg({'Is_Specific_Winner': ['mean', 'count']}).reset_index()
                 fine_stats.columns = ['Level', 'Win_Rate', 'Entries']

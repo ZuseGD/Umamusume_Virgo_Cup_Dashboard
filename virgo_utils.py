@@ -448,6 +448,7 @@ def load_ocr_data(parquet_file):
 # --- UPDATED LOAD FINALS DATA ---
 @st.cache_data(ttl=3600)
 def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
+def load_finals_data(csv_path, parquet_path):
     if not csv_path or not os.path.exists(csv_path):
         return pd.DataFrame(), pd.DataFrame()
 
@@ -457,14 +458,19 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
         # Metadata
         col_spent = find_column(raw_df, ['spent', 'money', 'eur/usd', 'howmuchhaveyouspent'])
         col_runs = find_column(raw_df, ['career runs', 'runs per day', 'howmanycareer'])
+        # Identify Metadata Columns
+        col_spent = find_column(raw_df, ['spent', 'money', 'eur/usd'])
+        col_runs = find_column(raw_df, ['career runs', 'runs per day'])
         col_kitasan = find_column(raw_df, ['kitasan', 'speed: kitasan'])
         col_fine = find_column(raw_df, ['fine motion', 'wit: fine'])
         
         # Specific Winner Column
         col_winner_name = find_column(raw_df, ['which uma won the finals lobby', 'lobby winner', 'whichumawonthefinalslobby'])
 
+        # Identify Opponent Columns (Robust Search)
         opp_cols = []
         for i in range(1, 4):
+            # Try variations like "Opponent's Team - Uma 1" or "Opponent Team - Uma 1"
             c = find_column(raw_df, [f"opponent's team - uma {i}", f"opponent team - uma {i}", f"opponent team uma {i}"])
             opp_cols.append(c)
 
@@ -475,6 +481,7 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
             result = str(row.get('Finals race result', 'Unknown'))
             team_won = 1 if '1st' in str(result).lower() else 0
             
+            # Extract Player Metadata
             spending = row.get(col_spent, 'Unknown') if col_spent else 'Unknown'
             runs_per_day = row.get(col_runs, 'Unknown') if col_runs else 'Unknown'
             card_kitasan = row.get(col_kitasan, 'Unknown') if col_kitasan else 'Unknown'
@@ -488,13 +495,17 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
                      # Clean format like "Oguri Cap - Strategy"
                      lobby_winner = str(val).split(' - ')[0].strip().title()
 
+            # Extract Opponents for this match
             match_opponents = []
             for c in opp_cols:
                 if c:
                     val = row.get(c)
                     if pd.notna(val) and str(val).strip() != "":
-                        match_opponents.append(parse_uma_details(pd.Series([val]))[0])
+                        # Parse opponent name using same logic as own name
+                        parsed_opp = parse_uma_details(pd.Series([val]))[0]
+                        match_opponents.append(parsed_opp)
             
+            # Each player has 3 Own Umas
             for i in range(1, 4):
                 uma_name = row.get(f'Own Team - Uma {i}')
                 style = row.get(f'Own team - Uma {i} - Running Style')
@@ -527,9 +538,14 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
                         'Opponents': match_opponents,
                         'Is_Winner': team_won,                 # Team Status
                         'Is_Specific_Winner': is_specific_winner # Individual Status
+                        'Opponents': match_opponents, # List of opponent names
+                        'Calculated_WinRate': is_win * 100, 
+                        'Is_Winner': is_win
                     })
         
         finals_matches = pd.DataFrame(processed_rows)
+        
+        # Post-Process Spending for Sorting
         if not finals_matches.empty:
             finals_matches['Sort_Money'] = clean_currency_numeric(finals_matches['Spending_Text'])
 
@@ -550,6 +566,17 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
                 finals_pq_df['Match_Uma'] = finals_pq_df['name'].apply(lambda x: smart_match_name(x, valid_names))
 
         if not finals_matches.empty and not finals_pq_df.empty:
+    try:
+        if not parquet_path or not os.path.exists(parquet_path):
+            return finals_matches, pd.DataFrame()
+            
+        ocr_df = pd.read_parquet(parquet_path)
+        if 'ign' in ocr_df.columns:
+            ocr_df['Match_IGN'] = ocr_df['ign'].astype(str).str.lower().str.strip()
+        
+        if not finals_matches.empty:
+            valid_names = finals_matches['Clean_Uma'].unique().tolist()
+            ocr_df['Match_Uma'] = ocr_df['name'].apply(lambda x: smart_match_name(x, valid_names))
             finals_matches['Match_Uma'] = finals_matches['Clean_Uma']
             merged_1 = pd.merge(finals_pq_df, finals_matches, on=['Match_IGN', 'Match_Uma'], how='inner')
             merged_results.append(merged_1)
@@ -575,6 +602,16 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
 
         final_merged_df = pd.concat(merged_results, ignore_index=True) if merged_results else pd.DataFrame()
         return finals_matches, final_merged_df
+            
+            merged_df = pd.merge(
+                ocr_df, 
+                finals_matches, 
+                on=['Match_IGN', 'Match_Uma'], 
+                how='inner'
+            )
+            return finals_matches, merged_df
+        
+        return finals_matches, pd.DataFrame()
         
     except Exception as e:
         st.error(f"Error merging Finals Parquet: {e}")
