@@ -136,10 +136,74 @@ DESCRIPTIONS = {
 }
 
 # --- HELPER FUNCTIONS ---
+def sanitize_text(text):
+    """Escapes HTML characters in a string to prevent injection attacks."""
+    if pd.isna(text):
+        return text
+    return html.escape(str(text))
+
 def show_description(key):
+    """Displays an expander with the description if the key exists."""
     if key in DESCRIPTIONS:
-        with st.expander("ℹ️ Info", expanded=False):
+        with st.expander("ℹ️ How is this calculated?", expanded=False):
             st.markdown(DESCRIPTIONS[key])
+
+def find_column(df, keywords, case_sensitive=False):
+    if df.empty: return None
+    cols = df.columns.tolist()
+    for col in cols:
+        for key in keywords:
+            if case_sensitive:
+                if col == key: return col
+            else:
+                if col.lower() == key.lower(): return col
+    clean_cols = df.columns.str.lower().str.replace(' ', '').str.replace('_', '').str.replace('-', '')
+    for i, col in enumerate(clean_cols):
+        for key in keywords:
+            if key.lower() in col: return df.columns[i]
+    return None
+
+def clean_currency_numeric(series):
+    return (series.astype(str)
+            .str.replace('$', '', regex=False)
+            .str.replace(',', '', regex=False)
+            .str.replace(' ', '', regex=False)
+            .str.replace('USD', '', regex=False)
+            .str.replace('EUR', '', regex=False)
+            .str.replace('++', '', regex=False)
+            .str.replace('F2P', '0', regex=False)
+            .str.split('-').str[0]
+            .apply(pd.to_numeric, errors='coerce')
+            .fillna(0))
+
+def extract_races_count(series):
+    def parse_races(text):
+        text = str(text).lower()
+        match = re.search(r'(\d+)\s*races', text)
+        if match: return int(match.group(1))
+        if text.isdigit(): return int(text)
+        return 1 
+    return series.apply(parse_races)
+
+def parse_uma_details(series):
+    return series.astype(str).apply(lambda x: x.split(' - ')[0].strip().title())
+
+def calculate_score(wins, races):
+    if races == 0: return 0
+    wr = (wins / races) * 100
+    return wr * np.sqrt(races)
+
+def anonymize_players(df, metric='Calculated_WinRate', top_n=10):
+    player_stats = df.groupby('Clean_IGN').agg({
+        metric: 'mean',
+        'Clean_Wins': 'sum',
+        'Clean_Races': 'sum'
+    }).reset_index()
+    player_stats['Score'] = player_stats.apply(lambda x: calculate_score(x['Clean_Wins'], x['Clean_Races']), axis=1)
+    eligible_pros = player_stats[player_stats['Clean_Races'] >= 20]
+    top_players = eligible_pros.sort_values('Score', ascending=False).head(top_n)['Clean_IGN'].tolist()
+    df['Display_IGN'] = df['Clean_IGN'].apply(lambda x: x if x in top_players else "Anonymous Trainer")
+    return df
 
 def style_fig(fig, height=600):
     fig.update_layout(
@@ -148,57 +212,178 @@ def style_fig(fig, height=600):
         margin=dict(l=10, r=10, t=40, b=10),
         autosize=True,
         height=height,
-        template='plotly_dark'
+        yaxis=dict(automargin=True),
+        xaxis=dict(automargin=True)
     )
+    fig.update_xaxes(fixedrange=True)
+    fig.update_yaxes(fixedrange=True)
     return fig
 
-def dynamic_height(n, min_h=400, per_item=40):
-    return max(min_h, n * per_item)
+def dynamic_height(n_items, min_height=400, per_item=40):
+    """Calculates chart height based on number of bars"""
+    calc_height = n_items * per_item
+    return max(min_height, calc_height)
 
-def calculate_score(wins, races):
-    if races == 0: return 0
-    return (wins / races * 100) * np.sqrt(races)
+# --- SHARED FILTER WIDGET ---
+def render_filters(df):
+    # Create a consistent filter bar at the top of the page
+    with st.expander("⚙️ **Global Filters** (Round / Day / Group)", expanded=False):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            groups = list(df['Clean_Group'].unique())
+            sel_group = st.multiselect("CM Group", groups, default=groups)
+        with c2:
+            rounds = sorted(list(df['Round'].unique()))
+            sel_round = st.multiselect("Round", rounds, default=rounds)
+        with c3:
+            days = sorted(list(df['Day'].unique()))
+            sel_day = st.multiselect("Day", days, default=days)
+            
+    # Apply Logic
+    if sel_group: df = df[df['Clean_Group'].isin(sel_group)]
+    if sel_round: df = df[df['Round'].isin(sel_round)]
+    if sel_day: df = df[df['Day'].isin(sel_day)]
+    
+    return df
 
-def sanitize_text(text):
-    if pd.isna(text): return text
-    return html.escape(str(text))
-
-def parse_uma_details(series):
-    return series.astype(str).apply(lambda x: x.split(' - ')[0].strip().title())
-
-def clean_currency_numeric(series):
-    return (series.astype(str)
-            .str.replace('$', '', regex=False)
-            .str.replace(',', '', regex=False)
-            .str.split('-').str[0]
-            .apply(pd.to_numeric, errors='coerce')
-            .fillna(0))
-
-def extract_races_count(series):
-    def parse(t):
-        t = str(t).lower()
-        m = re.search(r'(\d+)\s*races', t)
-        if m: return int(m.group(1))
-        if t.isdigit(): return int(t)
-        return 1
-    return series.apply(parse)
-
-# --- LEGACY LOADER (Used by PrelimsLoader) ---
-def find_column(df, keywords):
-    for col in df.columns:
-        if col.lower() in [k.lower() for k in keywords]: return col
-    return None
-
+# --- DATA LOADING ---
+@st.cache_data(ttl=3600) # Cache for 1 hour
 def load_data(sheet_url):
-    # This remains for backward compatibility with Prelims CSV format
     try:
         df = pd.read_csv(sheet_url)
-        # ... (Original cleaning logic) ...
-        # Simplified for brevity here, but paste your original cleaning logic
-        # ensuring it returns (df, team_df)
-        return df, pd.DataFrame() # Placeholder for this snippet
-    except:
+        
+        # 1. SANITIZE
+        string_cols = df.select_dtypes(include=['object']).columns
+        for col in string_cols: df[col] = df[col].apply(sanitize_text)
+
+        # 2. MAP COLUMNS (Specific to Exploded Format)
+        col_map = {
+            'ign': find_column(df, ['ign', 'player']),
+            'group': find_column(df, ['cmgroup', 'bracket']),
+            'money': find_column(df, ['spent', 'eur/usd']),
+            'uma': find_column(df, ['uma']),
+            'style': find_column(df, ['style', 'running']),
+            'wins': find_column(df, ['wins', 'victory']),          # <--- Matches "Wins"
+            'races': find_column(df, ['races', 'played', 'attempts']), # <--- Matches "Races Played"
+            'Round': find_column(df, ['Round'], case_sensitive=True), 
+            'Day': find_column(df, ['Day'], case_sensitive=True),
+        }
+
+        # 3. CLEAN & PARSE
+        if col_map['money']: 
+            df['Original_Spent'] = df[col_map['money']].fillna("Unknown")
+            df['Sort_Money'] = clean_currency_numeric(df[col_map['money']])
+        else: 
+            df['Original_Spent'], df['Sort_Money'] = "Unknown", 0.0
+
+        if col_map['uma']: df['Clean_Uma'] = parse_uma_details(df[col_map['uma']])
+        else: df['Clean_Uma'] = "Unknown"
+
+        if col_map['group']: df['Clean_Group'] = df[col_map['group']].fillna("Unknown")
+        else: df['Clean_Group'] = "Unknown"
+        
+        if col_map['ign']: df['Clean_IGN'] = df[col_map['ign']].fillna("Anonymous")
+        else: df['Clean_IGN'] = "Anonymous"
+        
+        if col_map['style']: df['Clean_Style'] = df[col_map['style']].fillna("Unknown")
+        else: df['Clean_Style'] = "Unknown"
+        
+        if col_map['Round']: df['Round'] = df[col_map['Round']].fillna("Unknown")
+        else: df['Round'] = "Unknown"
+        
+        if col_map['Day']: df['Day'] = df[col_map['Day']].fillna("Unknown")
+        else: df['Day'] = "Unknown"
+
+        # 4. PARSE STATS (Handle "4 Attempts - 20 Races")
+        if col_map['races']:
+            df['Clean_Races'] = extract_races_count(df[col_map['races']])
+        else:
+            df['Clean_Races'] = 1
+            
+        if col_map['wins']:
+            df['Clean_Wins'] = pd.to_numeric(df[col_map['wins']], errors='coerce').fillna(0)
+        else:
+            df['Clean_Wins'] = 0
+
+        # Safety: Cap Wins to Races
+        df['Clean_Wins'] = df.apply(lambda x: min(x['Clean_Wins'], x['Clean_Races']), axis=1)
+
+        # Calc WR
+        df['Calculated_WinRate'] = (df['Clean_Wins'] / df['Clean_Races']) * 100
+        df.loc[df['Calculated_WinRate'] > 100, 'Calculated_WinRate'] = 100
+
+        # 5. DEDUPLICATE (CRITICAL STEP for Long Format)
+        # Ensure we only have ONE row per Uma per Session (Trainer + Round + Day + Uma)
+        # Sorting descending by Races ensures we keep the entry with the most complete data
+        df = df.sort_values(by=['Clean_Races', 'Clean_Wins'], ascending=[False, False])
+        df = df.drop_duplicates(subset=['Clean_IGN', 'Round', 'Day', 'Clean_Uma'], keep='first')
+
+        # 6. ANONYMIZE
+        df = anonymize_players(df)
+        
+        # 7. REBUILD TEAMS (Group by Session)
+        # Since data is Long Format (1 row per Uma), we group by Session ID to get the Team
+        # IMPORTANT: 'max' for Wins/Races because these columns contain the SESSION Total
+        team_df = df.groupby(['Clean_IGN', 'Display_IGN', 'Clean_Group', 'Round', 'Day', 'Original_Spent', 'Sort_Money']).agg({
+            'Clean_Uma': lambda x: sorted(list(x)), 
+            'Clean_Style': lambda x: list(x),       
+            'Calculated_WinRate': 'mean',    # Average WR of the team entries (should be same)
+            'Clean_Races': 'max',            # <--- Use MAX, not SUM (Avoids triple counting)
+            'Clean_Wins': 'max'              # <--- Use MAX, not SUM (Avoids triple counting)
+        }).reset_index()
+        
+        team_df['Score'] = team_df.apply(lambda x: calculate_score(x['Clean_Wins'], x['Clean_Races']), axis=1)
+        team_df['Uma_Count'] = team_df['Clean_Uma'].apply(len)
+        team_df = team_df[team_df['Uma_Count'] == 3]
+        team_df['Team_Comp'] = team_df['Clean_Uma'].apply(lambda x: ", ".join(x))
+        
+        return df, team_df
+    except Exception as e:
+        st.error(f"Data Error: {e}")
         return pd.DataFrame(), pd.DataFrame()
+    
+@st.cache_data(ttl=300) # Cache for 5 minutes
+def load_ocr_data(parquet_file):
+    try:
+        if not os.path.exists(parquet_file):
+            return pd.DataFrame()
+            
+        df = pd.read_parquet(parquet_file)
+
+        # --- 🛡️ SECURITY: SANITIZE INPUTS ---
+        string_cols = df.select_dtypes(include=['object']).columns
+        for col in string_cols:
+            df[col] = df[col].apply(sanitize_text)
+        
+        # --- 1. CLEANING MISSING VALUES ---
+        # Remove empty names
+        df.dropna(subset=['name'], inplace=True)
+        
+        # Fill stats with median
+        stat_cols = ['Speed', 'Stamina', 'Power', 'Guts', 'Wit', 'score']
+        for col in stat_cols:
+            if col in df.columns:
+                # Force numeric first to turn "12OO" into NaN
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+                df[col] = df[col].fillna(df[col].median())
+                df[col] = df[col].astype(int)
+
+        # Fill text with 'Unknown'
+        text_cols = ['rank', 'skills', 'Turf', 'Dirt', 'Sprint', 'Mile', 'Medium', 'Long'] 
+        for col in text_cols:
+            if col in df.columns:
+                df[col] = df[col].fillna('Unknown')
+                
+        # --- 2. OUTLIER CAPPING ---
+        # Cap stats at 2000 (adjust based on game scenario)
+        for col in stat_cols:
+             if col in df.columns:
+                df[col] = df[col].clip(upper=2000)
+
+        return df
+    except Exception as e:
+        st.error(f"Error loading Parquet: {e}")
+        return pd.DataFrame()
 
 # Common Footer
 footer_html = """
