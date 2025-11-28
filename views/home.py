@@ -15,35 +15,58 @@ def get_base64_image(image_path):
 
 def show_view(df, team_df, current_config):
     
+    # --- CSS: Make Support Button Fill Vertical Space ---
+    st.markdown("""
+    <style>
+        /* Force the container of the link button to take full height */
+        div[data-testid="stLinkButton"] {
+            height: 100%;
+            min-height: 50px; /* Ensure it has some substance */
+        }
+        /* Style the actual 'a' tag button to stretch */
+        div[data-testid="stLinkButton"] > a {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
     # --- TOP LAYOUT (Header Left | Button Right) ---
-    # Create two columns: Left (Main Title) vs Right (Action Button)
-    # gap="large" adds spacing between the title and the button
     col_header, col_btn = st.columns([3, 2], gap="medium")
 
     # --- LEFT SIDE: HEADER & UPDATES ---
     with col_header:
         
-        # Update Notice (Tucked neatly under the header)
-        with st.expander("✨ What's New (Nov 24 Update)", expanded=False):
+        # Update Notice
+        with st.expander("✨ What's New: The Finals Update", expanded=True):
             st.markdown("""
-        **Patch Notes: Advanced OCR & Taiki Analysis**
+        **Patch Notes: Virgo Cup Finals Analysis 🏆**
 
-        🔮 **New OCR Meta Analysis:**
-        - **Linked Datasets:** The OCR tab now automatically links build data (Stats/Skills) to match results (Win Rates) to find what *actually* wins.
-        - **Taiki Impact:** A dedicated tab to measure the specific "Taiki Boost" vs the field.
-        - **Stats & Skills Filters:** You can now filter Best Stats/Skills by both **Character** AND **Running Style**.
-        - **Unique Level:** Added analysis to see if grinding for Unique Lv 6 improves Win Rates.
+        We have added a dedicated **Finals** tab to analyze what *actually* won the A-Finals.
 
-        📈 **General Improvements:**
-        - **Smart Matching:** Improved logic to match OCR names (e.g., "[Summer] Maruzensky") to CSV names ("Maruzensky").
-        - **Performance:** Optimized data loading for large datasets.
-        - **Bug Fixes:** Resolved various minor bugs reported by users.
-    
+        📊 **Meta Overview:**
+        - **Meta Score vs. Win Rate:** A new scatter plot identifying the "True Meta" characters that combine high usage with high win rates.
+        
+        ⚔️ **Team Efficiency:**
+        - **Win/Entry Ratio:** Instead of just popularity, see which Team Comps had the highest efficiency in securing 1st place.
+        
+        ⚡ **Skill Lift (The "Secret Sauce"):**
+        - Comparing **Finals Winners** vs. the **Prelims Baseline**.
+        - Identifies skills that winners prioritize significantly more than the general population.
+        
+        🏆 **Champion Stats:**
+        - A benchmark comparing the stat spread of **1st Place Winners** vs. Non-Winners.
         """)
+        
+        # Support Button (Now fills vertical space)
         st.link_button(
                 label="☕ Support the Project", 
                 url='https://paypal.me/JgamersZuse', 
-                type="secondary",        # <--- Changed from 'primary' to 'secondary'
+                type="secondary",
                 width='stretch'
             )
 
@@ -53,22 +76,20 @@ def show_view(df, team_df, current_config):
         banner_path = "images/survey_banner.png"
 
         if form_url:
-            # 1. Image Button (Priority)
             if os.path.exists(banner_path):
                 img_b64 = get_base64_image(banner_path)
                 if img_b64:
-                    # HTML for Clickable Image (Right Aligned)
                     st.markdown(
                         f"""
-                        <div style="display: flex; justify-content: flex-end;">
-                            <a href="{form_url}" target="_blank">
+                        <div style="display: flex; justify-content: flex-end; height: 100%;">
+                            <a href="{form_url}" target="_blank" style="width: 100%;">
                                 <img src="data:image/png;base64,{img_b64}" class="survey-img-btn">
                             </a>
                         </div>
                         <style>
                             .survey-img-btn {{
-                                width: 100%;          /* Responsive width */
-                                max-width: 350px;     /* Cap size so it's not huge */
+                                width: 100%;
+                                max-width: 350px;
                                 height: auto;
                                 border-radius: 12px;
                                 transition: transform 0.2s, box-shadow 0.2s;
@@ -76,28 +97,24 @@ def show_view(df, team_df, current_config):
                                 margin-bottom: 10px;
                             }}
                             .survey-img-btn:hover {{
-                                transform: translateY(-3px); /* Float up effect */
-                                box-shadow: 0 4px 20px rgba(0, 204, 150, 0.4); /* Green Glow */
+                                transform: translateY(-3px);
+                                box-shadow: 0 4px 20px rgba(0, 204, 150, 0.4);
                                 border-color: #00CC96;
                             }}
                         </style>
                         """,
                         unsafe_allow_html=True
                     )
-            
-            # 2. Standard Button (Fallback)
             else:
-                # If no image, show a clean button aligned right
                 st.link_button(
                     label="📝 Submit Run Data (Google Form)", 
                     url=form_url, 
                     type="primary", 
                     width='stretch'                )
         else:
-            # Placeholder if no event is active
             st.empty()
         
-
+    st.warning("Only the Finals tab includes finals data, every other section is **ONLY THE ROUNDS DATA**")
     st.header("Global Overview")
     
     # Metrics

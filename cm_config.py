@@ -11,7 +11,7 @@ CM_LIST = {
         "finals_csv": "data/1_virgo_finals.csv", 
         "finals_parquet": "data/1_virgo_finals.parquet",
 
-        "form_url": "https://forms.gle/eDPAs8u4RHPKbxEN8", 
+        "form_url": None, 
         "status_msg": "Forms have closed for this event.",
         "guide_images": [
             "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/virgo.png"
