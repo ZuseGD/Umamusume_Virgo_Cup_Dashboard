@@ -42,6 +42,7 @@ def show_view(current_config):
     st.header("🏆 Finals: Comprehensive Analysis")
     st.markdown("""
     **Deep Dive into the Finals Meta.** This section analyzes the "Real" meta—what actually won in the A-Finals. 
+    It identifies the specific single winner of each lobby to avoid team-bias.
     """)
     
     # 1. LOAD DATA
@@ -70,25 +71,38 @@ def show_view(current_config):
         return
 
     # --- LOGIC: RESOLVE TRUE WINNERS ---
-    # Find the key columns in the raw dataframe
-    col_winner_ref = find_column(raw_finals_df, ['Which uma won the finals lobby', 'winning uma', 'lobby winner'])
+    # Robust Column Finding
+    search_keys = [
+        'Which uma won the finals lobby? (optional)', 
+        'Which uma won the finals lobby', 
+        'finalslobby', 
+        'winninguma', 
+        'lobbywinner'
+    ]
+    col_winner_ref = find_column(raw_finals_df, search_keys)
     
+    # Manual Fallback if find_column fails (due to strict cleaning)
+    if not col_winner_ref:
+        for c in raw_finals_df.columns:
+            c_lower = str(c).lower()
+            if 'which uma won' in c_lower and 'lobby' in c_lower:
+                col_winner_ref = c
+                break
+
     # Map references (e.g. "Own Team - Uma 1") to actual column names in CSV
-    # We iterate columns to build a map of { "Clean Reference String": "Actual Column Name" }
-    # e.g. "Own Team - Uma 1" -> "Own Team - Uma 1"
-    #      "Opponent's Team 1 - Uma 4" -> "Opponent's Team 1 - Uma 4 (optional)"
     ref_col_map = {}
     if col_winner_ref:
         for c in raw_finals_df.columns:
             # Generate keys for standard form options
+            # Removes " (optional)" to match the dropdown values usually
             clean_c = str(c).replace(" (optional)", "").strip()
             ref_col_map[clean_c] = c
-            ref_col_map[clean_c + " (optional)"] = c # Just in case
+            ref_col_map[clean_c + " (optional)"] = c 
             
-            # Handle "Opponent's" vs "Opponent" variations if needed
+            # Handle specific variations if needed
             if "Opponent's" in clean_c:
                 ref_col_map[clean_c.replace("Opponent's", "Opponent")] = c
-    
+
     true_winners = []
     if col_winner_ref:
         for idx, row in raw_finals_df.iterrows():
@@ -134,16 +148,17 @@ def show_view(current_config):
     # --- NEW TAB: INDIVIDUAL WINNERS ---
     with tab_new:
         st.subheader("🥇 True Finals Lobby Winners")
-        st.markdown("""
-        **This chart counts only the single Uma that won the lobby.**
-        Unlike the Team Win Rate, this does not count teammates who lost. This is the most accurate representation of who actually crossed the finish line first.
-        """)
         
         if not true_winners_df.empty:
+            st.markdown(f"""
+            **Analysis of {total_true_wins} confirmed lobby winners.**
+            This chart shows the exact character that won the race, excluding teammates.
+            """)
+            
             # 1. Aggregate counts
             win_counts = true_winners_df['Clean_Uma'].value_counts().reset_index()
             win_counts.columns = ['Uma', 'Wins']
-            win_counts['Percentage'] = (win_counts['Wins'] / total_entries) * 100
+            win_counts['Percentage'] = (win_counts['Wins'] / total_true_wins) * 100
             
             # 2. Sort and Filter
             win_counts = win_counts.sort_values('Wins', ascending=True) # For horizontal bar
@@ -151,7 +166,7 @@ def show_view(current_config):
             # 3. Plot
             fig_true = px.bar(
                 win_counts, x='Wins', y='Uma', orientation='h', text='Wins',
-                title=f"Finals Lobby Winners (N={total_true_wins})",
+                title=f"Individual Lobby Winners (Count)",
                 template='plotly_dark', 
                 color='Wins', 
                 color_continuous_scale='Sunsetdark'
@@ -159,9 +174,9 @@ def show_view(current_config):
             
             # Add percentage as hover
             fig_true.update_traces(
-                texttemplate='%{text} Wins', 
+                texttemplate='%{text}', 
                 textposition='outside',
-                hovertemplate='<b>%{y}</b><br>Wins: %{x}<br>Dominance: %{customdata:.1f}%',
+                hovertemplate='<b>%{y}</b><br>Wins: %{x}<br>Share: %{customdata:.1f}%',
                 customdata=win_counts['Percentage']
             )
             
@@ -169,9 +184,11 @@ def show_view(current_config):
             h = max(500, len(win_counts) * 30)
             st.plotly_chart(style_fig(fig_true, height=h), width='stretch', config=PLOT_CONFIG)
             
-            st.info(f"ℹ️ Based on {total_true_wins} races where the winner was explicitly identified in the data.")
         else:
-            st.warning("⚠️ No 'Lobby Winner' data found. Please ensure the 'Which uma won the finals lobby?' column is present and filled in the CSV.")
+            st.warning("⚠️ No 'Lobby Winner' data identified.")
+            st.markdown(f"**Debug Info:** Found Column: `{col_winner_ref}`. Rows: {len(raw_finals_df)}")
+            if col_winner_ref:
+                 st.write("Sample References:", raw_finals_df[col_winner_ref].dropna().head().tolist())
 
     # --- TAB 1: META OVERVIEW (Legacy Team Based) ---
     with tab1:
