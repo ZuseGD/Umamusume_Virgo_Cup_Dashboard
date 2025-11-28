@@ -22,13 +22,8 @@ def show_view(current_config):
         return
 
     with st.spinner("Crunching Finals Data..."):
-        # Load Prelims (Main OCR) first to use for backfilling
         prelims_raw = load_ocr_data(prelims_pq)
-        
-        # Pass prelims_raw to load_finals_data for backfilling
         matches_df, finals_ocr = load_finals_data(csv_path, pq_path, main_ocr_df=prelims_raw)
-        
-        # Load Sheet Data for Cumulative Stats
         sheet_df, _ = load_data(SHEET_URL)
     
     if matches_df.empty:
@@ -37,18 +32,14 @@ def show_view(current_config):
 
     # --- DATA PREP ---
     winning_igns = set(matches_df[matches_df['Is_Winner'] == 1]['Match_IGN'].unique())
-    
-    prelims_df = prelims_raw.copy()
-    if not prelims_df.empty and 'ign' in prelims_df.columns:
-        prelims_df['Match_IGN'] = prelims_df['ign'].astype(str).str.lower().str.strip()
-        prelims_baseline = prelims_df[~prelims_df['Match_IGN'].isin(winning_igns)]
-    else:
-        prelims_baseline = prelims_df
+    prelims_baseline = prelims_raw.copy()
+    if not prelims_baseline.empty and 'ign' in prelims_baseline.columns:
+        prelims_baseline['Match_IGN'] = prelims_baseline['ign'].astype(str).str.lower().str.strip()
+        prelims_baseline = prelims_baseline[~prelims_baseline['Match_IGN'].isin(winning_igns)]
 
     # --- METRICS ---
     total_entries = matches_df['Display_IGN'].nunique()
     total_winners = matches_df[matches_df['Is_Winner'] == 1]['Display_IGN'].nunique()
-    # Check if scan data exists in the merged dataframe (which now includes backfills)
     winners_with_scan = finals_ocr[finals_ocr['Is_Winner'] == 1]['Display_IGN'].nunique() if not finals_ocr.empty else 0
 
     m1, m2, m3 = st.columns(3)
@@ -76,7 +67,6 @@ def show_view(current_config):
         - Integrates data from the entire event to show true consistency.
         """)
         
-        # Prepare Cumulative Data
         if not sheet_df.empty:
             prelim_stats = sheet_df.groupby('Clean_Uma')[['Clean_Wins', 'Clean_Races']].sum()
         else:
@@ -87,15 +77,11 @@ def show_view(current_config):
             Clean_Races=('Is_Winner', 'count')
         )
         
-        # Merge
         cum_stats = prelim_stats.add(finals_stats, fill_value=0)
         cum_stats = cum_stats[cum_stats['Clean_Races'] > 0]
-        
-        # Calculate Metrics
         cum_stats['Win_Rate'] = (cum_stats['Clean_Wins'] / cum_stats['Clean_Races']) * 100
         cum_stats['Meta_Score'] = cum_stats.apply(lambda x: calculate_score(x['Clean_Wins'], x['Clean_Races']), axis=1)
         
-        # View Data
         tier_data = cum_stats[cum_stats['Clean_Races'] >= 5].reset_index().rename(columns={'index': 'Uma'})
         
         if not tier_data.empty:
@@ -116,7 +102,6 @@ def show_view(current_config):
             )
             fig.add_trace(go.Scatter(x=x_trend, y=y_trend, mode='lines', name='Trend', line=dict(color='white', width=2, dash='dash'), opacity=0.5))
             
-            # Bands
             fig.add_vrect(x0=mean_s + std_s, x1=max_s, fillcolor="purple", opacity=0.15, annotation_text="S Tier")
             fig.add_vrect(x0=mean_s, x1=mean_s + std_s, fillcolor="green", opacity=0.1, annotation_text="A Tier")
             fig.add_vrect(x0=mean_s - std_s, x1=mean_s, fillcolor="yellow", opacity=0.05, annotation_text="B Tier")
@@ -136,6 +121,7 @@ def show_view(current_config):
         }).reset_index()
         team_df['Team_Comp'] = team_df['Clean_Uma'].apply(lambda x: ", ".join(x))
         
+        # 1. Total Wins Chart
         comp_stats = team_df.groupby('Team_Comp').agg({'Is_Winner': ['count', 'sum']}).reset_index()
         comp_stats.columns = ['Team', 'Entries', 'Wins']
         comp_stats['Win_Rate'] = (comp_stats['Wins'] / comp_stats['Entries']) * 100
@@ -145,10 +131,47 @@ def show_view(current_config):
         
         fig = px.bar(
             comp_stats, x='Wins', y='Team', orientation='h', text='Label',
-            title="Top Winning Teams", template='plotly_dark', color='Win_Rate', color_continuous_scale='Plasma'
+            title="Top Winning Teams (Win Count)", template='plotly_dark', color='Win_Rate', color_continuous_scale='Plasma'
         )
         fig.update_layout(yaxis={'categoryorder':'total ascending'})
         st.plotly_chart(style_fig(fig), width='stretch', config=PLOT_CONFIG)
+
+        st.markdown("---")
+        
+        # 2. Team Placement Distribution (Gold/Silver/Bronze)
+        st.subheader("🏅 Team Placement Distribution")
+        
+        def norm_res(r):
+            r = str(r).lower()
+            if '1st' in r: return '1st'
+            if '2nd' in r: return '2nd'
+            if '3rd' in r: return '3rd'
+            return 'Other'
+            
+        team_df['Clean_Result'] = team_df['Result'].apply(norm_res)
+        
+        # Filter for top teams by popularity to keep chart readable
+        top_teams = team_df['Team_Comp'].value_counts().head(15).index.tolist()
+        filtered_teams = team_df[team_df['Team_Comp'].isin(top_teams)]
+        
+        team_pivot = filtered_teams.pivot_table(
+            index='Team_Comp', columns='Clean_Result', values='Display_IGN', aggfunc='count', fill_value=0
+        )
+        
+        # Flatten for Plotly
+        team_long = team_pivot.reset_index().melt(id_vars='Team_Comp', var_name='Place', value_name='Count')
+        # Filter only 1st/2nd/3rd for cleaner chart
+        team_long = team_long[team_long['Place'].isin(['1st', '2nd', '3rd'])]
+        
+        fig_team_place = px.bar(
+            team_long, x='Count', y='Team_Comp', color='Place', orientation='h',
+            title="Placement Breakdown for Top 15 Teams",
+            template='plotly_dark',
+            category_orders={'Place': ['1st', '2nd', '3rd']},
+            color_discrete_map={'1st': '#FFD700', '2nd': '#C0C0C0', '3rd': '#CD7F32'}
+        )
+        fig_team_place.update_layout(yaxis={'categoryorder':'total ascending'}, barmode='stack')
+        st.plotly_chart(style_fig(fig_team_place, height=600), width='stretch', config=PLOT_CONFIG)
 
     # --- TAB 3: SKILL LIFT ---
     with tab3:
@@ -234,96 +257,65 @@ def show_view(current_config):
     with tab5:
         st.subheader("🌐 Global Event Statistics")
         
+        col_glob1, col_glob2 = st.columns(2)
+
         # 1. Fraud Award
-        st.markdown("##### 🤡 The 'Fraud' Award")
-        st.caption("Characters with high entries (>200) but lowest Win Rates.")
-        
-        fraud_stats = matches_df.groupby('Clean_Uma').agg({
-            'Is_Winner': ['mean', 'count']
-        }).reset_index()
-        fraud_stats.columns = ['Uma', 'Win_Rate', 'Entries']
-        
-        # New threshold > 200
-        fraud_stats = fraud_stats[fraud_stats['Entries'] > 200].sort_values('Win_Rate', ascending=True).head(10).copy()
-        fraud_stats['Win_Rate'] *= 100
-        
-        if not fraud_stats.empty:
-            fig_fraud = px.bar(
-                fraud_stats, x='Win_Rate', y='Uma', orientation='h', text='Entries',
-                title="Lowest Win Rates (Min 200 Finals Entries)",
-                labels={'Win_Rate': 'Win Rate (%)', 'Uma': 'Character'},
-                template='plotly_dark', color='Win_Rate', color_continuous_scale='Redor_r'
-            )
-            fig_fraud.update_traces(texttemplate='%{text} Entries', textposition='outside')
-            fig_fraud.update_layout(yaxis={'categoryorder':'total descending'})
-            st.plotly_chart(style_fig(fig_fraud, height=400), width='stretch', config=PLOT_CONFIG)
-        else:
-            st.info("No characters met the 'Fraud' criteria (>200 entries).")
-
-        st.markdown("---")
-        
-        # 2. Placement Breakdown (Sorted Chart)
-        st.markdown("##### 🏅 Finals Placement Breakdown")
-        
-        def norm_res(r):
-            r = str(r).lower()
-            if '1st' in r: return '1st'
-            if '2nd' in r: return '2nd'
-            if '3rd' in r: return '3rd'
-            return 'Other'
-
-        matches_df['Clean_Result'] = matches_df['Result'].apply(norm_res)
-        
-        # Create Pivot
-        place_pivot = matches_df.pivot_table(
-            index='Clean_Uma', columns='Clean_Result', values='Match_IGN', aggfunc='count', fill_value=0
-        )
-        for c in ['1st', '2nd', '3rd']:
-            if c not in place_pivot.columns: place_pivot[c] = 0
+        with col_glob1:
+            st.markdown("##### 🤡 The 'Fraud' Award")
+            st.caption("Highest usage (>200) with **lowest** Win Rates.")
             
-        place_pivot['Total'] = place_pivot.sum(axis=1)
-        # Sort by Total Entries for the Count Chart
-        place_pivot = place_pivot.sort_values('Total', ascending=False).head(20)
-        
-        # Convert to Long Format for Charting
-        place_counts_long = place_pivot[['1st', '2nd', '3rd']].reset_index().melt(id_vars='Clean_Uma', var_name='Place', value_name='Count')
-        
-        # SORTED CHART (Counts)
-        fig_place_counts = px.bar(
-            place_counts_long, x='Count', y='Clean_Uma', color='Place', orientation='h',
-            title="Placement Counts (Top 20 Most Popular)",
-            template='plotly_dark',
-            color_discrete_map={'1st': '#FFD700', '2nd': '#C0C0C0', '3rd': '#CD7F32'}
-        )
-        # Sort y-axis by total count (which implies reversing the order so top is top)
-        fig_place_counts.update_layout(yaxis={'categoryorder':'total ascending'})
-        st.plotly_chart(style_fig(fig_place_counts), width='stretch', config=PLOT_CONFIG)
-        
-        # 3. Placement Distribution (%) (Sorted by 1st Place)
-        st.markdown("##### 📊 Placement Distribution (%) - Sorted by 1st Place")
-        
-        # Recalculate percentages
-        place_pivot['1st_Pct'] = (place_pivot['1st'] / place_pivot['Total']) * 100
-        place_pivot['2nd_Pct'] = (place_pivot['2nd'] / place_pivot['Total']) * 100
-        place_pivot['3rd_Pct'] = (place_pivot['3rd'] / place_pivot['Total']) * 100
-        
-        # Sort strict by 1st Place %
-        place_pivot_sorted = place_pivot.sort_values('1st_Pct', ascending=True) # Ascending for BarH
-        
-        place_long_pct = place_pivot_sorted[['1st_Pct', '2nd_Pct', '3rd_Pct']].reset_index().melt(id_vars='Clean_Uma', var_name='Place', value_name='Pct')
-        # Map Pct names back to clean names for legend
-        place_long_pct['Place'] = place_long_pct['Place'].map({'1st_Pct': '1st', '2nd_Pct': '2nd', '3rd_Pct': '3rd'})
+            fraud_stats = matches_df.groupby('Clean_Uma').agg({
+                'Is_Winner': ['mean', 'count']
+            }).reset_index()
+            fraud_stats.columns = ['Uma', 'Win_Rate', 'Entries']
+            
+            # Filter > 200, Sort Ascending (Low to High)
+            fraud_stats = fraud_stats[fraud_stats['Entries'] > 200].sort_values('Win_Rate', ascending=True).head(10).copy()
+            fraud_stats['Win_Rate'] *= 100
+            
+            if not fraud_stats.empty:
+                fig_fraud = px.bar(
+                    fraud_stats, x='Win_Rate', y='Uma', orientation='h', text='Entries',
+                    title="Lowest Win Rates (Min 200 Entries)",
+                    labels={'Win_Rate': 'Win Rate (%)', 'Uma': 'Character'},
+                    template='plotly_dark', color='Win_Rate', color_continuous_scale='Redor_r'
+                )
+                fig_fraud.update_traces(texttemplate='%{text} Entries', textposition='outside')
+                fig_fraud.update_yaxes(categoryorder='array', categoryarray=fraud_stats['Uma'][::-1]) 
+                st.plotly_chart(style_fig(fig_fraud, height=400), width='stretch', config=PLOT_CONFIG)
+            else:
+                st.info("No characters met the >200 entries criteria.")
 
-        fig_place_pct = px.bar(
-            place_long_pct, x='Pct', y='Clean_Uma', color='Place', orientation='h',
-            title="Placement Shares (Sorted by 1st Place %)", template='plotly_dark',
-            color_discrete_map={'1st': '#FFD700', '2nd': '#C0C0C0', '3rd': '#CD7F32'}
-        )
-        
-        # --- FIXED ERROR HERE: Use 'array' instead of 'manual' ---
-        fig_place_pct.update_yaxes(categoryorder='array', categoryarray=place_pivot_sorted.index)
-        
-        st.plotly_chart(style_fig(fig_place_pct), width='stretch', config=PLOT_CONFIG)
+        # 2. 1st Place Struggle
+        with col_glob2:
+            st.markdown("##### 📉 1st Place Strugglers")
+            st.caption("Highest usage (>200) with **lowest** 1st Place %.")
+
+            def is_first(res): return 1 if str(res).lower() == '1st' else 0
+            
+            struggle_stats = matches_df.copy()
+            struggle_stats['Is_1st'] = struggle_stats['Result'].apply(is_first)
+            
+            struggle_agg = struggle_stats.groupby('Clean_Uma').agg({
+                'Is_1st': ['mean', 'count']
+            }).reset_index()
+            struggle_agg.columns = ['Uma', 'First_Rate', 'Entries']
+            
+            struggle_agg = struggle_agg[struggle_agg['Entries'] > 200].sort_values('First_Rate', ascending=True).head(10).copy()
+            struggle_agg['First_Rate'] *= 100
+            
+            if not struggle_agg.empty:
+                fig_struggle = px.bar(
+                    struggle_agg, x='First_Rate', y='Uma', orientation='h', text='Entries',
+                    title="Lowest 1st Place % (Min 200 Entries)",
+                    labels={'First_Rate': '1st Place %', 'Uma': 'Character'},
+                    template='plotly_dark', color='First_Rate', color_continuous_scale='Redor_r'
+                )
+                fig_struggle.update_traces(texttemplate='%{text} Entries', textposition='outside')
+                fig_struggle.update_yaxes(categoryorder='array', categoryarray=struggle_agg['Uma'][::-1])
+                st.plotly_chart(style_fig(fig_struggle, height=400), width='stretch', config=PLOT_CONFIG)
+            else:
+                st.info("No data.")
 
     # --- TAB 6: ECONOMICS & CARDS ---
     with tab6:
@@ -358,29 +350,35 @@ def show_view(current_config):
             with c2:
                 st.markdown("##### 🏃 Win Rate by Daily Grind")
                 if 'Runs_Text' in econ_df.columns:
-                    def sort_runs(val):
-                        val = str(val)
-                        if '0' in val: return 0
-                        if '1' in val: return 1
-                        if '3' in val: return 3
-                        if '6' in val: return 6
-                        return 99
+                    # Explicit filter for 'Unknown' (case-insensitive check)
+                    runs_df = econ_df[~econ_df['Runs_Text'].astype(str).str.contains('Unknown', case=False)].copy()
+                    
+                    if not runs_df.empty:
+                        def sort_runs(val):
+                            val = str(val)
+                            if '0' in val: return 0
+                            if '1' in val: return 1
+                            if '3' in val: return 3
+                            if '6' in val: return 6
+                            return 99
 
-                    run_stats = econ_df.groupby('Runs_Text').agg({
-                        'Is_Winner': ['mean', 'count']
-                    }).reset_index()
-                    run_stats.columns = ['Runs', 'Win_Rate', 'Entries']
-                    run_stats['Sort_Val'] = run_stats['Runs'].apply(sort_runs)
-                    run_stats['Win_Rate'] *= 100
-                    run_stats = run_stats.sort_values('Sort_Val')
+                        run_stats = runs_df.groupby('Runs_Text').agg({
+                            'Is_Winner': ['mean', 'count']
+                        }).reset_index()
+                        run_stats.columns = ['Runs', 'Win_Rate', 'Entries']
+                        run_stats['Sort_Val'] = run_stats['Runs'].apply(sort_runs)
+                        run_stats['Win_Rate'] *= 100
+                        run_stats = run_stats.sort_values('Sort_Val')
 
-                    fig_runs = px.bar(
-                        run_stats, x='Runs', y='Win_Rate', text='Entries',
-                        title="Grind Volume vs. Win Rate",
-                        template='plotly_dark', color='Win_Rate', color_continuous_scale='Blues'
-                    )
-                    fig_runs.update_traces(texttemplate='%{text} Entries', textposition='outside')
-                    st.plotly_chart(style_fig(fig_runs), width='stretch', config=PLOT_CONFIG)
+                        fig_runs = px.bar(
+                            run_stats, x='Runs', y='Win_Rate', text='Entries',
+                            title="Grind Volume vs. Win Rate",
+                            template='plotly_dark', color='Win_Rate', color_continuous_scale='Blues'
+                        )
+                        fig_runs.update_traces(texttemplate='%{text} Entries', textposition='outside')
+                        st.plotly_chart(style_fig(fig_runs), width='stretch', config=PLOT_CONFIG)
+                    else:
+                        st.info("No valid run data (all entries marked Unknown).")
                 else:
                     st.info("No runs data available.")
 
