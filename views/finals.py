@@ -373,7 +373,6 @@ def show_view(current_config):
     # --- TAB 2: TEAM COMPS ---
     with tab2:
         st.subheader("⚔️ Winning Team Compositions")
-        st.warning("This analysis focuses on entire team compositions that won Finals matches. It identifies the most successful team setups based on submitted data. Note that this is a statistical overview from **SUBMITTED DATA** and may not account for all variables.")
         team_df = matches_df.groupby(['Display_IGN', 'Result']).agg({
             'Clean_Uma': lambda x: sorted(list(x)), 
             'Is_Winner': 'max'
@@ -504,8 +503,8 @@ def show_view(current_config):
 
     # --- TAB 5: GLOBAL STATS ---
     with tab5:
-        st.subheader("🌐 Global Event Statistics")
-        
+        st.subheader("🌐 Team Event Statistics")
+        st.warning("This analysis focuses on entire team compositions that won Finals matches. It identifies the most successful team setups based on submitted data. Note that this is a statistical overview from **SUBMITTED DATA** and may not account for all variables.")
         # Prepare Data needed for all charts
         def is_first(res): return 1 if str(res).lower() == '1st' else 0
         matches_df['Is_1st'] = matches_df['Result'].apply(is_first)
