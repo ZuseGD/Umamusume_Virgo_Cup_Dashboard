@@ -112,7 +112,7 @@ def show_view(df, team_df, current_config):
                     type="primary", 
                     width='stretch'                )
         else:
-            st.empty()
+            st.info(current_config.get('status_msg'))
         
     st.warning("Only the Finals tab includes finals data, every other section is **ONLY THE ROUNDS DATA**")
     st.header("Global Overview")
