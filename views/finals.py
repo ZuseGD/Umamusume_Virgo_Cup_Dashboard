@@ -118,7 +118,7 @@ def show_view(current_config):
             fig.add_vrect(x0=mean_score - std_score, x1=mean_score, fillcolor="yellow", opacity=0.05, annotation_text="B Tier")
             fig.add_vrect(x0=min_score, x1=mean_score - std_score, fillcolor="red", opacity=0.05, annotation_text="C Tier")
 
-            st.plotly_chart(style_fig(fig), width='stretch', config=PLOT_CONFIG)
+            st.plotly_chart(style_fig(fig), use_container_width=True, config=PLOT_CONFIG)
         else:
             st.info("Not enough data.")
 
@@ -149,7 +149,7 @@ def show_view(current_config):
             template='plotly_dark', color='Win_Rate', color_continuous_scale='Plasma'
         )
         fig.update_layout(yaxis={'categoryorder':'total ascending'})
-        st.plotly_chart(style_fig(fig), width='stretch', config=PLOT_CONFIG)
+        st.plotly_chart(style_fig(fig), use_container_width=True, config=PLOT_CONFIG)
 
     # --- TAB 3: SKILL LIFT ---
     with tab3:
@@ -217,7 +217,7 @@ def show_view(current_config):
                     )
                     fig_lift.update_traces(hovertemplate="<b>%{y}</b><br>Lift: %{x:.1f}%<br>Winner: %{customdata[0]:.1f}%<br>Baseline: %{customdata[1]:.1f}%")
                     fig_lift.update_layout(yaxis={'categoryorder':'total ascending'})
-                    st.plotly_chart(style_fig(fig_lift), width='stretch', config=PLOT_CONFIG)
+                    st.plotly_chart(style_fig(fig_lift), use_container_width=True, config=PLOT_CONFIG)
 
     # --- TAB 4: CHAMPION STATS ---
     with tab4:
@@ -254,7 +254,7 @@ def show_view(current_config):
                     title=f"Stat Benchmark: {sel_uma_stat}",
                     color_discrete_map={'Champions (Finals Winners)': '#00CC96', 'The Field (Prelims Non-Winners)': '#EF553B'}
                 )
-                st.plotly_chart(style_fig(fig_box), width='stretch', config=PLOT_CONFIG)
+                st.plotly_chart(style_fig(fig_box), use_container_width=True, config=PLOT_CONFIG)
             else:
                 st.warning("Insufficient data.")
         else:
@@ -265,39 +265,84 @@ def show_view(current_config):
         st.subheader("🌐 Global Event Statistics")
         st.markdown("""
         **Combined Analysis (Prelims + Finals)**
-        - **Total Races:** The total volume of matches tracked across the entire event.
+        - **Cumulative Meta Tier List:** A scatter plot integrating data from the entire event (Prelims Races + Finals Entries).
         - **Pick Rate %:** The percentage of *teams* that included this character (Estimated).
-        - **Usage Share %:** The percentage of *all individual slots* occupied by this character.
         """)
 
-        # --- 1. GLOBAL USAGE (Races Run) ---
+        # --- PREPARE GLOBAL DATA ---
         if not sheet_df.empty:
-            prelim_usage = sheet_df.groupby('Clean_Uma')['Clean_Races'].sum()
+            # Prelims: Group by Uma -> Sum Races & Wins
+            prelim_stats = sheet_df.groupby('Clean_Uma')[['Clean_Wins', 'Clean_Races']].sum()
         else:
-            prelim_usage = pd.Series(dtype=int)
+            prelim_stats = pd.DataFrame(columns=['Clean_Wins', 'Clean_Races'])
             
-        finals_usage = matches_df['Clean_Uma'].value_counts()
+        # Finals: Group by Uma -> Count Entries (Races), Sum Is_Winner (Wins)
+        finals_stats = matches_df.groupby('Clean_Uma').agg(
+            Clean_Wins=('Is_Winner', 'sum'),
+            Clean_Races=('Is_Winner', 'count')
+        )
         
-        # Combine Series (Fill 0 for missing)
-        grand_total_usage = prelim_usage.add(finals_usage, fill_value=0)
+        # Merge (Add) the two datasets
+        # This gives us the Grand Total of Races and Wins across the whole event
+        global_agg = prelim_stats.add(finals_stats, fill_value=0)
+        global_agg = global_agg[global_agg['Clean_Races'] > 0] # Safety
         
-        # Calculations for Percentages
-        total_slots_filled = grand_total_usage.sum()
-        estimated_total_teams = total_slots_filled / 3  # Assumption: 3 Umas per team
-        
-        # Create DataFrame for Visualization
-        global_stats = grand_total_usage.reset_index(name='Total_Count')
-        global_stats.columns = ['Uma', 'Total_Count']
+        # --- 1. CUMULATIVE META TIER LIST ---
+        st.markdown("##### 📈 Cumulative Meta Tier List (All Rounds)")
         
         # Calculate Metrics
-        global_stats['Usage_Share'] = (global_stats['Total_Count'] / total_slots_filled) * 100
-        global_stats['Pick_Rate'] = (global_stats['Total_Count'] / estimated_total_teams) * 100
+        global_agg['Win_Rate'] = (global_agg['Clean_Wins'] / global_agg['Clean_Races']) * 100
+        global_agg['Meta_Score'] = global_agg.apply(lambda x: calculate_score(x['Clean_Wins'], x['Clean_Races']), axis=1)
         
-        # Sort and Slice
-        top_usage = global_stats.sort_values('Total_Count', ascending=False).head(20)
+        # Filter for noise (Min 10 races globally)
+        tier_data = global_agg[global_agg['Clean_Races'] >= 10].reset_index().rename(columns={'index': 'Uma'})
         
-        # Create Label
-        top_usage['Label'] = top_usage.apply(lambda x: f"<b>{x['Pick_Rate']:.1f}%</b> ({x['Total_Count']})", axis=1)
+        if not tier_data.empty:
+            # Trend Line
+            slope, intercept = np.polyfit(tier_data['Meta_Score'], tier_data['Win_Rate'], 1)
+            x_trend = np.linspace(tier_data['Meta_Score'].min(), tier_data['Meta_Score'].max(), 100)
+            y_trend = slope * x_trend + intercept
+            
+            # Tier Bands
+            mean_score = tier_data['Meta_Score'].mean()
+            std_score = tier_data['Meta_Score'].std()
+            max_score = tier_data['Meta_Score'].max() * 1.1
+            min_score = 0
+
+            fig_tier = px.scatter(
+                tier_data, x='Meta_Score', y='Win_Rate', size='Clean_Races', color='Win_Rate',
+                hover_name='Clean_Uma', 
+                title="Global Meta: Impact vs Consistency (Prelims + Finals)",
+                labels={'Meta_Score': 'Meta Score', 'Win_Rate': 'Win Rate (%)', 'Clean_Races': 'Total Races'},
+                template='plotly_dark', color_continuous_scale='Viridis'
+            )
+            
+            # Add Trend
+            fig_tier.add_trace(go.Scatter(x=x_trend, y=y_trend, mode='lines', name='Trend', line=dict(color='white', width=2, dash='dash'), opacity=0.5))
+            
+            # Add Bands
+            fig_tier.add_vrect(x0=mean_score + std_score, x1=max_score, fillcolor="purple", opacity=0.15, annotation_text="S Tier")
+            fig_tier.add_vrect(x0=mean_score, x1=mean_score + std_score, fillcolor="green", opacity=0.1, annotation_text="A Tier")
+            fig_tier.add_vrect(x0=mean_score - std_score, x1=mean_score, fillcolor="yellow", opacity=0.05, annotation_text="B Tier")
+            fig_tier.add_vrect(x0=min_score, x1=mean_score - std_score, fillcolor="red", opacity=0.05, annotation_text="C Tier")
+            
+            st.plotly_chart(style_fig(fig_tier), use_container_width=True, config=PLOT_CONFIG)
+        else:
+            st.warning("Not enough global data to generate tier list.")
+
+        st.markdown("---")
+
+        # --- 2. GLOBAL USAGE & PICK RATES ---
+        # Reuse global_agg for usage stats
+        total_slots_filled = global_agg['Clean_Races'].sum()
+        estimated_total_teams = total_slots_filled / 3
+        
+        global_usage = global_agg.reset_index().rename(columns={'index': 'Uma'})
+        global_usage['Usage_Share'] = (global_usage['Clean_Races'] / total_slots_filled) * 100
+        global_usage['Pick_Rate'] = (global_usage['Clean_Races'] / estimated_total_teams) * 100
+        
+        top_usage = global_usage.sort_values('Clean_Races', ascending=False).head(20)
+        top_usage['Label'] = top_usage.apply(lambda x: f"<b>{x['Pick_Rate']:.1f}%</b> ({int(x['Clean_Races'])})", axis=1)
 
         col_g1, col_g2 = st.columns(2)
 
@@ -305,10 +350,10 @@ def show_view(current_config):
             st.markdown("##### 🏃 Global Pick Rates (Most Popular)")
             if not top_usage.empty:
                 fig_usage = px.bar(
-                    top_usage, x='Total_Count', y='Uma', orientation='h',
+                    top_usage, x='Clean_Races', y='Clean_Uma', orientation='h',
                     text='Label',
                     title=f"Most Used (Total Races: {int(estimated_total_teams)})",
-                    labels={'Total_Count': 'Total Races Run', 'Uma': 'Character'},
+                    labels={'Clean_Races': 'Total Races Run', 'Clean_Uma': 'Character'},
                     template='plotly_dark', color='Pick_Rate', color_continuous_scale='Bluered'
                 )
                 fig_usage.update_layout(yaxis={'categoryorder':'total ascending'})
@@ -316,11 +361,11 @@ def show_view(current_config):
                     hovertemplate="<b>%{y}</b><br>Races: %{x}<br>Pick Rate: %{marker.color:.1f}%<br>Meta Share: %{customdata[0]:.1f}%<extra></extra>",
                     customdata=top_usage[['Usage_Share']]
                 )
-                st.plotly_chart(style_fig(fig_usage, height=600), width='stretch', config=PLOT_CONFIG)
+                st.plotly_chart(style_fig(fig_usage, height=600), use_container_width=True, config=PLOT_CONFIG)
             else:
                 st.warning("No usage data available.")
 
-        # --- 2. FINALS PLACEMENT DISTRIBUTION ---
+        # --- 3. FINALS PLACEMENT DISTRIBUTION ---
         with col_g2:
             st.markdown("##### 🏅 Finals Placement Breakdown")
             top_finalists = matches_df['Clean_Uma'].value_counts().head(15).index.tolist()
@@ -354,11 +399,11 @@ def show_view(current_config):
                     text_auto='.0f'
                 )
                 fig_place.update_layout(barmode='stack', yaxis={'categoryorder':'array', 'categoryarray': order_idx.tolist()[::-1]})
-                st.plotly_chart(style_fig(fig_place, height=600), width='stretch', config=PLOT_CONFIG)
+                st.plotly_chart(style_fig(fig_place, height=600), use_container_width=True, config=PLOT_CONFIG)
             else:
                 st.warning("No placement data available.")
 
-        # --- 3. CONSISTENCY ---
+        # --- 4. CONSISTENCY ---
         st.markdown("---")
         st.markdown("##### 💎 Top 3 Consistency (Finals Only)")
         
@@ -382,4 +427,4 @@ def show_view(current_config):
                 labels={'Podium_Rate': 'Podium % (Top 3)'},
                 color='Podium_Rate', color_continuous_scale='Teal', template='plotly_dark'
             )
-            st.plotly_chart(style_fig(fig_podium), width='stretch', config=PLOT_CONFIG)
+            st.plotly_chart(style_fig(fig_podium), use_container_width=True, config=PLOT_CONFIG)
