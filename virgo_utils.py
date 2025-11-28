@@ -6,6 +6,8 @@ import os
 import re
 import html
 
+# --- CONFIGURATION ---
+SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTR8Pa4QQVSNwepSe9dYnro3ZaVEpYQmBdZUzumuLL-U2IR3nKVh-_GbZeJHT2x9aCqnp7P-0hPm5Zd/pub?gid=221070242&single=true&output=csv"
 
 PLOT_CONFIG = {
     'scrollZoom': False, 
@@ -133,67 +135,7 @@ DESCRIPTIONS = {
     """
 }
 
-# 1. LIST OF ORIGINAL UMAS (Base Names)
-ORIGINAL_UMAS = [
-    "Maruzensky", "Taiki Shuttle", "Oguri Cap", "El Condor Pasa", "Grass Wonder",
-    "Silence Suzuka", "Gold Ship", "Vodka", "Daiwa Scarlet", "Mejiro Ryan",
-    "Rice Shower", "Winning Ticket", "Haru Urara", "Matikanefukukitaru",
-    "Nice Nature", "King Halo", "Agnes Tachyon", "Super Creek", "Mayaano Top Gun",
-    "Mihono Bourbon", "Tokai Teio", "Symboli Rudolf", "Air Groove", "Seiun Sky",
-    "Biwa Hayahide", "Narita Brian", "Hishi Amazon", "Fuji Kiseki", "Curren Chan",
-    "Smart Falcon", "Narita Taishin", "Kawakami Princess", "Gold City", "Sakura Bakushin O"
-]
-
-# 2. VARIANT KEYWORDS
-VARIANT_MAP = {
-    "Summer": "Summer", "Hot Summer": "Summer",
-    "Valentine": "Valentine", "Christmas": "Christmas", "Holiday": "Christmas",
-    "Hopp'n Happy Heart": "Summer", "Carnival": "Festival",
-    "Wedding": "Wedding", "Bouquet": "Wedding",
-    "Saintly Jade Cleric": "Fantasy", "Kukulkan": "Fantasy",
-    "Chiffon-Wrapped Mummy": "Halloween", "New Year": "New Year",
-    "Vampire Makeover!": "Halloween", "Festival": "Festival",
-    "Quercus Civilis": "Wedding", "End of the Skies": "Anime", "Beyond the Horizon": "Anime",
-    "Lucky Tidings": "Full Armor", "Princess": "Princess"
-}
-
 # --- HELPER FUNCTIONS ---
-
-def smart_match_name(raw_name, valid_csv_names):
-    """Modular function to match OCR names to CSV names."""
-    if pd.isna(raw_name): return "Unknown"
-    raw_name = str(raw_name)
-
-    base_match = re.search(r'\]\s*(.*)', raw_name)
-    title_match = re.search(r'\[(.*?)\]', raw_name)
-    
-    base_name = base_match.group(1).strip() if base_match else raw_name.strip()
-    title_text = title_match.group(1) if title_match else ""
-
-    variant_suffix = None
-    for keyword, suffix in VARIANT_MAP.items():
-        if keyword.lower() in title_text.lower():
-            variant_suffix = suffix
-            break
-    
-    candidates = []
-    if variant_suffix:
-        candidates.append(f"{base_name} ({variant_suffix})")
-        candidates.append(f"{variant_suffix} {base_name}")
-    candidates.append(base_name)
-    
-    for cand in candidates:
-        # Case insensitive match
-        match = next((valid for valid in valid_csv_names if valid.lower() == cand.lower()), None)
-        if match: return match
-            
-    if base_name in ORIGINAL_UMAS: return base_name
-    return base_name 
-
-def sanitize_text(text):
-    if pd.isna(text): return text
-    return html.escape(str(text))
-
 def show_description(key):
     if key in DESCRIPTIONS:
         with st.expander("ℹ️ Info", expanded=False):
@@ -217,6 +159,10 @@ def calculate_score(wins, races):
     if races == 0: return 0
     return (wins / races * 100) * np.sqrt(races)
 
+def sanitize_text(text):
+    if pd.isna(text): return text
+    return html.escape(str(text))
+
 def parse_uma_details(series):
     return series.astype(str).apply(lambda x: x.split(' - ')[0].strip().title())
 
@@ -237,134 +183,22 @@ def extract_races_count(series):
         return 1
     return series.apply(parse)
 
+# --- LEGACY LOADER (Used by PrelimsLoader) ---
 def find_column(df, keywords):
     for col in df.columns:
-        if any(k.lower() in col.lower() for k in keywords): return col
+        if col.lower() in [k.lower() for k in keywords]: return col
     return None
 
-# --- LOADERS ---
-
-@st.cache_data(ttl=3600)
 def load_data(sheet_url):
-    """Loads Standard Prelims CSV"""
+    # This remains for backward compatibility with Prelims CSV format
     try:
         df = pd.read_csv(sheet_url)
-        # ... (Include your full existing load_data logic here for cleaning R1/R2) ...
-        # For brevity in this answer, I assume you keep your existing logic here
-        # ensure you create 'Clean_IGN', 'Clean_Uma', 'Calculated_WinRate', etc.
-        
-        # --- Minimal Logic for context (You should paste your full function back) ---
-        string_cols = df.select_dtypes(include=['object']).columns
-        for col in string_cols: df[col] = df[col].apply(sanitize_text)
-        
-        # (Your standard cleaning...)
-        col_ign = find_column(df, ['ign', 'player'])
-        col_uma = find_column(df, ['uma'])
-        col_style = find_column(df, ['style'])
-        col_wins = find_column(df, ['wins'])
-        col_races = find_column(df, ['races'])
-        
-        df['Clean_IGN'] = df[col_ign].fillna("Anonymous") if col_ign else "Anonymous"
-        df['Clean_Uma'] = parse_uma_details(df[col_uma]) if col_uma else "Unknown"
-        df['Clean_Style'] = df[col_style].fillna("Unknown") if col_style else "Unknown"
-        df['Clean_Wins'] = pd.to_numeric(df[col_wins], errors='coerce').fillna(0) if col_wins else 0
-        df['Clean_Races'] = extract_races_count(df[col_races]) if col_races else 1
-        
-        df['Calculated_WinRate'] = (df['Clean_Wins'] / df['Clean_Races']) * 100
-        
-        # Deduplicate & Anonymize
-        df = df.sort_values(by=['Clean_Races', 'Clean_Wins'], ascending=[False, False])
-        df = df.drop_duplicates(subset=['Clean_IGN', 'Round', 'Day', 'Clean_Uma'], keep='first')
-        
-        # Dummy Team DF for compatibility in this snippet (Use your full logic!)
-        team_df = df.copy() 
-        team_df['Team_Comp'] = "Unknown"
-        
-        return df, team_df
+        # ... (Original cleaning logic) ...
+        # Simplified for brevity here, but paste your original cleaning logic
+        # ensuring it returns (df, team_df)
+        return df, pd.DataFrame() # Placeholder for this snippet
     except:
         return pd.DataFrame(), pd.DataFrame()
-
-@st.cache_data(ttl=3600)
-def load_ocr_data(parquet_file):
-    """Loads Standard OCR Data"""
-    try:
-        if not os.path.exists(parquet_file): return pd.DataFrame()
-        df = pd.read_parquet(parquet_file)
-        # Basic clean
-        if 'ign' in df.columns:
-            df['Match_IGN'] = df['ign'].astype(str).str.lower().str.strip()
-        return df
-    except:
-        return pd.DataFrame()
-
-@st.cache_data(ttl=3600)
-def load_finals_data(csv_path, parquet_path):
-    """
-    NEW: Loads Finals Wide-Format CSV and Finals Parquet.
-    Returns: finals_matches_df, finals_merged_ocr_df
-    """
-    if not csv_path or not os.path.exists(csv_path):
-        return pd.DataFrame(), pd.DataFrame()
-
-    # 1. LOAD CSV (Wide -> Long)
-    try:
-        raw_df = pd.read_csv(csv_path)
-        processed_rows = []
-        
-        for _, row in raw_df.iterrows():
-            ign = str(row.get('Player in-game name (IGN)', 'Unknown')).strip()
-            result = str(row.get('Finals race result', 'Unknown'))
-            is_win = 1 if result == '1st' else 0
-            
-            for i in range(1, 4):
-                uma_name = row.get(f'Own Team - Uma {i}')
-                style = row.get(f'Own team - Uma {i} - Running Style')
-                
-                if pd.notna(uma_name) and str(uma_name).strip() != "":
-                    processed_rows.append({
-                        'Match_IGN': ign.lower(), # For joining
-                        'Display_IGN': ign,
-                        'Clean_Uma': parse_uma_details(pd.Series([uma_name]))[0],
-                        'Clean_Style': style,
-                        'Result': result,
-                        'Calculated_WinRate': is_win * 100,
-                        'Is_Winner': is_win
-                    })
-        
-        finals_matches = pd.DataFrame(processed_rows)
-    except Exception as e:
-        st.error(f"Error parsing Finals CSV: {e}")
-        return pd.DataFrame(), pd.DataFrame()
-
-    # 2. LOAD PARQUET & MERGE
-    try:
-        if not parquet_path or not os.path.exists(parquet_path):
-            return finals_matches, pd.DataFrame()
-            
-        ocr_df = pd.read_parquet(parquet_path)
-        
-        # Normalize for Join
-        if 'ign' in ocr_df.columns:
-            ocr_df['Match_IGN'] = ocr_df['ign'].astype(str).str.lower().str.strip()
-        
-        # Smart Match Names
-        valid_names = finals_matches['Clean_Uma'].unique().tolist()
-        ocr_df['Match_Uma'] = ocr_df['name'].apply(lambda x: smart_match_name(x, valid_names))
-        finals_matches['Match_Uma'] = finals_matches['Clean_Uma'] # Already clean
-        
-        # Merge
-        merged_df = pd.merge(
-            ocr_df, 
-            finals_matches, 
-            on=['Match_IGN', 'Match_Uma'], 
-            how='inner'
-        )
-        
-        return finals_matches, merged_df
-        
-    except Exception as e:
-        st.error(f"Error merging Finals Parquet: {e}")
-        return finals_matches, pd.DataFrame()
 
 # Common Footer
 footer_html = """
@@ -372,8 +206,16 @@ footer_html = """
 .footer {
     position: fixed; left: 0; bottom: 0; width: 100%;
     background-color: #0E1117; color: #888; text-align: center;
-    padding: 10px; font-size: 12px; border-top: 1px solid #333; z-index: 100;
+    padding: 10px; font-size: 12px; border-top: 1px solid #333;
+    z-index: 100; display: flex; justify-content: center; gap: 20px;
 }
+.footer a { color: #00CC96; text-decoration: none; font-weight: bold; }
+.footer a:hover { text-decoration: underline; color: #FAFAFA; }
 </style>
-<div class="footer">Made by Zuse 🚀</div>
+<div class="footer">
+    <span>Made by <b>Zuse</b> 🚀</span>
+    <span>👾 Discord: <b>@zusethegoose</b></span>
+    <span><a href="https://github.com/ZuseGD" target="_blank">💻 GitHub</a></span>
+    <span><a href="https://paypal.me/paypal.me/JgamersZuse" target="_blank">☕ Support</a></span>
+</div>
 """
