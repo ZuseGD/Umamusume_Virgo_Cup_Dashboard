@@ -118,7 +118,7 @@ def show_view(current_config):
             fig.add_vrect(x0=mean_score - std_score, x1=mean_score, fillcolor="yellow", opacity=0.05, annotation_text="B Tier")
             fig.add_vrect(x0=min_score, x1=mean_score - std_score, fillcolor="red", opacity=0.05, annotation_text="C Tier")
 
-            st.plotly_chart(style_fig(fig), use_container_width=True, config=PLOT_CONFIG)
+            st.plotly_chart(style_fig(fig), width='stretch', config=PLOT_CONFIG)
         else:
             st.info("Not enough data.")
 
@@ -149,7 +149,7 @@ def show_view(current_config):
             template='plotly_dark', color='Win_Rate', color_continuous_scale='Plasma'
         )
         fig.update_layout(yaxis={'categoryorder':'total ascending'})
-        st.plotly_chart(style_fig(fig), use_container_width=True, config=PLOT_CONFIG)
+        st.plotly_chart(style_fig(fig), width='stretch', config=PLOT_CONFIG)
 
     # --- TAB 3: SKILL LIFT ---
     with tab3:
@@ -217,7 +217,7 @@ def show_view(current_config):
                     )
                     fig_lift.update_traces(hovertemplate="<b>%{y}</b><br>Lift: %{x:.1f}%<br>Winner: %{customdata[0]:.1f}%<br>Baseline: %{customdata[1]:.1f}%")
                     fig_lift.update_layout(yaxis={'categoryorder':'total ascending'})
-                    st.plotly_chart(style_fig(fig_lift), use_container_width=True, config=PLOT_CONFIG)
+                    st.plotly_chart(style_fig(fig_lift), width='stretch', config=PLOT_CONFIG)
 
     # --- TAB 4: CHAMPION STATS ---
     with tab4:
@@ -254,7 +254,7 @@ def show_view(current_config):
                     title=f"Stat Benchmark: {sel_uma_stat}",
                     color_discrete_map={'Champions (Finals Winners)': '#00CC96', 'The Field (Prelims Non-Winners)': '#EF553B'}
                 )
-                st.plotly_chart(style_fig(fig_box), use_container_width=True, config=PLOT_CONFIG)
+                st.plotly_chart(style_fig(fig_box), width='stretch', config=PLOT_CONFIG)
             else:
                 st.warning("Insufficient data.")
         else:
@@ -326,7 +326,7 @@ def show_view(current_config):
             fig_tier.add_vrect(x0=mean_score - std_score, x1=mean_score, fillcolor="yellow", opacity=0.05, annotation_text="B Tier")
             fig_tier.add_vrect(x0=min_score, x1=mean_score - std_score, fillcolor="red", opacity=0.05, annotation_text="C Tier")
             
-            st.plotly_chart(style_fig(fig_tier), use_container_width=True, config=PLOT_CONFIG)
+            st.plotly_chart(style_fig(fig_tier), width='stretch', config=PLOT_CONFIG)
         else:
             st.warning("Not enough global data to generate tier list.")
 
@@ -361,7 +361,7 @@ def show_view(current_config):
                     hovertemplate="<b>%{y}</b><br>Races: %{x}<br>Pick Rate: %{marker.color:.1f}%<br>Meta Share: %{customdata[0]:.1f}%<extra></extra>",
                     customdata=top_usage[['Usage_Share']]
                 )
-                st.plotly_chart(style_fig(fig_usage, height=600), use_container_width=True, config=PLOT_CONFIG)
+                st.plotly_chart(style_fig(fig_usage, height=600), width='stretch', config=PLOT_CONFIG)
             else:
                 st.warning("No usage data available.")
 
@@ -399,7 +399,7 @@ def show_view(current_config):
                     text_auto='.0f'
                 )
                 fig_place.update_layout(barmode='stack', yaxis={'categoryorder':'array', 'categoryarray': order_idx.tolist()[::-1]})
-                st.plotly_chart(style_fig(fig_place, height=600), use_container_width=True, config=PLOT_CONFIG)
+                st.plotly_chart(style_fig(fig_place, height=600), width='stretch', config=PLOT_CONFIG)
             else:
                 st.warning("No placement data available.")
 
@@ -427,4 +427,4 @@ def show_view(current_config):
                 labels={'Podium_Rate': 'Podium % (Top 3)'},
                 color='Podium_Rate', color_continuous_scale='Teal', template='plotly_dark'
             )
-            st.plotly_chart(style_fig(fig_podium), use_container_width=True, config=PLOT_CONFIG)
+            st.plotly_chart(style_fig(fig_podium), width='stretch', config=PLOT_CONFIG)
