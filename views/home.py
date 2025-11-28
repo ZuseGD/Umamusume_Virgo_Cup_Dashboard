@@ -35,8 +35,10 @@ def show_view(df, team_df, current_config):
     </style>
     """, unsafe_allow_html=True)
 
+    
+
     # --- TOP LAYOUT (Header Left | Button Right) ---
-    col_header, col_btn = st.columns([3, 2], gap="medium")
+    col_header, col_btn = st.columns([1, 1], gap="medium")
 
     # --- LEFT SIDE: HEADER & UPDATES ---
     with col_header:
@@ -62,13 +64,7 @@ def show_view(df, team_df, current_config):
         - A benchmark comparing the stat spread of **1st Place Winners** vs. Non-Winners.
         """)
         
-        # Support Button (Now fills vertical space)
-        st.link_button(
-                label="☕ Support the Project", 
-                url='https://paypal.me/JgamersZuse', 
-                type="secondary",
-                width='stretch'
-            )
+        
 
     # --- RIGHT SIDE: SURVEY BUTTON ---
     with col_btn:
@@ -113,6 +109,14 @@ def show_view(df, team_df, current_config):
                     width='stretch'                )
         else:
             st.info(current_config.get('status_msg'))
+            
+    # Support Button (Now fills vertical space)
+    st.link_button(
+                label="☕ Support the Project", 
+                url='https://paypal.me/JgamersZuse', 
+                type="secondary",
+                width='stretch'
+            )
         
     st.warning("Only the Finals tab includes finals data, every other section is **ONLY THE ROUNDS DATA**")
     st.header("Global Overview")
