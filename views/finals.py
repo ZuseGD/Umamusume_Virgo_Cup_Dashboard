@@ -151,7 +151,7 @@ def show_view(current_config):
     
     # Define Oshi Threshold (e.g. < 20 entries)
     # Find median or use a static number. Let's use 20 as a reasonable "Niche" cutoff for a large dataset
-    oshi_cutoff = 20
+    oshi_cutoff = 5
     stats['Is_Oshi'] = stats['Entries'] < oshi_cutoff
 
     # --- METRICS ---
@@ -277,7 +277,7 @@ def show_view(current_config):
                 
                 st.dataframe(
                     oshi_pvper_display.style.background_gradient(cmap='Purples'), 
-                    use_container_width=True,
+                    width='stretch',
                     hide_index=True
                 )
             else:
