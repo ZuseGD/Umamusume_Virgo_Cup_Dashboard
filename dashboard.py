@@ -1,7 +1,6 @@
 import streamlit as st
 import os
 import pandas as pd
-import numpy as np
 from virgo_utils import load_data, footer_html
 from cm_config import CM_LIST
 
@@ -32,28 +31,32 @@ if 'current_page' not in st.session_state: st.session_state.current_page = "Home
 def set_page(p): st.session_state.current_page = p
 
 # Nav Buttons
-nav_cols = st.columns(7) # Added 7th column for Finals
-pages = ["Home", "Teams", "Umas", "Resources", "OCR", "🏆 Finals", "Guides"] # Added Finals
+# Updated with "Finals"
+pages = ["Home", "Teams", "Umas", "Resources", "OCR", "🏆 Finals", "Guides", "Credits"]
+nav_cols = st.columns(len(pages))
+
 for col, p in zip(nav_cols, pages):
     with col:
         btn_type = "primary" if st.session_state.current_page == p else "secondary"
-        # Strip emoji for logic check if needed, but here simple string match is fine
         st.button(p, type=btn_type, on_click=set_page, args=(p,))
 
-# Data Loading (ONLY Standard Data here)
-# We do NOT load finals data here to avoid breaking the main dashboard
+# Data Loading (Prelims ONLY)
+# We handle errors gracefully here to prevent app crash
 try:
     df, team_df = load_data(current_config['sheet_url'])
-except:
+except Exception as e:
+    st.error(f"Error loading data: {e}")
     df, team_df = pd.DataFrame(), pd.DataFrame()
 
-# Global Filters (Only for Standard Views)
-if st.session_state.current_page not in ["🏆 Finals", "Guides", "Credits"]:
+# Global Filters (Hide for Finals page)
+if st.session_state.current_page not in ["🏆 Finals", "Guides", "Credits"] and not df.empty:
     st.sidebar.header("⚙️ Filters")
     if 'Clean_Group' in df.columns:
         groups = list(df['Clean_Group'].unique())
         sel = st.sidebar.multiselect("Group", groups, default=groups)
-        if sel: df = df[df['Clean_Group'].isin(sel)]
+        if sel:
+            df = df[df['Clean_Group'].isin(sel)]
+            team_df = team_df[team_df['Clean_Group'].isin(sel)]
 
 # Routing
 if st.session_state.current_page == "Home":
@@ -71,8 +74,7 @@ elif st.session_state.current_page == "Resources":
 elif st.session_state.current_page == "OCR":
     from views import ocr
     ocr.show_view(current_config)
-elif st.session_state.current_page == "🏆 Finals":
-    # NEW ROUTE
+elif st.session_state.current_page == "Finals":
     from views import finals
     finals.show_view(current_config)
 elif st.session_state.current_page == "Guides":
