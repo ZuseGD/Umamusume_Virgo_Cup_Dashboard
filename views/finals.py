@@ -59,17 +59,13 @@ def show_view(current_config):
     total_entries = matches_df['Display_IGN'].nunique()
     total_winners = matches_df[matches_df['Is_Winner'] == 1]['Display_IGN'].nunique()
     
-    if 'Clean_Role' in matches_df.columns:
-        ace_count = len(matches_df[matches_df['Clean_Role'].str.contains("Ace", case=False, na=False)])
-        debuff_count = len(matches_df[matches_df['Clean_Role'].str.contains("Debuff", case=False, na=False)])
-    else:
-        ace_count, debuff_count = 0, 0
 
-    m1, m2, m3, m4 = st.columns(4)
+
+    m1, m2, m3 = st.columns(3)
     m1.metric("Finalists Analyzed", total_entries)
     m2.metric("Winners Confirmed", total_winners)
     m3.metric("Baseline Exclusions", f"{excluded_count} Entries", help="Finals winners removed from Prelims comparison data to prevent data leakage.")
-    m4.metric("Ace Debuffer Ratio", f"{debuff_count} Debuffers:{ace_count}Aces", help="How many debuffers vs aces this cm?")
+
     
     st.markdown("---")
 
