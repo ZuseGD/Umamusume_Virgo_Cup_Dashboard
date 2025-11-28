@@ -373,7 +373,7 @@ def show_view(current_config):
     # --- TAB 2: TEAM COMPS ---
     with tab2:
         st.subheader("⚔️ Winning Team Compositions")
-        
+        st.warning("This analysis focuses on entire team compositions that won Finals matches. It identifies the most successful team setups based on submitted data. Note that this is a statistical overview from **SUBMITTED DATA** and may not account for all variables.")
         team_df = matches_df.groupby(['Display_IGN', 'Result']).agg({
             'Clean_Uma': lambda x: sorted(list(x)), 
             'Is_Winner': 'max'
@@ -423,6 +423,7 @@ def show_view(current_config):
     # --- TAB 3: SKILL LIFT ---
     with tab3:
         st.subheader("⚡ Skill Lift Analysis")
+        st.warning("This analysis compares the skill usage of Finals Winners against a baseline of non-winning participants from the Prelims. It identifies skills that are significantly more common among winners, indicating potential meta advantages. Note that this is a statistical overview from **SUBMITTED OCR DATA** and may not account for all variables.")
         if finals_ocr.empty or prelims_baseline.empty:
             st.warning("Need Finals OCR + Prelims OCR data.")
         else:
@@ -471,6 +472,7 @@ def show_view(current_config):
     # --- TAB 4: CHAMPION STATS ---
     with tab4:
         st.subheader("🏆 Champion Stat Distribution")
+        st.warning("This analysis compares the base stats of Finals Winners against a baseline of non-winning participants from the Prelims. It helps identify if certain stat distributions are more common among champions. Note that this is a statistical overview from **SUBMITTED OCR DATA** and may not account for all variables.")
         if not finals_ocr.empty and not prelims_baseline.empty:
             c1, c2 = st.columns(2)
             with c1:
