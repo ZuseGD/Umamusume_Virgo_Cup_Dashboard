@@ -36,9 +36,7 @@ def show_view(current_config):
         return
 
     # --- 2. DATA PREPARATION: EXCLUDE WINNERS FROM BASELINE ---
-    # We want "The Field" (Prelims) to NOT include the "Champions" (Finals Winners)
-    
-    # Identify Winning IGNs
+    # Identify Winning IGNs to exclude from baseline comparisons
     winning_igns = set(matches_df[matches_df['Is_Winner'] == 1]['Match_IGN'].unique())
     
     # Prepare Baseline (Prelims)
@@ -77,27 +75,22 @@ def show_view(current_config):
         "🌐 Global Stats"
     ])
 
-    # --- TAB 1: META OVERVIEW (Uma Tier List) ---
+    # --- TAB 1: META OVERVIEW ---
     with tab1:
         st.subheader("🏁 Finals Character Tier List")
         st.markdown("""
         **Meta Score vs. Win Rate**
         - **Meta Score (X-Axis):** Weighted metric of usage & performance.
         - **Win Rate (Y-Axis):** Raw probability of winning.
-        - **Trend Line:** Dashed line showing the correlation between Meta Score and Win Rate.
         """)
         
-        # Aggregate Finals Stats
         uma_stats = matches_df.groupby('Clean_Uma').agg({
             'Is_Winner': ['count', 'sum']
         }).reset_index()
         uma_stats.columns = ['Uma', 'Entries', 'Wins']
         
-        # Calculate Metrics
         uma_stats['Win_Rate'] = (uma_stats['Wins'] / uma_stats['Entries']) * 100
         uma_stats['Meta_Score'] = uma_stats.apply(lambda x: calculate_score(x['Wins'], x['Entries']), axis=1)
-        
-        # Filter low sample size
         uma_stats = uma_stats[uma_stats['Entries'] >= 3]
         
         if not uma_stats.empty:
@@ -113,26 +106,13 @@ def show_view(current_config):
             min_score = 0
             
             fig = px.scatter(
-                uma_stats, 
-                x='Meta_Score', 
-                y='Win_Rate',
-                size='Entries',
-                color='Win_Rate',
-                hover_name='Uma',
-                title="Finals Meta: Impact vs Efficiency",
+                uma_stats, x='Meta_Score', y='Win_Rate', size='Entries', color='Win_Rate',
+                hover_name='Uma', title="Finals Meta: Impact vs Efficiency",
                 labels={'Meta_Score': 'Meta Score (Impact)', 'Win_Rate': 'Win Rate (%)'},
-                template='plotly_dark',
-                color_continuous_scale='Viridis'
+                template='plotly_dark', color_continuous_scale='Viridis'
             )
-            
-            # Add Trend Line
-            fig.add_trace(go.Scatter(
-                x=x_trend, y=y_trend, mode='lines', name='Trend', 
-                line=dict(color='white', width=2, dash='dash'),
-                opacity=0.5
-            ))
+            fig.add_trace(go.Scatter(x=x_trend, y=y_trend, mode='lines', name='Trend', line=dict(color='white', width=2, dash='dash'), opacity=0.5))
 
-            # Add Tier Bands
             fig.add_vrect(x0=mean_score + std_score, x1=max_score, fillcolor="purple", opacity=0.15, annotation_text="S Tier")
             fig.add_vrect(x0=mean_score, x1=mean_score + std_score, fillcolor="green", opacity=0.1, annotation_text="A Tier")
             fig.add_vrect(x0=mean_score - std_score, x1=mean_score, fillcolor="yellow", opacity=0.05, annotation_text="B Tier")
@@ -140,7 +120,7 @@ def show_view(current_config):
 
             st.plotly_chart(style_fig(fig), width='stretch', config=PLOT_CONFIG)
         else:
-            st.info("Not enough data to generate tier list.")
+            st.info("Not enough data.")
 
     # --- TAB 2: TEAM COMPS ---
     with tab2:
@@ -186,7 +166,7 @@ def show_view(current_config):
             
             with c1:
                 all_umas = sorted(list(set(winners_ocr['Match_Uma'].unique()) | set(prelims_baseline['Match_Uma'].unique()))) if 'Match_Uma' in prelims_baseline.columns else sorted(winners_ocr['Match_Uma'].unique())
-                sel_uma = st.selectbox("Filter by Character:", ["All"] + all_umas, key="lift_uma")
+                sel_uma = st.selectbox("Filter by Character:", ["All"] + all_umas, key="lift_uma", help="If missing, no OCR data available.")
             with c2:
                 sel_style = st.selectbox("Filter by Style:", ["All"] + sorted(winners_ocr['Clean_Style'].unique()), key="lift_style")
             
@@ -285,47 +265,67 @@ def show_view(current_config):
         st.subheader("🌐 Global Event Statistics")
         st.markdown("""
         **Combined Analysis (Prelims + Finals)**
-        - **Total Usage:** Counts actual *Races Run* (Prelims) + *Finals Entries*.
-        - **Placement Distribution:** Breakdown of 1st, 2nd, and 3rd place finishes in the Finals.
+        - **Total Races:** The total volume of matches tracked across the entire event.
+        - **Pick Rate %:** The percentage of *teams* that included this character (Estimated).
+        - **Usage Share %:** The percentage of *all individual slots* occupied by this character.
         """)
 
-        col_g1, col_g2 = st.columns(2)
-        
         # --- 1. GLOBAL USAGE (Races Run) ---
-        # Prelims: Sum of 'Clean_Races' from Sheet Data
         if not sheet_df.empty:
             prelim_usage = sheet_df.groupby('Clean_Uma')['Clean_Races'].sum()
         else:
             prelim_usage = pd.Series(dtype=int)
             
-        # Finals: Count of Entries (1 Race per Entry)
         finals_usage = matches_df['Clean_Uma'].value_counts()
         
-        # Combine
-        total_usage = prelim_usage.add(finals_usage, fill_value=0).sort_values(ascending=False).head(20)
+        # Combine Series (Fill 0 for missing)
+        grand_total_usage = prelim_usage.add(finals_usage, fill_value=0)
         
+        # Calculations for Percentages
+        total_slots_filled = grand_total_usage.sum()
+        estimated_total_teams = total_slots_filled / 3  # Assumption: 3 Umas per team
+        
+        # Create DataFrame for Visualization
+        global_stats = grand_total_usage.reset_index(name='Total_Count')
+        global_stats.columns = ['Uma', 'Total_Count']
+        
+        # Calculate Metrics
+        global_stats['Usage_Share'] = (global_stats['Total_Count'] / total_slots_filled) * 100
+        global_stats['Pick_Rate'] = (global_stats['Total_Count'] / estimated_total_teams) * 100
+        
+        # Sort and Slice
+        top_usage = global_stats.sort_values('Total_Count', ascending=False).head(20)
+        
+        # Create Label
+        top_usage['Label'] = top_usage.apply(lambda x: f"<b>{x['Pick_Rate']:.1f}%</b> ({x['Total_Count']})", axis=1)
+
+        col_g1, col_g2 = st.columns(2)
+
         with col_g1:
-            st.markdown("##### 🏃 Highest Usage (Total Races Run)")
-            if not total_usage.empty:
+            st.markdown("##### 🏃 Global Pick Rates (Most Popular)")
+            if not top_usage.empty:
                 fig_usage = px.bar(
-                    total_usage, x=total_usage.values, y=total_usage.index, orientation='h',
-                    title="Most Used Umas (Prelims Races + Finals Entries)",
-                    labels={'x': 'Total Races Run', 'index': 'Uma'},
-                    template='plotly_dark', color=total_usage.values, color_continuous_scale='Bluered'
+                    top_usage, x='Total_Count', y='Uma', orientation='h',
+                    text='Label',
+                    title=f"Most Used (Total Races: {int(estimated_total_teams)})",
+                    labels={'Total_Count': 'Total Races Run', 'Uma': 'Character'},
+                    template='plotly_dark', color='Pick_Rate', color_continuous_scale='Bluered'
                 )
                 fig_usage.update_layout(yaxis={'categoryorder':'total ascending'})
-                st.plotly_chart(style_fig(fig_usage, height=500), width='stretch', config=PLOT_CONFIG)
+                fig_usage.update_traces(
+                    hovertemplate="<b>%{y}</b><br>Races: %{x}<br>Pick Rate: %{marker.color:.1f}%<br>Meta Share: %{customdata[0]:.1f}%<extra></extra>",
+                    customdata=top_usage[['Usage_Share']]
+                )
+                st.plotly_chart(style_fig(fig_usage, height=600), width='stretch', config=PLOT_CONFIG)
             else:
                 st.warning("No usage data available.")
 
         # --- 2. FINALS PLACEMENT DISTRIBUTION ---
         with col_g2:
             st.markdown("##### 🏅 Finals Placement Breakdown")
-            # Filter for Top Umas in Finals only (to keep chart clean)
             top_finalists = matches_df['Clean_Uma'].value_counts().head(15).index.tolist()
             filtered_matches = matches_df[matches_df['Clean_Uma'].isin(top_finalists)]
             
-            # Normalize Results
             def normalize_result(res):
                 res = str(res).lower()
                 if '1st' in res: return '1st'
@@ -335,14 +335,12 @@ def show_view(current_config):
             
             filtered_matches['Clean_Result'] = filtered_matches['Result'].apply(normalize_result)
             
-            # Calculate Percentages
             placement_counts = filtered_matches.groupby(['Clean_Uma', 'Clean_Result']).size().reset_index(name='Count')
             total_counts = filtered_matches.groupby('Clean_Uma').size().reset_index(name='Total')
             
             placement_df = pd.merge(placement_counts, total_counts, on='Clean_Uma')
             placement_df['Percentage'] = (placement_df['Count'] / placement_df['Total']) * 100
             
-            # Sort by 1st Place Rate
             order_idx = placement_df[placement_df['Clean_Result'] == '1st'].sort_values('Percentage', ascending=False)['Clean_Uma']
             
             if not placement_df.empty:
@@ -356,26 +354,23 @@ def show_view(current_config):
                     text_auto='.0f'
                 )
                 fig_place.update_layout(barmode='stack', yaxis={'categoryorder':'array', 'categoryarray': order_idx.tolist()[::-1]})
-                st.plotly_chart(style_fig(fig_place, height=500), width='stretch', config=PLOT_CONFIG)
+                st.plotly_chart(style_fig(fig_place, height=600), width='stretch', config=PLOT_CONFIG)
             else:
                 st.warning("No placement data available.")
 
-        # --- 3. EXTRA: TOP 3 CONSISTENCY ---
+        # --- 3. CONSISTENCY ---
         st.markdown("---")
-        st.markdown("##### 💎 The Consistency Kings")
-        st.markdown("Characters with the highest rate of finishing in the **Top 3** (Podium Finish).")
+        st.markdown("##### 💎 Top 3 Consistency (Finals Only)")
         
-        # Calculate Podium Rate for Finals
         podium_df = matches_df.copy()
-        podium_df['Is_Podium'] = podium_df['Result'].apply(lambda x: 1 if x in ['1st', '2nd', '3rd'] else 0)
+        podium_df['Is_Podium'] = podium_df['Result'].apply(lambda x: 1 if str(x).lower() in ['1st', '2nd', '3rd'] else 0)
         
         podium_stats = podium_df.groupby('Clean_Uma').agg({
             'Is_Podium': 'sum',
-            'Match_IGN': 'count' # Total Entries
+            'Match_IGN': 'count'
         }).reset_index()
         podium_stats.columns = ['Uma', 'Podiums', 'Entries']
         
-        # Filter for significant sample size
         podium_stats = podium_stats[podium_stats['Entries'] >= 5]
         podium_stats['Podium_Rate'] = (podium_stats['Podiums'] / podium_stats['Entries']) * 100
         podium_stats = podium_stats.sort_values('Podium_Rate', ascending=False).head(10)
