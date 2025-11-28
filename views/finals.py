@@ -69,7 +69,7 @@ def show_view(current_config):
     m1.metric("Finalists Analyzed", total_entries)
     m2.metric("Winners Confirmed", total_winners)
     m3.metric("Baseline Exclusions", f"{excluded_count} Entries", help="Finals winners removed from Prelims comparison data to prevent data leakage.")
-    m4.metric("Ace Debuffer Ratio", f"{debuff_count}debuff_count:{ace_count} Aces")
+    m4.metric("Ace Debuffer Ratio", f"{debuff_count} Debuffers:{ace_count}Aces", help="How many debuffers vs aces this cm?")
     
     st.markdown("---")
 
