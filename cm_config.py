@@ -4,8 +4,14 @@ CM_LIST = {
     "Virgo Cup (2025)": {
         "id": "cm5",
         "icon": "🏆",
+        #Prelims Data
         "sheet_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vTR8Pa4QQVSNwepSe9dYnro3ZaVEpYQmBdZUzumuLL-U2IR3nKVh-_GbZeJHT2x9aCqnp7P-0hPm5Zd/pub?gid=221070242&single=true&output=csv",
         "parquet_file": "data/r2d2.parquet",
+
+        #finals data
+        "finals_csv": "data/virgo_finals_2025.csv",
+        "finals_parquet": "data/virgo_finals_2025.parquet",
+
         "form_url": "https://forms.gle/eDPAs8u4RHPKbxEN8", 
         "status_msg": "Forms have closed for this event.",
         "guide_images": [
