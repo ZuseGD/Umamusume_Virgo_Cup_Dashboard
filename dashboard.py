@@ -125,7 +125,7 @@ nav_btn(nav_cols[1], "⚔️ Teams", "Teams")
 nav_btn(nav_cols[2], "🐴 Umas", "Umas")
 nav_btn(nav_cols[3], "🃏 Resources", "Resources")
 nav_btn(nav_cols[4], "📸 OCR", "OCR")
-nav_btn(nav_cols[5], "🏆 Finals" "Finals")
+nav_btn(nav_cols[5], "🏆 Finals", "Finals")
 nav_btn(nav_cols[6], "📚 Guides", "Guides")
 
 
