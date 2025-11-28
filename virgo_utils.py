@@ -456,9 +456,17 @@ def load_finals_data(csv_path, parquet_path):
         
         # Identify Metadata Columns
         col_spent = find_column(raw_df, ['spent', 'money', 'eur/usd'])
+        col_runs = find_column(raw_df, ['career runs', 'runs per day'])
         col_kitasan = find_column(raw_df, ['kitasan', 'speed: kitasan'])
         col_fine = find_column(raw_df, ['fine motion', 'wit: fine'])
         
+        # Identify Opponent Columns (Robust Search)
+        opp_cols = []
+        for i in range(1, 4):
+            # Try variations like "Opponent's Team - Uma 1" or "Opponent Team - Uma 1"
+            c = find_column(raw_df, [f"opponent's team - uma {i}", f"opponent team - uma {i}", f"opponent team uma {i}"])
+            opp_cols.append(c)
+
         processed_rows = []
         
         for _, row in raw_df.iterrows():
@@ -468,9 +476,21 @@ def load_finals_data(csv_path, parquet_path):
             
             # Extract Player Metadata
             spending = row.get(col_spent, 'Unknown') if col_spent else 'Unknown'
+            runs_per_day = row.get(col_runs, 'Unknown') if col_runs else 'Unknown'
             card_kitasan = row.get(col_kitasan, 'Unknown') if col_kitasan else 'Unknown'
             card_fine = row.get(col_fine, 'Unknown') if col_fine else 'Unknown'
             
+            # Extract Opponents for this match
+            match_opponents = []
+            for c in opp_cols:
+                if c:
+                    val = row.get(c)
+                    if pd.notna(val) and str(val).strip() != "":
+                        # Parse opponent name using same logic as own name
+                        parsed_opp = parse_uma_details(pd.Series([val]))[0]
+                        match_opponents.append(parsed_opp)
+            
+            # Each player has 3 Own Umas
             for i in range(1, 4):
                 uma_name = row.get(f'Own Team - Uma {i}')
                 style = row.get(f'Own team - Uma {i} - Running Style')
@@ -485,8 +505,10 @@ def load_finals_data(csv_path, parquet_path):
                         'Clean_Role': role,
                         'Result': result,
                         'Spending_Text': spending,
+                        'Runs_Text': runs_per_day,
                         'Card_Kitasan': card_kitasan,
                         'Card_Fine': card_fine,
+                        'Opponents': match_opponents, # List of opponent names
                         'Calculated_WinRate': is_win * 100, 
                         'Is_Winner': is_win
                     })
