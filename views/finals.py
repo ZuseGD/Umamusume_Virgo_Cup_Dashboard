@@ -40,13 +40,15 @@ def show_view(current_config):
     # --- METRICS ---
     total_entries = matches_df['Display_IGN'].nunique()
     total_winners = matches_df[matches_df['Is_Winner'] == 1]['Display_IGN'].nunique()
-    # Filter for specific winners who also have scan data
-    winners_with_scan = finals_ocr[finals_ocr['Is_Specific_Winner'] == 1]['Display_IGN'].nunique() if not finals_ocr.empty else 0
+    # Note: wins are 1 per team, scans might be multiple per team. 
+    # Filter for specific winners for the scan count to be more meaningful? 
+    # Or keeping it as "Winners (teams) with Scan Data" is safer.
+    winners_with_scan = finals_ocr[finals_ocr['Is_Winner'] == 1]['Display_IGN'].nunique() if not finals_ocr.empty else 0
 
     m1, m2, m3 = st.columns(3)
     m1.metric("Finalists Analyzed", total_entries)
     m2.metric("Winners Confirmed", total_winners)
-    m3.metric("Winners w/ Scan Data", f"{winners_with_scan}", help="Players with valid OCR data whose *Specific Winning Horse* was identified.")
+    m3.metric("Winners w/ Scan Data", f"{winners_with_scan}", help="Players who won finals and have valid OCR data.")
     
     st.markdown("---")
 
@@ -60,28 +62,23 @@ def show_view(current_config):
         "💸 Economics & Cards"
     ])
 
-    # --- TAB 1: META OVERVIEW ---
+    # --- TAB 1: META OVERVIEW (CUMULATIVE) ---
     with tab1:
         st.subheader("🏁 Character Tier List (Cumulative)")
-        st.markdown("""
-        **Meta Score vs. Individual Win Rate (Prelims + Finals)**
-        - Integrates data from the entire event.
-        - Finals contribution uses **Individual Winner** logic (no triple counting).
-        """)
+        st.markdown("**Meta Score vs. Individual Win Rate**")
+        st.caption("Calculated using Prelims Data + Specific Finals Winners (No triple counting for finals).")
         
         if not sheet_df.empty:
             prelim_stats = sheet_df.groupby('Clean_Uma')[['Clean_Wins', 'Clean_Races']].sum()
         else:
             prelim_stats = pd.DataFrame(columns=['Clean_Wins', 'Clean_Races'])
             
-        # Use Specific Winner for accurate win rates
+        # USE IS_SPECIFIC_WINNER for Finals contribution
         finals_stats = matches_df.groupby('Clean_Uma').agg(
-            Clean_Wins=('Is_Specific_Winner', 'sum'),
-            Clean_Races=('Is_Winner', 'count') # Use count for entries, not Is_Winner count
+            Clean_Wins=('Is_Specific_Winner', 'sum'), # Specific wins only
+            Clean_Races=('Match_IGN', 'count')       # Entries
         )
-        # Correction: Clean_Races should be Count of rows (Entries), Clean_Wins is Sum of Is_Specific_Winner
-        finals_stats['Clean_Races'] = matches_df.groupby('Clean_Uma')['Match_IGN'].count()
-
+        
         cum_stats = prelim_stats.add(finals_stats, fill_value=0)
         cum_stats = cum_stats[cum_stats['Clean_Races'] > 0]
         cum_stats['Win_Rate'] = (cum_stats['Clean_Wins'] / cum_stats['Clean_Races']) * 100
@@ -90,6 +87,7 @@ def show_view(current_config):
         tier_data = cum_stats[cum_stats['Clean_Races'] >= 5].reset_index().rename(columns={'index': 'Uma'})
         
         if not tier_data.empty:
+            # Trend Line
             slope, intercept = np.polyfit(tier_data['Meta_Score'], tier_data['Win_Rate'], 1)
             x_trend = np.linspace(tier_data['Meta_Score'].min(), tier_data['Meta_Score'].max(), 100)
             y_trend = slope * x_trend + intercept
@@ -119,14 +117,14 @@ def show_view(current_config):
     # --- TAB 2: TEAM COMPS ---
     with tab2:
         st.subheader("⚔️ Winning Team Compositions")
-        # Keep Team Winner Logic here (Is_Winner) because teams win, not individuals
         
         team_df = matches_df.groupby(['Display_IGN', 'Result']).agg({
             'Clean_Uma': lambda x: sorted(list(x)), 
-            'Is_Winner': 'max'
+            'Is_Winner': 'max' # Keep Team Winner status for Comps
         }).reset_index()
         team_df['Team_Comp'] = team_df['Clean_Uma'].apply(lambda x: ", ".join(x))
         
+        # 1. Total Wins Chart
         comp_stats = team_df.groupby('Team_Comp').agg({'Is_Winner': ['count', 'sum']}).reset_index()
         comp_stats.columns = ['Team', 'Entries', 'Wins']
         comp_stats['Win_Rate'] = (comp_stats['Wins'] / comp_stats['Entries']) * 100
@@ -142,6 +140,8 @@ def show_view(current_config):
         st.plotly_chart(style_fig(fig), width='stretch', config=PLOT_CONFIG)
 
         st.markdown("---")
+        
+        # 2. Team Placement
         st.subheader("🏅 Team Placement Distribution")
         
         def norm_res(r):
@@ -154,13 +154,15 @@ def show_view(current_config):
         team_df['Clean_Result'] = team_df['Result'].apply(norm_res)
         top_teams = team_df['Team_Comp'].value_counts().head(15).index.tolist()
         filtered_teams = team_df[team_df['Team_Comp'].isin(top_teams)]
+        
         team_pivot = filtered_teams.pivot_table(index='Team_Comp', columns='Clean_Result', values='Display_IGN', aggfunc='count', fill_value=0)
         team_long = team_pivot.reset_index().melt(id_vars='Team_Comp', var_name='Place', value_name='Count')
         team_long = team_long[team_long['Place'].isin(['1st', '2nd', '3rd'])]
         
         fig_team_place = px.bar(
             team_long, x='Count', y='Team_Comp', color='Place', orientation='h',
-            title="Placement Breakdown for Top 15 Teams", template='plotly_dark',
+            title="Placement Breakdown for Top 15 Teams",
+            template='plotly_dark',
             category_orders={'Place': ['1st', '2nd', '3rd']},
             color_discrete_map={'1st': '#FFD700', '2nd': '#C0C0C0', '3rd': '#CD7F32'}
         )
@@ -170,11 +172,12 @@ def show_view(current_config):
     # --- TAB 3: SKILL LIFT ---
     with tab3:
         st.subheader("⚡ Skill Lift Analysis")
+        # Only use Specific Winners for 'Winners' dataset to avoid diluting stats
         if finals_ocr.empty or prelims_baseline.empty:
             st.warning("Need Finals OCR + Prelims OCR data.")
         else:
             c1, c2 = st.columns(2)
-            # Use Specific Winners for accurate skill analysis
+            # Filter: Only actual winners, not carried teammates
             winners_ocr = finals_ocr[finals_ocr['Is_Specific_Winner'] == 1].copy()
             
             with c1:
@@ -249,12 +252,13 @@ def show_view(current_config):
 
     # --- TAB 5: GLOBAL STATS ---
     with tab5:
-        st.subheader("🌐 Global Event Statistics")
-        st.caption("Win Rates now reflect **Individual** performance (Did THIS horse win?), not Team Wins.")
-
+        st.subheader("🌐 Global Event Statistics (Individual Performance)")
+        
         # Aggregation using Specific Winner
+        # Is_1st logic: Is_Specific_Winner == 1
+        
         global_agg = matches_df.groupby('Clean_Uma').agg({
-            'Is_Specific_Winner': ['mean', 'count']
+            'Is_Specific_Winner': ['mean', 'count'] # Mean here is the Win Rate
         }).reset_index()
         global_agg.columns = ['Uma', 'Win_Rate', 'Entries']
         global_agg['Win_Rate'] *= 100
@@ -326,13 +330,14 @@ def show_view(current_config):
                 st.info("No data in range.")
 
         with col_g4:
-             st.info("ℹ️ Note: Win Rates here are strictly **Individual**. A 33% win rate implies this specific character wins 1 in 3 races they enter, not just that their team wins.")
+             st.info("ℹ️ Win Rates are now calculated based on **Individual** performance (did THIS specific horse win?), removing the team-win inflation.")
 
         st.markdown("---")
         
         # 4. Placement Breakdown (1st vs Didn't Win)
         st.markdown("##### 🏅 Finals Placement Breakdown (1st vs Didn't Win)")
         
+        # Map using Is_Specific_Winner
         matches_df['Clean_Result_Binary'] = matches_df['Is_Specific_Winner'].apply(lambda x: '1st' if x == 1 else "Didn't Win")
         
         place_pivot = matches_df.pivot_table(index='Clean_Uma', columns='Clean_Result_Binary', values='Match_IGN', aggfunc='count', fill_value=0)
@@ -385,8 +390,9 @@ def show_view(current_config):
             
             with c1:
                 st.markdown("##### 💰 Win Rate by Spending Tier")
+                # Use Specific Winner
                 spend_stats = econ_df.groupby('Spending_Text').agg({
-                    'Is_Specific_Winner': ['mean', 'count'], # Specific win rate
+                    'Is_Specific_Winner': ['mean', 'count'], # Calculate MEAN of SPECIFIC wins
                     'Sort_Money': 'mean' 
                 }).reset_index()
                 spend_stats.columns = ['Tier', 'Win_Rate', 'Entries', 'Sort_Val']
@@ -395,7 +401,7 @@ def show_view(current_config):
                 
                 fig_spend = px.bar(
                     spend_stats, x='Tier', y='Win_Rate', text='Entries',
-                    title="Money vs. Individual Win Rate",
+                    title="Money vs. Win Rate (Individual Umas)",
                     template='plotly_dark', color='Win_Rate', color_continuous_scale='Greens'
                 )
                 fig_spend.update_traces(texttemplate='%{text} Entries', textposition='outside')
@@ -425,7 +431,7 @@ def show_view(current_config):
 
                         fig_runs = px.bar(
                             run_stats, x='Runs', y='Win_Rate', text='Entries',
-                            title="Grind Volume vs. Individual Win Rate",
+                            title="Grind Volume vs. Win Rate (Individual Umas)",
                             template='plotly_dark', color='Win_Rate', color_continuous_scale='Blues'
                         )
                         fig_runs.update_traces(texttemplate='%{text} Entries', textposition='outside')
@@ -446,7 +452,7 @@ def show_view(current_config):
                 
                 fig_kita = px.bar(
                     kitasan_stats, x='Level', y='Win_Rate', color='Entries',
-                    title="Speed SSR: Kitasan Black (Indiv. Win Rate)", template='plotly_dark'
+                    title="Speed SSR: Kitasan Black (Win Rate)", template='plotly_dark'
                 )
                 st.plotly_chart(style_fig(fig_kita, height=400), width='stretch', config=PLOT_CONFIG)
             
@@ -458,6 +464,6 @@ def show_view(current_config):
                 
                 fig_fine = px.bar(
                     fine_stats, x='Level', y='Win_Rate', color='Entries',
-                    title="Wit SSR: Fine Motion (Indiv. Win Rate)", template='plotly_dark'
+                    title="Wit SSR: Fine Motion (Win Rate)", template='plotly_dark'
                 )
                 st.plotly_chart(style_fig(fig_fine, height=400), width='stretch', config=PLOT_CONFIG)
