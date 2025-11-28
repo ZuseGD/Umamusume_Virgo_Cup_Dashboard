@@ -3,70 +3,10 @@ import plotly.express as px
 import pandas as pd
 import numpy as np
 import re
-from virgo_utils import style_fig, PLOT_CONFIG, load_ocr_data, load_data, show_description
+from virgo_utils import style_fig, PLOT_CONFIG, load_ocr_data, load_data, show_description, smart_match_name
 
 # --- CONFIGURATION ---
 
-# 1. LIST OF ORIGINAL UMAS (Base Names)
-ORIGINAL_UMAS = [
-    "Maruzensky", "Taiki Shuttle", "Oguri Cap", "El Condor Pasa", "Grass Wonder",
-    "Silence Suzuka", "Gold Ship", "Vodka", "Daiwa Scarlet", "Mejiro Ryan",
-    "Rice Shower", "Winning Ticket", "Haru Urara", "Matikanefukukitaru",
-    "Nice Nature", "King Halo", "Agnes Tachyon", "Super Creek", "Mayaano Top Gun",
-    "Mihono Bourbon", "Tokai Teio", "Symboli Rudolf", "Air Groove", "Seiun Sky",
-    "Biwa Hayahide", "Narita Brian", "Hishi Amazon", "Fuji Kiseki", "Curren Chan",
-    "Smart Falcon", "Narita Taishin", "Kawakami Princess", "Gold City", "Sakura Bakushin O"
-]
-
-# 2. VARIANT KEYWORDS
-VARIANT_MAP = {
-    "Summer": "Summer", "Hot Summer": "Summer",
-    "Valentine": "Valentine", "Christmas": "Christmas", "Holiday": "Christmas",
-    "Hopp'n Happy Heart": "Summer", "Carnival": "Festival",
-    "Wedding": "Wedding", "Bouquet": "Wedding",
-    "Saintly Jade Cleric": "Fantasy", "Kukulkan": "Fantasy",
-    "Chiffon-Wrapped Mummy": "Halloween", "New Year": "New Year",
-    "Vampire Makeover!": "Halloween", "Festival": "Festival",
-    "Quercus Civilis": "Wedding", "End of the Skies": "Anime", "Beyond the Horizon": "Anime",
-    "Lucky Tidings": "Full Armor", "Princess": "Princess"
-}
-
-def smart_match_name(raw_name, valid_csv_names):
-    """
-    Tries to find the best match in the CSV list (Variant > Base > Fallback).
-    """
-    if pd.isna(raw_name): return "Unknown"
-    raw_name = str(raw_name)
-
-    # 1. Extract Base Name & Title
-    base_match = re.search(r'\]\s*(.*)', raw_name)
-    title_match = re.search(r'\[(.*?)\]', raw_name)
-    
-    base_name = base_match.group(1).strip() if base_match else raw_name.strip()
-    title_text = title_match.group(1) if title_match else ""
-
-    # 2. Detect Variant Suffix
-    variant_suffix = None
-    for keyword, suffix in VARIANT_MAP.items():
-        if keyword.lower() in title_text.lower():
-            variant_suffix = suffix
-            break
-    
-    # 3. Construct Potential Names
-    candidates = []
-    if variant_suffix:
-        candidates.append(f"{base_name} ({variant_suffix})")
-        candidates.append(f"{variant_suffix} {base_name}")
-    candidates.append(base_name)
-    
-    # 4. Check against Valid CSV Names
-    for cand in candidates:
-        match = next((valid for valid in valid_csv_names if valid.lower() == cand.lower()), None)
-        if match: return match
-            
-    # 5. Fallback
-    if base_name in ORIGINAL_UMAS: return base_name
-    return base_name 
 
 def show_view(current_config):
     # 1. Get Config & Load Data

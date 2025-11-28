@@ -11,7 +11,7 @@ icon_path = "images/moologo2.png"
 if os.path.exists(icon_path):
     page_icon = icon_path
 
-st.set_page_config(page_title="UM Dashboard", page_icon=page_icon, layout="wide")
+st.set_page_config(page_title="Moomamusume Dashboard", page_icon=page_icon, layout="wide")
 
 #  EVENT SELECTION
 st.sidebar.header("📅 Event Selector")
@@ -99,7 +99,7 @@ if 'Day' in df.columns:
 st.title(f"{current_config['icon']} {selected_event_name} Dashboard")
 
 # 7. NAVIGATION (Updated with Highlight Logic)
-nav_cols = st.columns(6)
+nav_cols = st.columns(7)
 if 'current_page' not in st.session_state: st.session_state.current_page = "Home"
 
 def set_page(p):
@@ -125,7 +125,8 @@ nav_btn(nav_cols[1], "⚔️ Teams", "Teams")
 nav_btn(nav_cols[2], "🐴 Umas", "Umas")
 nav_btn(nav_cols[3], "🃏 Resources", "Resources")
 nav_btn(nav_cols[4], "📸 OCR", "OCR")
-nav_btn(nav_cols[5], "📚 Guides", "Guides")
+nav_btn(nav_cols[5], "🏆 Finals" "Finals")
+nav_btn(nav_cols[6], "📚 Guides", "Guides")
 
 
 # 8. ROUTING
@@ -145,6 +146,9 @@ elif st.session_state.current_page == "OCR":
     from views import ocr
     # Pass the config dictionary, let the view handle loading
     ocr.show_view(current_config)
+elif st.session_state.current_page == "Finals":
+    from views import finals
+    finals.show_view(current_config)
 elif st.session_state.current_page == "Guides":
     from views import guides
     guides.show_view(current_config)

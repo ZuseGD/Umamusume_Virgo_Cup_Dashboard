@@ -5,7 +5,12 @@ CM_LIST = {
         "id": "cm5",
         "icon": "🏆",
         "sheet_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vTR8Pa4QQVSNwepSe9dYnro3ZaVEpYQmBdZUzumuLL-U2IR3nKVh-_GbZeJHT2x9aCqnp7P-0hPm5Zd/pub?gid=221070242&single=true&output=csv",
-        "parquet_file": "data/r2d2.parquet",
+        "parquet_file": "data/1_virgo_prelims.parquet",
+
+        # FINALS DATA (New)
+        "finals_csv": "data/1_virgo_finals.csv", 
+        "finals_parquet": "data/1_virgo_finals.parquet",
+
         "form_url": "https://forms.gle/eDPAs8u4RHPKbxEN8", 
         "status_msg": "Forms have closed for this event.",
         "guide_images": [
@@ -18,6 +23,8 @@ CM_LIST = {
         # Placeholder URL (You can update this when Libra data exists)
         "sheet_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vTR8Pa4QQVSNwepSe9dYnro3ZaVEpYQmBdZUzumuLL-U2IR3nKVh-_GbZeJHT2x9aCqnp7P-0hPm5Zd/pub?gid=221070242&single=true&output=csv",
         "parquet_file": "libra.parquet" ,
+        "finals_csv": None, 
+        "finals_parquet": None,
         "form_url": None,
         "status_msg": "Forms have not started yet.",
         "guide_images": [
