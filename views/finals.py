@@ -140,7 +140,9 @@ def show_view(current_config):
         comp_stats.columns = ['Team', 'Entries', 'Wins']
         
         comp_stats['Win_Rate'] = (comp_stats['Wins'] / comp_stats['Entries']) * 100
-        comp_stats = comp_stats[comp_stats['Wins'] >= 1].sort_values(by=['Wins', 'Win_Rate'], ascending=False).head(15)
+        # Use .copy() to avoid SettingWithCopyWarning
+        comp_stats = comp_stats[comp_stats['Wins'] >= 1].sort_values(by=['Wins', 'Win_Rate'], ascending=False).head(15).copy()
+        
         comp_stats['Label'] = comp_stats.apply(lambda x: f"<b>{int(x['Win_Rate'])}%</b> ({int(x['Wins'])}/{int(x['Entries'])})", axis=1)
         
         fig = px.bar(
@@ -201,12 +203,14 @@ def show_view(current_config):
                 lift_df = pd.concat([get_freq(winners_filtered).rename("Winner %"), get_freq(prelims_filtered).rename("Baseline %")], axis=1).fillna(0)
                 lift_df['Lift'] = lift_df['Winner %'] - lift_df['Baseline %']
                 lift_df['Is_New_Tech'] = lift_df['Baseline %'] == 0
-                lift_df = lift_df[lift_df['Winner %'] > 5]
+                
+                # Use .copy() to avoid SettingWithCopyWarning
+                lift_df = lift_df[lift_df['Winner %'] > 5].copy()
                 
                 if lift_df.empty:
                     st.info("No significant skill differences found.")
                 else:
-                    top_lift = lift_df.sort_values('Lift', ascending=False).head(20)
+                    top_lift = lift_df.sort_values('Lift', ascending=False).head(20).copy()
                     top_lift['Color'] = top_lift['Is_New_Tech'].apply(lambda x: '#FFD700' if x else '#00CC96')
                     
                     fig_lift = px.bar(
@@ -283,7 +287,6 @@ def show_view(current_config):
         )
         
         # Merge (Add) the two datasets
-        # This gives us the Grand Total of Races and Wins across the whole event
         global_agg = prelim_stats.add(finals_stats, fill_value=0)
         global_agg = global_agg[global_agg['Clean_Races'] > 0] # Safety
         
@@ -341,7 +344,9 @@ def show_view(current_config):
         global_usage['Usage_Share'] = (global_usage['Clean_Races'] / total_slots_filled) * 100
         global_usage['Pick_Rate'] = (global_usage['Clean_Races'] / estimated_total_teams) * 100
         
-        top_usage = global_usage.sort_values('Clean_Races', ascending=False).head(20)
+        # Use .copy() to avoid SettingWithCopyWarning
+        top_usage = global_usage.sort_values('Clean_Races', ascending=False).head(20).copy()
+        
         top_usage['Label'] = top_usage.apply(lambda x: f"<b>{x['Pick_Rate']:.1f}%</b> ({int(x['Clean_Races'])})", axis=1)
 
         col_g1, col_g2 = st.columns(2)
@@ -369,7 +374,8 @@ def show_view(current_config):
         with col_g2:
             st.markdown("##### 🏅 Finals Placement Breakdown")
             top_finalists = matches_df['Clean_Uma'].value_counts().head(15).index.tolist()
-            filtered_matches = matches_df[matches_df['Clean_Uma'].isin(top_finalists)]
+            # Use .copy() to avoid SettingWithCopyWarning
+            filtered_matches = matches_df[matches_df['Clean_Uma'].isin(top_finalists)].copy()
             
             def normalize_result(res):
                 res = str(res).lower()
@@ -416,7 +422,9 @@ def show_view(current_config):
         }).reset_index()
         podium_stats.columns = ['Uma', 'Podiums', 'Entries']
         
-        podium_stats = podium_stats[podium_stats['Entries'] >= 5]
+        # Use .copy() to avoid SettingWithCopyWarning
+        podium_stats = podium_stats[podium_stats['Entries'] >= 5].copy()
+        
         podium_stats['Podium_Rate'] = (podium_stats['Podiums'] / podium_stats['Entries']) * 100
         podium_stats = podium_stats.sort_values('Podium_Rate', ascending=False).head(10)
         
