@@ -174,8 +174,8 @@ def show_view(current_config):
         prelims_baseline = prelims_baseline[~prelims_baseline['Match_IGN'].isin(winning_igns)]
 
     # --- TABS ---
-    tab_new, tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "🥇 True Individual Winners",
+    tab_oshi, tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "💖 Oshi & Awards",
         "📊 Meta Overview", 
         "⚔️ Team Comps", 
         "⚡ Skill Lift", 
@@ -185,8 +185,103 @@ def show_view(current_config):
     ])
 
     # --- NEW TAB: INDIVIDUAL WINNERS ---
-    with tab_new:
+    with tab_oshi:
         st.subheader("🥇 True Finals Lobby Winners")
+
+        # --- TAB 1: OSHI & AWARDS (NEW) ---
+    with tab_oshi:
+        st.subheader("🏅 Performance Awards & Oshi Analysis")
+        
+        if stats.empty:
+            st.warning("Insufficient data to generate awards.")
+        else:
+            # CHART 1: BEST PERFORMING (Scatter)
+            st.markdown("#### 1. The Meta Matrix: Usage vs. Win Rate")
+            st.caption("Who actually wins the games they are used in? (Bubble size = Total Wins)")
+            
+            fig_perf = px.scatter(
+                stats[stats['Entries'] > 3], # Filter out 1/1 anomalies
+                x='Entries', y='Win_Rate',
+                size='Wins', color='Win_Rate',
+                hover_name='Uma',
+                title="Performance Matrix (Wins vs Games Played)",
+                labels={'Entries': 'Total Picks (Popularity)', 'Win_Rate': 'Win Rate (%)'},
+                template='plotly_dark',
+                color_continuous_scale='Turbo'
+            )
+            # Add a line for average win rate
+            avg_wr = stats['Win_Rate'].mean()
+            fig_perf.add_hline(y=avg_wr, line_dash="dash", line_color="white", annotation_text="Avg Win Rate")
+            st.plotly_chart(style_fig(fig_perf), width='stretch', config=PLOT_CONFIG)
+            
+            c1, c2 = st.columns(2)
+            
+            # CHART 2: BEST OSHI (Hidden Gems)
+            with c1:
+                st.markdown("#### 💎 Best 'Oshi' (Hidden Gems)")
+                st.caption(f"Highest Win Rate characters with < {oshi_cutoff} Picks.")
+                
+                oshi_stats = stats[stats['Is_Oshi'] & (stats['Entries'] >= 3)].sort_values('Win_Rate', ascending=False).head(10)
+                
+                if not oshi_stats.empty:
+                    fig_gems = px.bar(
+                        oshi_stats, x='Win_Rate', y='Uma', orientation='h',
+                        title="Top Performing Niche Picks",
+                        template='plotly_dark', color='Win_Rate', color_continuous_scale='Teal'
+                    )
+                    fig_gems.update_layout(yaxis={'categoryorder':'total ascending'})
+                    st.plotly_chart(style_fig(fig_gems, height=400), width='stretch', config=PLOT_CONFIG)
+                else:
+                    st.info("Not enough data for Oshi awards (Min 3 entries).")
+            
+            # CHART 3: WORST PERFORMING
+            with c2:
+                st.markdown("#### 💀 The Struggle (Lowest Win Rate)")
+                st.caption("Lowest Win Rate characters (Min. 5 Picks).")
+                
+                worst_stats = stats[stats['Entries'] >= 5].sort_values('Win_Rate', ascending=True).head(10)
+                
+                if not worst_stats.empty:
+                    fig_worst = px.bar(
+                        worst_stats, x='Win_Rate', y='Uma', orientation='h',
+                        text='Entries',
+                        title="Lowest Win Rates (Min 5 Entries)",
+                        template='plotly_dark', color='Win_Rate', color_continuous_scale='Redor_r'
+                    )
+                    fig_worst.update_traces(texttemplate='%{text} Picks', textposition='outside')
+                    fig_worst.update_layout(yaxis={'categoryorder':'total descending'})
+                    st.plotly_chart(style_fig(fig_worst, height=400), width='stretch', config=PLOT_CONFIG)
+                else:
+                    st.info("Not enough data.")
+
+            st.markdown("---")
+            
+            # TABLE 4: BEST OSHI PVPERS
+            st.markdown("#### 👑 Oshi PvP-ers Hall of Fame")
+            st.markdown(f"Trainers who **Won the Finals** using a certified Oshi (Character with < {oshi_cutoff} total entries).")
+            
+            # Filter the true winners list for those who used an Oshi
+            oshi_names = set(stats[stats['Is_Oshi']]['Uma'].unique())
+            
+            # Filter list for Oshi winners who are NOT 'Opponent' (we want to credit the player)
+            oshi_pvpers = [
+                row for row in true_winners_list 
+                if row['Clean_Uma'] in oshi_names 
+                and row['Winner_Trainer'] not in ['Unknown', 'Opponent']
+            ]
+            
+            if oshi_pvpers:
+                oshi_pvper_df = pd.DataFrame(oshi_pvpers)
+                # Add win counts for that player/uma combo if they won multiple times (unlikely in finals but possible with alts)
+                oshi_pvper_display = oshi_pvper_df.groupby(['Winner_Trainer', 'Clean_Uma']).size().reset_index(name='Wins')
+                
+                st.dataframe(
+                    oshi_pvper_display.style.background_gradient(cmap='Purples'), 
+                    use_container_width=True,
+                    hide_index=True
+                )
+            else:
+                st.info("No submitted runs found where the player won with an Oshi.")
         
         if not true_winners_df.empty:
             st.markdown(f"""
