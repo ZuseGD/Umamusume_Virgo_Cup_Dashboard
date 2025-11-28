@@ -103,7 +103,7 @@ def show_view(current_config):
             if "Opponent's" in clean_c:
                 ref_col_map[clean_c.replace("Opponent's", "Opponent")] = c
 
-    true_winners = []
+    true_winners_list = []
     if col_winner_ref:
         for idx, row in raw_finals_df.iterrows():
             ref = row[col_winner_ref]
@@ -112,16 +112,47 @@ def show_view(current_config):
                 if w_name:
                     # Parse details (remove " - Runner" etc if present)
                     clean_name = parse_uma_details(pd.Series([w_name]))[0]
-                    true_winners.append(clean_name)
+                    # Store tuple of (UmaName, PlayerIGN)
+                    ign_col = find_column(raw_finals_df, ['ign', 'player name', 'in-game name'])
+                    player_ign = str(row.get(ign_col, 'Unknown')).strip() if ign_col else 'Unknown'
+                    
+                    # Only credit the player if it was THEIR team that won
+                    # The ref string usually contains "Own Team" or "Opponent's Team"
+                    is_own_win = "own team" in str(ref).lower()
+                    winning_trainer = player_ign if is_own_win else "Opponent"
+                    
+                    true_winners_list.append({
+                        'Clean_Uma': clean_name,
+                        'Winner_Trainer': winning_trainer,
+                        'Source_Ref': str(ref)
+                    })
     
-    true_winners_df = pd.DataFrame(true_winners, columns=['Clean_Uma'])
+    true_winners_df = pd.DataFrame(true_winners_list)
 
-    # --- DATA PREP ---
-    winning_igns = set(matches_df[matches_df['Is_Winner'] == 1]['Match_IGN'].unique())
-    prelims_baseline = prelims_raw.copy()
-    if not prelims_baseline.empty and 'ign' in prelims_baseline.columns:
-        prelims_baseline['Match_IGN'] = prelims_baseline['ign'].astype(str).str.lower().str.strip()
-        prelims_baseline = prelims_baseline[~prelims_baseline['Match_IGN'].isin(winning_igns)]
+    # --- STATS GENERATION ---
+    # 1. Popularity (Games Used In)
+    # Using matches_df because it contains every character entered by the players
+    # Note: This counts "My Umas" only. Opponent umas are not fully cataloged in matches_df rows, 
+    # but for "Games Used In" among participants, matches_df is the correct source.
+    popularity = matches_df['Clean_Uma'].value_counts().reset_index()
+    popularity.columns = ['Uma', 'Entries']
+    
+    # 2. True Wins (From the Lobby Winner column)
+    if not true_winners_df.empty:
+        wins = true_winners_df['Clean_Uma'].value_counts().reset_index()
+        wins.columns = ['Uma', 'Wins']
+    else:
+        wins = pd.DataFrame(columns=['Uma', 'Wins'])
+        
+    # 3. Merge for Analysis
+    stats = pd.merge(popularity, wins, on='Uma', how='left').fillna(0)
+    stats['Win_Rate'] = (stats['Wins'] / stats['Entries']) * 100
+    stats['Win_Rate'] = stats['Win_Rate'].clip(upper=100) # Cap at 100 just in case of data mismatch
+    
+    # Define Oshi Threshold (e.g. < 20 entries)
+    # Find median or use a static number. Let's use 20 as a reasonable "Niche" cutoff for a large dataset
+    oshi_cutoff = 20
+    stats['Is_Oshi'] = stats['Entries'] < oshi_cutoff
 
     # --- METRICS ---
     total_entries = len(raw_finals_df)
@@ -129,10 +160,18 @@ def show_view(current_config):
     
     m1, m2, m3 = st.columns(3)
     m1.metric("Finalists Analyzed", total_entries)
-    m2.metric("Winner Umas Identified", total_true_wins, help="Unique winning horses extracted from 'Which uma won' column")
-    m3.metric("Data Source", "A-Finals" if "A" in str(raw_finals_df.get('A or B Finals?', 'A')).upper() else "Mixed")
+    m2.metric("Lobbies Resolved", total_true_wins, help="Lobbies where a winner was successfully identified")
+    m3.metric("Oshi Cutoff", f"< {oshi_cutoff} Entries", help="Characters with fewer entries are considered 'Oshi' picks")
     
     st.markdown("---")
+
+
+        # --- DATA PREP ---
+    winning_igns = set(matches_df[matches_df['Is_Winner'] == 1]['Match_IGN'].unique())
+    prelims_baseline = prelims_raw.copy()
+    if not prelims_baseline.empty and 'ign' in prelims_baseline.columns:
+        prelims_baseline['Match_IGN'] = prelims_baseline['ign'].astype(str).str.lower().str.strip()
+        prelims_baseline = prelims_baseline[~prelims_baseline['Match_IGN'].isin(winning_igns)]
 
     # --- TABS ---
     tab_new, tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
