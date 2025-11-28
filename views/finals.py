@@ -64,7 +64,7 @@ def show_view(current_config):
             color_continuous_scale='Plasma'
         )
         fig.update_layout(yaxis={'categoryorder':'total ascending'})
-        st.plotly_chart(style_fig(fig), use_container_width=True, config=PLOT_CONFIG)
+        st.plotly_chart(style_fig(fig), width='stretch', config=PLOT_CONFIG)
 
     # TAB 2: WINNER STATS (Derived from Merged OCR)
     with tab2:
@@ -99,7 +99,7 @@ def show_view(current_config):
                         template='plotly_dark', 
                         title=f"Stat Distribution of WINNERS ({sel_style})"
                     )
-                    st.plotly_chart(style_fig(fig_box), use_container_width=True, config=PLOT_CONFIG)
+                    st.plotly_chart(style_fig(fig_box), width='stretch', config=PLOT_CONFIG)
                 else:
                     st.warning("No stat columns found in OCR data.")
             else:
@@ -135,7 +135,7 @@ def show_view(current_config):
                     color_continuous_scale='Viridis'
                 )
                 fig_skill.update_layout(yaxis={'categoryorder':'total ascending'})
-                st.plotly_chart(style_fig(fig_skill), use_container_width=True, config=PLOT_CONFIG)
+                st.plotly_chart(style_fig(fig_skill), width='stretch', config=PLOT_CONFIG)
             else:
                 st.warning("No skill data available for winners.")
         else:
