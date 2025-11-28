@@ -238,10 +238,6 @@ def show_view(current_config):
         st.markdown("##### 🤡 The 'Fraud' Award")
         st.caption("Characters with high entries (>200) but lowest Win Rates.")
         
-        # Use Cumulative Data for Fraud check to be more accurate, or Finals?
-        # Typically "Fraud" implies popularity in finals that failed. 
-        # Using Finals data (matches_df) as requested in previous logic.
-        
         fraud_stats = matches_df.groupby('Clean_Uma').agg({
             'Is_Winner': ['mean', 'count']
         }).reset_index()
@@ -323,8 +319,10 @@ def show_view(current_config):
             title="Placement Shares (Sorted by 1st Place %)", template='plotly_dark',
             color_discrete_map={'1st': '#FFD700', '2nd': '#C0C0C0', '3rd': '#CD7F32'}
         )
-        # Force order based on the dataframe sort
-        fig_place_pct.update_yaxes(categoryorder='manual', categoryarray=place_pivot_sorted.index)
+        
+        # --- FIXED ERROR HERE: Use 'array' instead of 'manual' ---
+        fig_place_pct.update_yaxes(categoryorder='array', categoryarray=place_pivot_sorted.index)
+        
         st.plotly_chart(style_fig(fig_place_pct), width='stretch', config=PLOT_CONFIG)
 
     # --- TAB 6: ECONOMICS & CARDS ---
