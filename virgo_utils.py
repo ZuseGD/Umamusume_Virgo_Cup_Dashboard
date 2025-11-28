@@ -249,31 +249,33 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
     try:
         raw_df = pd.read_csv(csv_path)
         
-        # --- 1. CALCULATE GLOBAL STATS (Using User's Logic) ---
-        # Define slots
+        # Identify Columns
+        col_spent = find_column(raw_df, ['spent', 'money', 'eur/usd', 'howmuchhaveyouspent'])
+        col_runs = find_column(raw_df, ['career runs', 'runs per day', 'howmanycareer'])
+        col_kitasan = find_column(raw_df, ['kitasan', 'speed: kitasan'])
+        col_fine = find_column(raw_df, ['fine motion', 'wit: fine'])
+        col_winner_name = find_column(raw_df, ['which uma won the finals lobby', 'lobby winner', 'whichumawonthefinalslobby'])
+
+        opp_cols = []
+        for i in range(1, 4):
+            c = find_column(raw_df, [f"opponent's team - uma {i}", f"opponent team - uma {i}", f"opponent team uma {i}"])
+            opp_cols.append(c)
+
+        processed_rows = []
+        
+        # 1. GLOBAL STATS CALCULATION
         entry_cols = [ 
             'Own Team - Uma 1', 'Own Team - Uma 2', 'Own Team - Uma 3', 
             "Opponent's Team 1 - Uma 4 (optional)", "Opponent's Team 1 - Uma 5 (optional)", "Opponent's Team 1 - Uma 6 (optional)", 
             "Opponent's Team 2 - Uma 7 (optional)", "Opponent's Team 2 - Uma 8 (optional)", "Opponent's Team 2 - Uma 9 (optional)" 
         ]
-        
-        # Identify Winner Column
-        required_col = 'Which uma won the finals lobby? (optional)'
-        # Fallback search if exact name not found
-        if required_col not in raw_df.columns:
-            required_col = find_column(raw_df, ['which uma won', 'lobby winner'])
-
-        # A. Calculate Total Entries
         all_entries = pd.Series(dtype='object')
         for col in entry_cols:
-            # Use find_column to be safe against minor typos/spacing in CSV
             actual_col = find_column(raw_df, [col])
             if actual_col:
-                # Clean names (Remove strategy/role)
                 cleaned_col = parse_uma_details(raw_df[actual_col])
                 all_entries = pd.concat([all_entries, cleaned_col])
         
-        # Remove empty/NaN entries
         all_entries = all_entries[all_entries.str.strip() != '']
         all_entries = all_entries[all_entries.str.lower() != 'nan']
         all_entries = all_entries[all_entries.str.lower() != 'unknown']
@@ -281,73 +283,25 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
         entry_counts = all_entries.value_counts().reset_index()
         entry_counts.columns = ['Uma Name', 'Total Entries']
 
-        # B. Identify Actual Winner Name
         def get_winner_name(row):
-            if not required_col: return None
-            winner_ref = row.get(required_col)
-            if pd.isna(winner_ref): return None
-            
-            # Mapping Reference String -> Actual Column
-            # Note: The drop-down in forms typically returns the Column Header string or a specific value
-            # Assuming the CSV contains the text chosen from the dropdown which matches the column header
-            
-            # Map user-friendly dropdown values back to the column names in raw_df
-            # Based on provided CSV snippet, the 'Which uma won...' column contains strings like "Own Team - Uma 1"
-            # Or it might contain the actual name if it was a write-in.
-            # Let's create a map of standard dropdown options to the column they represent.
-            
-            mapping = {
-                'Own Team - Uma 1': find_column(raw_df, ['Own Team - Uma 1']),
-                'Own Team - Uma 2': find_column(raw_df, ['Own Team - Uma 2']),
-                'Own Team - Uma 3': find_column(raw_df, ['Own Team - Uma 3']),
-                "Opponent's Team 1 - Uma 4": find_column(raw_df, ["Opponent's Team 1 - Uma 4"]),
-                "Opponent's Team 1 - Uma 5": find_column(raw_df, ["Opponent's Team 1 - Uma 5"]),
-                "Opponent's Team 1 - Uma 6": find_column(raw_df, ["Opponent's Team 1 - Uma 6"]),
-                "Opponent's Team 2 - Uma 7": find_column(raw_df, ["Opponent's Team 2 - Uma 7"]),
-                "Opponent's Team 2 - Uma 8": find_column(raw_df, ["Opponent's Team 2 - Uma 8"]),
-                "Opponent's Team 2 - Uma 9": find_column(raw_df, ["Opponent's Team 2 - Uma 9"]),
-            }
-            
-            # Check if the value is a key in our map (e.g. "Own Team - Uma 1")
-            # The CSV snippet shows the column "Which uma won..." might contain names directly or references?
-            # Looking at the CSV provided earlier: 
-            # Row: "Frey... Which uma won... : Opponent's Team 2 - Uma 7"
-            # Row: "Wadachi... Which uma won... : Opponent's Team 1 - Uma 4"
-            # Row: "FzyBny... Which uma won... : Own Team - Uma 2"
-            
-            # So it contains the Reference String.
-            # We need to handle partial matches or slight variations
-            for key, col_name in mapping.items():
-                if key in str(winner_ref) and col_name:
-                    val = row.get(col_name)
-                    if pd.notna(val):
-                         return str(val).split(' - ')[0].strip().title()
-            
+            if not col_winner_name: return None
+            val = row.get(col_winner_name)
+            if pd.notna(val):
+                 return str(val).split(' - ')[0].strip().title()
             return None
 
         raw_df['Real Winner Name'] = raw_df.apply(get_winner_name, axis=1)
         winner_counts = raw_df['Real Winner Name'].value_counts().reset_index()
         winner_counts.columns = ['Uma Name', 'Wins']
 
-        # C. Merge
         global_stats = pd.merge(entry_counts, winner_counts, on='Uma Name', how='outer').fillna(0)
         global_stats['Wins'] = global_stats['Wins'].astype(int)
         global_stats['Total Entries'] = global_stats['Total Entries'].astype(int)
         global_stats['Losses'] = global_stats['Total Entries'] - global_stats['Wins']
-        
-        # Calc Rates
         global_stats['Win Rate'] = (global_stats['Wins'] / global_stats['Total Entries'])
         global_stats['Win Rate %'] = (global_stats['Win Rate'] * 100).round(1)
 
-
-        # --- 2. PROCESS FINALS MATCHES (Own Team for other tabs) ---
-        col_spent = find_column(raw_df, ['spent', 'money', 'eur/usd', 'howmuchhaveyouspent'])
-        col_runs = find_column(raw_df, ['career runs', 'runs per day', 'howmanycareer'])
-        col_kitasan = find_column(raw_df, ['kitasan', 'speed: kitasan'])
-        col_fine = find_column(raw_df, ['fine motion', 'wit: fine'])
-
-        processed_rows = []
-        
+        # 2. PROCESS FINALS MATCHES
         for _, row in raw_df.iterrows():
             ign = str(row.get('Player in-game name (IGN)', 'Unknown')).strip()
             result = str(row.get('Finals race result', 'Unknown'))
@@ -358,37 +312,45 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
             card_kitasan = row.get(col_kitasan, 'Unknown') if col_kitasan else 'Unknown'
             card_fine = row.get(col_fine, 'Unknown') if col_fine else 'Unknown'
             
-            # Determine if this row has a specific winner (for linking to stats)
-            lobby_winner_name = row.get('Real Winner Name') # We calculated this above
+            lobby_winner = row.get('Real Winner Name', "Unknown")
 
             match_opponents = []
-            # (Skipping opp extraction for the 'finals_matches' df as we have global_stats now)
-
+            for c in opp_cols:
+                if c:
+                    val = row.get(c)
+                    if pd.notna(val) and str(val).strip() != "":
+                        match_opponents.append(parse_uma_details(pd.Series([val]))[0])
+            
             for i in range(1, 4):
-                col_name = find_column(raw_df, [f'Own Team - Uma {i}'])
-                if col_name:
-                    uma_val = row.get(col_name)
+                uma_name = row.get(f'Own Team - Uma {i}')
+                style = row.get(f'Own team - Uma {i} - Running Style')
+                role = row.get(f'Own team - Uma {i} - Role', 'Unknown')
+                
+                if pd.notna(uma_name) and str(uma_name).strip() != "":
+                    clean_name = parse_uma_details(pd.Series([uma_name]))[0]
                     
-                    if pd.notna(uma_val) and str(uma_val).strip() != "":
-                        clean_name = parse_uma_details(pd.Series([uma_val]))[0]
-                        
-                        # Is this specific Uma the winner?
-                        is_specific_winner = 0
-                        if lobby_winner_name and clean_name.lower() == lobby_winner_name.lower():
-                            is_specific_winner = 1
+                    is_specific_winner = 0
+                    if team_won == 1:
+                        c_low = clean_name.lower()
+                        w_low = str(lobby_winner).lower()
+                        if c_low == w_low or w_low in c_low or c_low in w_low:
+                             is_specific_winner = 1
 
-                        processed_rows.append({
-                            'Match_IGN': ign.lower(),
-                            'Display_IGN': ign,
-                            'Clean_Uma': clean_name,
-                            'Result': result,
-                            'Spending_Text': spending,
-                            'Runs_Text': runs_per_day,
-                            'Card_Kitasan': card_kitasan,
-                            'Card_Fine': card_fine,
-                            'Is_Winner': team_won,
-                            'Is_Specific_Winner': is_specific_winner
-                        })
+                    processed_rows.append({
+                        'Match_IGN': ign.lower(),
+                        'Display_IGN': ign,
+                        'Clean_Uma': clean_name,
+                        'Clean_Style': style,
+                        'Clean_Role': role,
+                        'Result': result,
+                        'Spending_Text': spending,
+                        'Runs_Text': runs_per_day,
+                        'Card_Kitasan': card_kitasan,
+                        'Card_Fine': card_fine,
+                        'Opponents': match_opponents,
+                        'Is_Winner': team_won,
+                        'Is_Specific_Winner': is_specific_winner
+                    })
         
         finals_matches = pd.DataFrame(processed_rows)
         if not finals_matches.empty:
@@ -448,7 +410,9 @@ def load_data(sheet_url):
         string_cols = df.select_dtypes(include=['object']).columns
         for col in string_cols: df[col] = df[col].apply(sanitize_text)
         
+        # FIX: Ensure Dashboard filtering columns exist
         if 'Round' not in df.columns: df['Round'] = 'Unknown'
+        if 'Day' not in df.columns: df['Day'] = 'Unknown'
 
         col_ign = find_column(df, ['ign', 'player'])
         col_uma = find_column(df, ['uma'])
@@ -464,10 +428,12 @@ def load_data(sheet_url):
         if col_wins: df['Clean_Wins'] = pd.to_numeric(df[col_wins], errors='coerce').fillna(0)
         else: df['Clean_Wins'] = 0
         
-        team_df = pd.DataFrame(columns=['Round', 'Team_Comp', 'Wins', 'Races', 'Win_Rate'])
+        # FIX: Ensure dummy team_df has all filtering columns
+        team_df = pd.DataFrame(columns=['Round', 'Day', 'Team_Comp', 'Wins', 'Races', 'Win_Rate'])
+        
         return df, team_df
     except:
-        return pd.DataFrame(columns=['Round']), pd.DataFrame(columns=['Round'])
+        return pd.DataFrame(columns=['Round', 'Day']), pd.DataFrame(columns=['Round', 'Day'])
 
 @st.cache_data(ttl=300) 
 def load_ocr_data(parquet_file):
