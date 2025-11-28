@@ -293,3 +293,22 @@ def load_ocr_data(parquet_file):
         return df
     except:
         return pd.DataFrame()
+# Common Footer
+footer_html = """
+<style>
+.footer {
+    position: fixed; left: 0; bottom: 0; width: 100%;
+    background-color: #0E1117; color: #888; text-align: center;
+    padding: 10px; font-size: 12px; border-top: 1px solid #333;
+    z-index: 100; display: flex; justify-content: center; gap: 20px;
+}
+.footer a { color: #00CC96; text-decoration: none; font-weight: bold; }
+.footer a:hover { text-decoration: underline; color: #FAFAFA; }
+</style>
+<div class="footer">
+    <span>Made by <b>Zuse</b> 🚀</span>
+    <span>👾 Discord: <b>@zusethegoose</b></span>
+    <span><a href="https://github.com/ZuseGD" target="_blank">💻 GitHub</a></span>
+    <span><a href="https://paypal.me/paypal.me/JgamersZuse" target="_blank">☕ Support</a></span>
+</div>
+"""
