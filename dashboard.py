@@ -3,8 +3,7 @@ import os
 from virgo_utils import load_data, footer_html, load_ocr_data
 from PIL import Image
 from cm_config import CM_LIST
-# dashboard.py (Update)
-from data_manager import get_data_loader # Import the new manager
+
 
 # 1. Page Config
 page_icon = "🏆"
@@ -20,31 +19,6 @@ event_names = list(CM_LIST.keys())
 selected_event_name = st.sidebar.selectbox("Select Event", event_names, index=0, key="event_selector")
 current_config = CM_LIST[selected_event_name]
 
-# [NEW] Data Source Toggle
-st.sidebar.markdown("---")
-st.sidebar.header("📊 Data Source")
-data_mode = st.sidebar.radio(
-    "Select Stage:",
-    options=["Prelims (R1 & R2)", "Finals"],
-    index=0
-)
-
-# --- LOAD DATA VIA OOP MANAGER ---
-loader = get_data_loader(data_mode) # Get the correct Strategy Class
-
-try:
-    # Polymorphic calls - the rest of your app doesn't need to know which file it is!
-    df, team_df = loader.load_matches(current_config)
-    
-    # Store the OCR path dynamically based on mode so views/ocr.py can find it
-    if data_mode == "Finals":
-        current_config['active_parquet'] = current_config.get('finals_parquet')
-    else:
-        current_config['active_parquet'] = current_config.get('parquet_file')
-
-except Exception as e:
-    st.error(f"Error loading {data_mode} data: {e}")
-    st.stop()
 
 
 st.markdown("""

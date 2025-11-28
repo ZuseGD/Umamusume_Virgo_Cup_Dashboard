@@ -71,9 +71,7 @@ def smart_match_name(raw_name, valid_csv_names):
 def show_view(current_config):
     # 1. Get Config & Load Data
     event_name = current_config.get('id', 'Event').replace('_', ' ').title()
-    # Use the dynamic path set by the Data Manager
-    # Fallback to default if not set
-    parquet_file = current_config.get('active_parquet', current_config.get('parquet_file'))
+    parquet_file = current_config.get('parquet_file', '')
     sheet_url = current_config.get('sheet_url', '')
 
     st.header(f"🔮 Meta Analysis: {event_name}")
