@@ -3,13 +3,45 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
-from virgo_utils import load_finals_data, load_ocr_data, load_data, style_fig, PLOT_CONFIG, calculate_score, SHEET_URL
+from virgo_utils import load_finals_data, load_ocr_data, load_data, style_fig, PLOT_CONFIG, calculate_score, SHEET_URL, find_column, parse_uma_details
+
+def resolve_lobby_winner(row, winner_ref, col_map):
+    """
+    Resolves the name of the winning Uma based on the reference column.
+    e.g. Reference: "Own Team - Uma 1" -> returns value in "Own Team - Uma 1" column.
+    """
+    if pd.isna(winner_ref):
+        return None
+    
+    ref = str(winner_ref).strip()
+    
+    # 1. Direct Match in Map (Reference -> Column Name)
+    if ref in col_map:
+        col_name = col_map[ref]
+        uma_name = row.get(col_name)
+        if pd.notna(uma_name) and str(uma_name).strip():
+            return str(uma_name)
+            
+    # 2. Fallback: Check if the reference looks like a column header itself (fuzzy match)
+    # Some forms might save "Opponent's Team 1 - Uma 4" directly
+    for col in row.index:
+        if ref.lower() in col.lower() and "running style" not in col.lower() and "role" not in col.lower():
+            # Found the column the reference points to
+            uma_name = row[col]
+            if pd.notna(uma_name) and str(uma_name).strip():
+                return str(uma_name)
+                
+    # 3. Fallback: The user might have selected "Other" and typed a name directly
+    # If the reference doesn't look like a pointer (no "Team" or "Uma" keyword), assume it's the name
+    if "team" not in ref.lower() and "uma" not in ref.lower():
+        return ref
+        
+    return None
 
 def show_view(current_config):
     st.header("🏆 Finals: Comprehensive Analysis")
     st.markdown("""
     **Deep Dive into the Finals Meta.** This section analyzes the "Real" meta—what actually won in the A-Finals. 
-    It compares the *Winning Aces* against the general population to identify the specific stats, skills, and team compositions that made the difference.
     """)
     
     # 1. LOAD DATA
@@ -22,13 +54,49 @@ def show_view(current_config):
         return
 
     with st.spinner("Crunching Finals Data..."):
+        # Load Raw for specific "Lobby Winner" column
+        try:
+            raw_finals_df = pd.read_csv(csv_path)
+        except Exception as e:
+            st.error(f"Could not load CSV: {e}")
+            return
+
         prelims_raw = load_ocr_data(prelims_pq)
         matches_df, finals_ocr = load_finals_data(csv_path, pq_path, main_ocr_df=prelims_raw)
         sheet_df, _ = load_data(SHEET_URL)
     
     if matches_df.empty:
-        st.warning("⚠️ Could not load Finals CSV.")
+        st.warning("⚠️ Could not parse Finals data.")
         return
+
+    # --- LOGIC: RESOLVE TRUE WINNERS ---
+    # Find the key columns in the raw dataframe
+    col_winner_ref = find_column(raw_finals_df, ['Which uma won the finals lobby', 'winning uma', 'lobby winner'])
+    
+    # Map references (e.g. "Own Team - Uma 1") to actual column names in CSV
+    # We iterate columns to build a map of { "Clean Reference String": "Actual Column Name" }
+    # e.g. "Own Team - Uma 1" -> "Own Team - Uma 1"
+    #      "Opponent's Team 1 - Uma 4" -> "Opponent's Team 1 - Uma 4 (optional)"
+    ref_col_map = {}
+    if col_winner_ref:
+        for c in raw_finals_df.columns:
+            # Generate keys for standard form options
+            clean_c = str(c).replace(" (optional)", "").strip()
+            ref_col_map[clean_c] = c
+            ref_col_map[clean_c + " (optional)"] = c # Just in case
+    
+    true_winners = []
+    if col_winner_ref:
+        for idx, row in raw_finals_df.iterrows():
+            ref = row[col_winner_ref]
+            if pd.notna(ref):
+                w_name = resolve_lobby_winner(row, ref, ref_col_map)
+                if w_name:
+                    # Parse details (remove " - Runner" etc if present)
+                    clean_name = parse_uma_details(pd.Series([w_name]))[0]
+                    true_winners.append(clean_name)
+    
+    true_winners_df = pd.DataFrame(true_winners, columns=['Clean_Uma'])
 
     # --- DATA PREP ---
     winning_igns = set(matches_df[matches_df['Is_Winner'] == 1]['Match_IGN'].unique())
@@ -38,31 +106,73 @@ def show_view(current_config):
         prelims_baseline = prelims_baseline[~prelims_baseline['Match_IGN'].isin(winning_igns)]
 
     # --- METRICS ---
-    total_entries = matches_df['Display_IGN'].nunique()
-    total_winners = matches_df[matches_df['Is_Winner'] == 1]['Display_IGN'].nunique()
-    winners_with_scan = finals_ocr[finals_ocr['Is_Winner'] == 1]['Display_IGN'].nunique() if not finals_ocr.empty else 0
-
+    total_entries = len(raw_finals_df)
+    total_true_wins = len(true_winners_df)
+    
     m1, m2, m3 = st.columns(3)
     m1.metric("Finalists Analyzed", total_entries)
-    m2.metric("Winners Confirmed", total_winners)
-    m3.metric("Winners w/ Scan Data", f"{winners_with_scan}", help="Includes winners matched via Finals Parquet OR Prelims Parquet.")
+    m2.metric("Winner Umas Identified", total_true_wins, help="Unique winning horses extracted from 'Which uma won' column")
+    m3.metric("Data Source", "A-Finals" if "A" in str(raw_finals_df.get('A or B Finals?', 'A')).upper() else "Mixed")
     
     st.markdown("---")
 
     # --- TABS ---
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    tab_new, tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "🥇 True Individual Winners",
         "📊 Meta Overview", 
         "⚔️ Team Comps", 
         "⚡ Skill Lift", 
         "🏆 Champion Stats",
         "🌐 Global Stats",
-        "💸 Economics & Cards"
+        "💸 Economics"
     ])
 
-    # --- TAB 1: META OVERVIEW ---
+    # --- NEW TAB: INDIVIDUAL WINNERS ---
+    with tab_new:
+        st.subheader("🥇 True Finals Lobby Winners")
+        st.markdown("""
+        **This chart counts only the single Uma that won the lobby.**
+        Unlike the Team Win Rate, this does not count teammates who lost. This is the most accurate representation of who actually crossed the finish line first.
+        """)
+        
+        if not true_winners_df.empty:
+            # 1. Aggregate counts
+            win_counts = true_winners_df['Clean_Uma'].value_counts().reset_index()
+            win_counts.columns = ['Uma', 'Wins']
+            win_counts['Percentage'] = (win_counts['Wins'] / total_entries) * 100
+            
+            # 2. Sort and Filter
+            win_counts = win_counts.sort_values('Wins', ascending=True) # For horizontal bar
+            
+            # 3. Plot
+            fig_true = px.bar(
+                win_counts, x='Wins', y='Uma', orientation='h', text='Wins',
+                title=f"Finals Lobby Winners (N={total_true_wins})",
+                template='plotly_dark', 
+                color='Wins', 
+                color_continuous_scale='Sunsetdark'
+            )
+            
+            # Add percentage as hover
+            fig_true.update_traces(
+                texttemplate='%{text} Wins', 
+                textposition='outside',
+                hovertemplate='<b>%{y}</b><br>Wins: %{x}<br>Dominance: %{customdata:.1f}%',
+                customdata=win_counts['Percentage']
+            )
+            
+            # Dynamic Height
+            h = max(500, len(win_counts) * 30)
+            st.plotly_chart(style_fig(fig_true, height=h), width='stretch', config=PLOT_CONFIG)
+            
+            st.info(f"ℹ️ Based on {total_true_wins} races where the winner was explicitly identified in the data.")
+        else:
+            st.warning("⚠️ No 'Lobby Winner' data found. Please ensure the 'Which uma won the finals lobby?' column is present and filled in the CSV.")
+
+    # --- TAB 1: META OVERVIEW (Legacy Team Based) ---
     with tab1:
-        st.subheader("🏁 Character Tier List (Cumulative)")
-        st.markdown("**Meta Score vs. Win Rate (Prelims + Finals)**")
+        st.subheader("🏁 Character Team Presence (Legacy)")
+        st.caption("Note: This counts an Uma as a 'Winner' if they were on a winning team (Triple Counting). Use the 'True Individual Winners' tab for exact win counts.")
         
         if not sheet_df.empty:
             prelim_stats = sheet_df.groupby('Clean_Uma')[['Clean_Wins', 'Clean_Races']].sum()
@@ -93,9 +203,9 @@ def show_view(current_config):
 
             fig = px.scatter(
                 tier_data, x='Meta_Score', y='Win_Rate', size='Clean_Races', color='Win_Rate',
-                hover_name='Clean_Uma', title="Cumulative Meta: Impact vs Efficiency",
+                hover_name='Clean_Uma', title="Cumulative Meta: Impact vs Efficiency (Team Presence)",
                 template='plotly_dark', color_continuous_scale='Viridis',
-                labels={'Meta_Score': 'Meta Score', 'Win_Rate': 'Win Rate (%)', 'Clean_Races': 'Total Races'}
+                labels={'Meta_Score': 'Meta Score', 'Win_Rate': 'Team Win Rate (%)', 'Clean_Races': 'Total Races'}
             )
             fig.add_trace(go.Scatter(x=x_trend, y=y_trend, mode='lines', name='Trend', line=dict(color='white', width=2, dash='dash'), opacity=0.5))
             
