@@ -243,9 +243,9 @@ def show_view(current_config):
             # CHART 2: BEST OSHI (Hidden Gems)
             with c1:
                 st.markdown("#### 💎 Best 'Oshi' (Hidden Gems)")
-                st.caption(f"Highest Win Rate characters with < {oshi_cutoff} Picks with at least 3 Entries.")
+                st.caption(f"Highest Win Rate characters with < {oshi_cutoff} Picks")
                 
-                oshi_stats = stats[stats['Is_Oshi'] & (stats['Entries'] >= 3)].sort_values('Win_Rate', ascending=False).head(10)
+                oshi_stats = stats[stats['Is_Oshi'] ].sort_values('Win_Rate', ascending=False).head(10)
                 
                 if not oshi_stats.empty:
                     fig_gems = px.bar(
@@ -282,7 +282,7 @@ def show_view(current_config):
             
             # TABLE 4: BEST OSHI PVPERS
             st.markdown("#### 👑 Oshi PvP-ers Hall of Fame")
-            st.markdown(f"Trainers who **Won the Finals** using a certified Oshi (Character with < {oshi_cutoff} total entries).")
+            st.markdown(f"Trainers who **Won the Finals** using a certified Oshi and **SUBMITTED THEIR DATA** (Character with < {oshi_cutoff} total entries).")
             
             # Filter the true winners list for those who used an Oshi
             oshi_names = set(stats[stats['Is_Oshi']]['Uma'].unique())
@@ -297,7 +297,7 @@ def show_view(current_config):
             if oshi_pvpers:
                 oshi_pvper_df = pd.DataFrame(oshi_pvpers)
                 # Add win counts for that player/uma combo if they won multiple times (unlikely in finals but possible with alts)
-                oshi_pvper_display = oshi_pvper_df.groupby(['Winner_Trainer', 'Clean_Uma']).size().reset_index(name='Wins')
+                oshi_pvper_display = oshi_pvper_df.groupby(['Winner_Trainer', 'Clean_Uma']).size()
                 
                 st.dataframe(
                     oshi_pvper_display.style.background_gradient(cmap='Purples'), 
@@ -310,7 +310,7 @@ def show_view(current_config):
         if not true_winners_df.empty:
             st.markdown(f"""
             **Analysis of {total_true_wins} confirmed lobby winners.**
-            This chart shows the exact character that won the race, excluding teammates.
+            This chart shows the exact character that won the race (**INCLUDING THE OPPONENTS**), excluding the other horses.
             """)
             
             # 1. Aggregate counts
@@ -351,7 +351,7 @@ def show_view(current_config):
     # --- TAB 1: META OVERVIEW (Legacy Team Based) ---
     with tab1:
         st.subheader("🏁 Character Team Presence (Legacy)")
-        st.caption("Note: This counts an Uma as a 'Winner' if they were on a winning team (Triple Counting). Use the 'True Individual Winners' tab for exact win counts.")
+        st.caption("Note: This counts an Uma as a 'Winner' if they were on a **winning team** Use the 'Oshi & Awards' tab for exact win counts.")
         
         if not sheet_df.empty:
             prelim_stats = sheet_df.groupby('Clean_Uma')[['Clean_Wins', 'Clean_Races']].sum()
