@@ -300,7 +300,7 @@ def show_view(current_config):
                 oshi_pvper_display = oshi_pvper_df.groupby(['Winner_Trainer', 'Clean_Uma']).size()
                 
                 st.dataframe(
-                    oshi_pvper_display.background_gradient(cmap='Purples'), 
+                    oshi_pvper_display, 
                     width='stretch',
                     hide_index=True
                 )
