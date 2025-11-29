@@ -296,12 +296,12 @@ def show_view(current_config):
             
             if oshi_pvpers:
                 oshi_pvper_df = pd.DataFrame(oshi_pvpers)
-                # Add win counts for that player/uma combo if they won multiple times (unlikely in finals but possible with alts)
-                oshi_pvper_display = oshi_pvper_df.groupby(['Winner_Trainer', 'Clean_Uma']).size().reset_index(name='Wins')
+                # Deduplicate entries if a player is listed twice for the same win (unlikely but safe)
+                oshi_pvper_display = oshi_pvper_df[['Winner_Trainer', 'Clean_Uma']].drop_duplicates().reset_index(drop=True)
                 
                 st.dataframe(
-                    oshi_pvper_display.style.background_gradient(cmap='Purples'), 
-                    width='stretch',
+                    oshi_pvper_display, 
+                    use_container_width=True,
                     hide_index=True
                 )
             else:
