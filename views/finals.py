@@ -297,10 +297,10 @@ def show_view(current_config):
             if oshi_pvpers:
                 oshi_pvper_df = pd.DataFrame(oshi_pvpers)
                 # Add win counts for that player/uma combo if they won multiple times (unlikely in finals but possible with alts)
-                oshi_pvper_display = oshi_pvper_df.groupby(['Winner_Trainer', 'Clean_Uma']).size()
+                oshi_pvper_display = oshi_pvper_df.groupby(['Winner_Trainer', 'Clean_Uma']).size().reset_index(name='Wins')
                 
                 st.dataframe(
-                    oshi_pvper_display, 
+                    oshi_pvper_display.style.background_gradient(cmap='Purples'), 
                     width='stretch',
                     hide_index=True
                 )
