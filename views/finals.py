@@ -172,6 +172,33 @@ def show_view(current_config):
         prelims_baseline['Match_IGN'] = prelims_baseline['ign'].astype(str).str.lower().str.strip()
         prelims_baseline = prelims_baseline[~prelims_baseline['Match_IGN'].isin(winning_igns)]
 
+    # --- REPAIR DATA: Fix Missing Runs/Spending Columns ---
+    # The util function sometimes misses columns due to spacing issues. We fix it here manually.
+    
+    # 1. Find Runs Column
+    col_runs_raw = None
+    for c in raw_finals_df.columns:
+        if 'career' in c.lower() and 'runs' in c.lower():
+            col_runs_raw = c
+            break
+    
+    # 2. Find IGN Column in Raw
+    col_ign_raw = find_column(raw_finals_df, ['ign', 'player name', 'in-game name'])
+    
+    # 3. Patch matches_df
+    if col_runs_raw and col_ign_raw:
+        # Create a map: ign (lowercase) -> runs
+        runs_map = dict(zip(raw_finals_df[col_ign_raw].astype(str).str.lower().str.strip(), raw_finals_df[col_runs_raw]))
+        
+        # Apply to matches_df if Runs_Text is missing or Unknown
+        if 'Runs_Text' not in matches_df.columns:
+            matches_df['Runs_Text'] = 'Unknown'
+            
+        matches_df['Runs_Text'] = matches_df.apply(
+            lambda x: runs_map.get(str(x['Match_IGN']), x['Runs_Text']) if x['Runs_Text'] == 'Unknown' else x['Runs_Text'], 
+            axis=1
+        )
+
     # --- TABS ---
     tab_oshi, tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "💖 Oshi & Awards",
