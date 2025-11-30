@@ -301,7 +301,7 @@ def show_view(current_config):
                 
                 st.dataframe(
                     oshi_pvper_display, 
-                    use_container_width=True,
+                    width='stretch',
                     hide_index=True
                 )
             else:
