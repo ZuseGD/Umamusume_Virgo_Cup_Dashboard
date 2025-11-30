@@ -477,7 +477,7 @@ def show_view(current_config):
 
             def get_freq(df):
                 if 'skills' not in df.columns or df.empty: return pd.Series()
-                s = df['skills'].astype(str).str.replace(r"[\[\]']", "", regex=True).str.split(',')
+                s = df['skills'].astype(str).str.replace(r"[\[\]']", "", regex=True).str.split('|')
                 return s.explode().str.strip().replace("", np.nan).dropna().value_counts(normalize=True) * 100
 
             lift = pd.concat([get_freq(w_filt).rename("Winner %"), get_freq(p_filt).rename("Baseline %")], axis=1).fillna(0)

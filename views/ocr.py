@@ -140,7 +140,7 @@ def show_view(current_config):
         if 'skills' in skill_source.columns and not skill_source.empty:
             s_df = skill_source[['Calculated_WinRate', 'skills']].dropna().copy()
             if s_df['skills'].dtype == object:
-                 s_df['skills'] = s_df['skills'].astype(str).str.replace(r"[\[\]']", "", regex=True).str.split(',')
+                 s_df['skills'] = s_df['skills'].astype(str).str.replace(r"[\[\]']", "", regex=True).str.split('|')
             
             exploded = s_df.explode('skills')
             exploded['skills'] = exploded['skills'].str.strip()
