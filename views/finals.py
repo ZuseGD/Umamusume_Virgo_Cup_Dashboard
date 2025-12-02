@@ -3,7 +3,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
-from virgo_utils import load_finals_data, load_ocr_data, load_data, style_fig, PLOT_CONFIG, calculate_score, SHEET_URL, find_column, parse_uma_details
+import re
+from virgo_utils import load_finals_data, load_ocr_data, load_data, style_fig, PLOT_CONFIG, calculate_score, SHEET_URL, find_column, parse_uma_details, VARIANT_MAP
 
 def resolve_lobby_winner(row, winner_ref, col_map):
     """
@@ -41,8 +42,7 @@ def resolve_lobby_winner(row, winner_ref, col_map):
 def show_view(current_config):
     st.header("🏆 Finals: Comprehensive Analysis")
     st.markdown("""
-    **Deep Dive into the Finals Meta.** 
-    """)
+    **Deep Dive into the Finals Meta.** """)
     
     # 1. LOAD DATA
     csv_path = current_config.get('finals_csv')
@@ -143,9 +143,23 @@ def show_view(current_config):
     else:
         wins = pd.DataFrame(columns=['Uma', 'Wins'])
         
-    # 3. Merge for Analysis
     # 3. Merge (OUTER JOIN to catch opponent-only winners)
     stats = pd.merge(popularity, wins, on='Uma', how='outer').fillna(0)
+
+    # --- FIX: NORMALIZE VARIANT NAMES ---
+    # Merge "Uma (Anime Collab)" into "Uma (Anime)" using VARIANT_MAP
+    def normalize_name(name):
+        n = str(name)
+        for v_key, v_target in VARIANT_MAP.items():
+            # If "Anime Collab" is in name, replace with "Anime"
+            if v_key.lower() in n.lower():
+                # Regex replace to preserve surrounding formatting (parens, brackets, etc)
+                n = re.sub(re.escape(v_key), v_target, n, flags=re.IGNORECASE)
+        return n
+
+    stats['Uma'] = stats['Uma'].apply(normalize_name)
+    # Group by the standardized name and sum the stats
+    stats = stats.groupby('Uma', as_index=False)[['Entries', 'Wins']].sum()
     
     # 4. Data Correction: Entries cannot be less than Wins
     # (If an opponent played a horse that no one in the survey played, Entries would be 0 but Wins > 0)
@@ -155,8 +169,7 @@ def show_view(current_config):
     stats['Win_Rate'] = stats['Win_Rate'].clip(upper=100)
     
     # Define Oshi Threshold (e.g. < 20 entries)
-    # Find median or use a static number. Let's use 20 as a reasonable "Niche" cutoff for a large dataset
-    oshi_cutoff = 10
+    oshi_cutoff = 11
     stats['Is_Oshi'] = stats['Entries'] < oshi_cutoff
 
     # --- METRICS ---
@@ -320,6 +333,9 @@ def show_view(current_config):
             """)
             
             # 1. Aggregate counts
+            # --- FIX: NORMALIZE NAMES FOR TRUE WINNERS CHART TOO ---
+            true_winners_df['Clean_Uma'] = true_winners_df['Clean_Uma'].apply(normalize_name)
+            
             win_counts = true_winners_df['Clean_Uma'].value_counts().reset_index()
             win_counts.columns = ['Uma', 'Wins']
             win_counts['Percentage'] = (win_counts['Wins'] / total_true_wins) * 100
