@@ -4,36 +4,44 @@ import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
 import re
-from virgo_utils import load_finals_data, load_ocr_data, load_data, style_fig, PLOT_CONFIG, calculate_score, SHEET_URL, find_column, parse_uma_details, VARIANT_MAP
+from virgo_utils import load_finals_data, load_ocr_data, load_data, style_fig, PLOT_CONFIG, calculate_score, SHEET_URL, find_column, parse_uma_details, VARIANT_MAP, smart_match_name
+
+def normalize_name(name):
+    """
+    Normalizes Uma names by merging variants based on VARIANT_MAP.
+    e.g. "Uma (Anime Collab)" -> "Uma (Anime)"
+    """
+    n = str(name)
+    for v_key, v_target in VARIANT_MAP.items():
+        if v_key.lower() in n.lower():
+            # Regex replace to preserve surrounding formatting
+            n = re.sub(re.escape(v_key), v_target, n, flags=re.IGNORECASE)
+    return n
 
 def resolve_lobby_winner(row, winner_ref, col_map):
     """
     Resolves the name of the winning Uma based on the reference column.
-    e.g. Reference: "Own Team - Uma 1" -> returns value in "Own Team - Uma 1" column.
     """
     if pd.isna(winner_ref):
         return None
     
     ref = str(winner_ref).strip()
     
-    # 1. Direct Match in Map (Reference -> Column Name)
+    # 1. Direct Match in Map
     if ref in col_map:
         col_name = col_map[ref]
         uma_name = row.get(col_name)
         if pd.notna(uma_name) and str(uma_name).strip():
             return str(uma_name)
             
-    # 2. Fallback: Check if the reference looks like a column header itself (fuzzy match)
-    # Some forms might save "Opponent's Team 1 - Uma 4" directly
+    # 2. Fallback: Check if the reference looks like a column header
     for col in row.index:
         if ref.lower() in col.lower() and "running style" not in col.lower() and "role" not in col.lower():
-            # Found the column the reference points to
             uma_name = row[col]
             if pd.notna(uma_name) and str(uma_name).strip():
                 return str(uma_name)
                 
-    # 3. Fallback: The user might have selected "Other" and typed a name directly
-    # If the reference doesn't look like a pointer (no "Team" or "Uma" keyword), assume it's the name
+    # 3. Fallback: Type-in name
     if "team" not in ref.lower() and "uma" not in ref.lower():
         return ref
         
@@ -54,7 +62,6 @@ def show_view(current_config):
         return
 
     with st.spinner("Crunching Finals Data..."):
-        # Load Raw for specific "Lobby Winner" column
         try:
             raw_finals_df = pd.read_csv(csv_path)
         except Exception as e:
@@ -63,14 +70,53 @@ def show_view(current_config):
 
         prelims_raw = load_ocr_data(prelims_pq)
         matches_df, finals_ocr = load_finals_data(csv_path, pq_path, main_ocr_df=prelims_raw)
+        
+        # Load Raw Finals Parquet explicitly for "Opponent Recovery"
+        raw_finals_pq = load_ocr_data(pq_path)
+        
         sheet_df, _ = load_data(SHEET_URL)
     
     if matches_df.empty:
         st.warning("⚠️ Could not parse Finals data.")
         return
 
+    # --- NORMALIZE NAMES & DATA PREP ---
+    valid_names = []
+    if not matches_df.empty:
+        # Get valid names for smart matching
+        valid_names = matches_df['Clean_Uma'].unique().tolist()
+        
+        # Normalize matches_df
+        matches_df['Clean_Uma'] = matches_df['Clean_Uma'].apply(normalize_name)
+        matches_df['Uma'] = matches_df['Clean_Uma'] 
+        
+    # FIX: Ensure raw_finals_pq has Match_Uma
+    if not raw_finals_pq.empty:
+        if 'Match_Uma' not in raw_finals_pq.columns:
+            if 'name' in raw_finals_pq.columns:
+                 # Use smart_match_name to align with CSV names
+                 raw_finals_pq['Match_Uma'] = raw_finals_pq['name'].apply(lambda x: smart_match_name(x, valid_names))
+            elif 'Name' in raw_finals_pq.columns:
+                 raw_finals_pq['Match_Uma'] = raw_finals_pq['Name'].apply(lambda x: smart_match_name(x, valid_names))
+            else:
+                 # Fallback
+                 # st.warning("Finals Parquet missing 'name' column. OCR analysis for champions might be incomplete.")
+                 raw_finals_pq['Match_Uma'] = "Unknown"
+        
+        # Normalize
+        raw_finals_pq['Match_Uma'] = raw_finals_pq['Match_Uma'].apply(normalize_name)
+        
+    if not finals_ocr.empty:
+        finals_ocr['Match_Uma'] = finals_ocr['Match_Uma'].apply(normalize_name)
+        
+    # Prelims raw might have been modified by load_finals_data (pandas side-effect), but verify
+    if not prelims_raw.empty:
+        if 'Match_Uma' not in prelims_raw.columns and 'name' in prelims_raw.columns:
+             prelims_raw['Match_Uma'] = prelims_raw['name'].apply(lambda x: smart_match_name(x, valid_names))
+        if 'Match_Uma' in prelims_raw.columns:
+             prelims_raw['Match_Uma'] = prelims_raw['Match_Uma'].apply(normalize_name)
+
     # --- LOGIC: RESOLVE TRUE WINNERS ---
-    # Robust Column Finding
     search_keys = [
         'Which uma won the finals lobby? (optional)', 
         'Which uma won the finals lobby', 
@@ -80,25 +126,18 @@ def show_view(current_config):
     ]
     col_winner_ref = find_column(raw_finals_df, search_keys)
     
-    # Manual Fallback if find_column fails (due to strict cleaning)
     if not col_winner_ref:
         for c in raw_finals_df.columns:
-            c_lower = str(c).lower()
-            if 'which uma won' in c_lower and 'lobby' in c_lower:
+            if 'which uma won' in str(c).lower() and 'lobby' in str(c).lower():
                 col_winner_ref = c
                 break
 
-    # Map references (e.g. "Own Team - Uma 1") to actual column names in CSV
     ref_col_map = {}
     if col_winner_ref:
         for c in raw_finals_df.columns:
-            # Generate keys for standard form options
-            # Removes " (optional)" to match the dropdown values usually
             clean_c = str(c).replace(" (optional)", "").strip()
             ref_col_map[clean_c] = c
             ref_col_map[clean_c + " (optional)"] = c 
-            
-            # Handle specific variations if needed
             if "Opponent's" in clean_c:
                 ref_col_map[clean_c.replace("Opponent's", "Opponent")] = c
 
@@ -109,14 +148,13 @@ def show_view(current_config):
             if pd.notna(ref):
                 w_name = resolve_lobby_winner(row, ref, ref_col_map)
                 if w_name:
-                    # Parse details (remove " - Runner" etc if present)
                     clean_name = parse_uma_details(pd.Series([w_name]))[0]
-                    # Store tuple of (UmaName, PlayerIGN)
+                    # Normalize the resolved winner name
+                    clean_name = normalize_name(clean_name)
+                    
                     ign_col = find_column(raw_finals_df, ['ign', 'player name', 'in-game name'])
                     player_ign = str(row.get(ign_col, 'Unknown')).strip() if ign_col else 'Unknown'
                     
-                    # Only credit the player if it was THEIR team that won
-                    # The ref string usually contains "Own Team" or "Opponent's Team"
                     is_own_win = "own team" in str(ref).lower()
                     winning_trainer = player_ign if is_own_win else "Opponent"
                     
@@ -129,47 +167,22 @@ def show_view(current_config):
     true_winners_df = pd.DataFrame(true_winners_list)
 
     # --- STATS GENERATION ---
-    # 1. Popularity (Games Used In)
-    # Using matches_df because it contains every character entered by the players
-    # Note: This counts "My Umas" only. Opponent umas are not fully cataloged in matches_df rows, 
-    # but for "Games Used In" among participants, matches_df is the correct source.
     popularity = matches_df['Clean_Uma'].value_counts().reset_index()
     popularity.columns = ['Uma', 'Entries']
     
-    # 2. True Wins (From the Lobby Winner column)
     if not true_winners_df.empty:
         wins = true_winners_df['Clean_Uma'].value_counts().reset_index()
         wins.columns = ['Uma', 'Wins']
     else:
         wins = pd.DataFrame(columns=['Uma', 'Wins'])
         
-    # 3. Merge (OUTER JOIN to catch opponent-only winners)
     stats = pd.merge(popularity, wins, on='Uma', how='outer').fillna(0)
-
-    # --- FIX: NORMALIZE VARIANT NAMES ---
-    # Merge "Uma (Anime Collab)" into "Uma (Anime)" using VARIANT_MAP
-    def normalize_name(name):
-        n = str(name)
-        for v_key, v_target in VARIANT_MAP.items():
-            # If "Anime Collab" is in name, replace with "Anime"
-            if v_key.lower() in n.lower():
-                # Regex replace to preserve surrounding formatting (parens, brackets, etc)
-                n = re.sub(re.escape(v_key), v_target, n, flags=re.IGNORECASE)
-        return n
-
-    stats['Uma'] = stats['Uma'].apply(normalize_name)
-    # Group by the standardized name and sum the stats
-    stats = stats.groupby('Uma', as_index=False)[['Entries', 'Wins']].sum()
-    
-    # 4. Data Correction: Entries cannot be less than Wins
-    # (If an opponent played a horse that no one in the survey played, Entries would be 0 but Wins > 0)
     stats['Entries'] = stats[['Entries', 'Wins']].max(axis=1)
     
     stats['Win_Rate'] = (stats['Wins'] / stats['Entries']) * 100
     stats['Win_Rate'] = stats['Win_Rate'].clip(upper=100)
     
-    # Define Oshi Threshold (e.g. < 20 entries)
-    oshi_cutoff = 11
+    oshi_cutoff = 10
     stats['Is_Oshi'] = stats['Entries'] < oshi_cutoff
 
     # --- METRICS ---
@@ -178,44 +191,76 @@ def show_view(current_config):
     
     m1, m2, m3 = st.columns(3)
     m1.metric("Finalists Analyzed", total_entries)
-    m2.metric("Lobbies Resolved", total_true_wins, help="Lobbies where a winner was successfully identified")
-    m3.metric("Oshi Cutoff", f"< {oshi_cutoff} Entries", help="Characters with fewer entries are considered 'Oshi' picks")
+    m2.metric("Lobbies Resolved", total_true_wins)
+    m3.metric("Oshi Cutoff", f"< {oshi_cutoff} Entries")
     
     st.markdown("---")
 
-
-        # --- DATA PREP ---
+    # --- PREPARE DATA FOR TABS ---
+    
+    # 1. Prelims Baseline (Remove Winners)
     winning_igns = set(matches_df[matches_df['Is_Winner'] == 1]['Match_IGN'].unique())
     prelims_baseline = prelims_raw.copy()
     if not prelims_baseline.empty and 'ign' in prelims_baseline.columns:
         prelims_baseline['Match_IGN'] = prelims_baseline['ign'].astype(str).str.lower().str.strip()
         prelims_baseline = prelims_baseline[~prelims_baseline['Match_IGN'].isin(winning_igns)]
 
-    # --- REPAIR DATA: Fix Missing Runs/Spending Columns ---
-    # The util function sometimes misses columns due to spacing issues. We fix it here manually.
+    # 2. EXPANDED CHAMPION POOL (The "Better Way")
+    # Identify stats for ALL winners (Own + Opponent) by matching Lobby Winners to Raw Parquet data
     
-    # 1. Find Runs Column
+    champion_stats_df = pd.DataFrame()
+    if not true_winners_df.empty and not raw_finals_pq.empty and 'Match_Uma' in raw_finals_pq.columns:
+        # A. Identify Known Losers (from CSV linked data) to exclude them
+        # We don't want to accidentally count a "King Halo" that got 3rd place as a Winner
+        # just because "King Halo" won the lobby.
+        known_losers = finals_ocr[finals_ocr['Is_Winner'] == 0].copy()
+        
+        def get_sig(row):
+            # Create a signature to identify unique OCR entries (Name + Stats + Skills)
+            return f"{row.get('Match_Uma')}_{row.get('Speed')}_{row.get('Power')}_{str(row.get('skills'))[:20]}"
+            
+        known_loser_sigs = set(known_losers.apply(get_sig, axis=1)) if not known_losers.empty else set()
+        
+        # B. Filter Raw Parquet for Confirmed Winner Names
+        winner_names = set(true_winners_df['Clean_Uma'].unique())
+        
+        # Keep rows where: Name is a Winner AND It is NOT a known loser
+        champion_stats_df = raw_finals_pq[
+            raw_finals_pq['Match_Uma'].isin(winner_names) & 
+            ~raw_finals_pq.apply(get_sig, axis=1).isin(known_loser_sigs)
+        ].copy()
+        
+        # C. Patch Missing 'Clean_Style' for Opponents (Raw PQ doesn't have CSV dropdown data)
+        if 'Clean_Style' not in champion_stats_df.columns:
+            champion_stats_df['Clean_Style'] = 'Unknown'
+            
+        # Try to backfill Style from finals_ocr for known rows
+        if not finals_ocr.empty:
+            # Create a lookup for style based on signature
+            finals_ocr['sig'] = finals_ocr.apply(get_sig, axis=1)
+            style_map = dict(zip(finals_ocr['sig'], finals_ocr['Clean_Style']))
+            
+            champion_stats_df['sig'] = champion_stats_df.apply(get_sig, axis=1)
+            champion_stats_df['Clean_Style'] = champion_stats_df.apply(
+                lambda x: style_map.get(x['sig'], 'Unknown'), axis=1
+            )
+
+    # Fallback if logic fails
+    if champion_stats_df.empty:
+        champion_stats_df = finals_ocr[finals_ocr['Is_Winner'] == 1].copy()
+
+    # --- REPAIR DATA: Fix Missing Runs/Spending ---
     col_runs_raw = None
     for c in raw_finals_df.columns:
         if 'career' in c.lower() and 'runs' in c.lower():
             col_runs_raw = c
             break
-    
-    # 2. Find IGN Column in Raw
     col_ign_raw = find_column(raw_finals_df, ['ign', 'player name', 'in-game name'])
-    
-    # 3. Patch matches_df
     if col_runs_raw and col_ign_raw:
-        # Create a map: ign (lowercase) -> runs
         runs_map = dict(zip(raw_finals_df[col_ign_raw].astype(str).str.lower().str.strip(), raw_finals_df[col_runs_raw]))
-        
-        # Apply to matches_df if Runs_Text is missing or Unknown
-        if 'Runs_Text' not in matches_df.columns:
-            matches_df['Runs_Text'] = 'Unknown'
-            
+        if 'Runs_Text' not in matches_df.columns: matches_df['Runs_Text'] = 'Unknown'
         matches_df['Runs_Text'] = matches_df.apply(
-            lambda x: runs_map.get(str(x['Match_IGN']), x['Runs_Text']) if x['Runs_Text'] == 'Unknown' else x['Runs_Text'], 
-            axis=1
+            lambda x: runs_map.get(str(x['Match_IGN']), x['Runs_Text']) if x['Runs_Text'] == 'Unknown' else x['Runs_Text'], axis=1
         )
 
     # --- TABS ---
@@ -468,25 +513,24 @@ def show_view(current_config):
         fig_team_place.update_layout(yaxis={'categoryorder':'total ascending'}, barmode='stack')
         st.plotly_chart(style_fig(fig_team_place, height=600), width='stretch', config=PLOT_CONFIG)
 
-    # --- TAB 3: SKILL LIFT ---
+    # --- TAB 3: SKILL LIFT (UPDATED WITH EXPANDED POOL) ---
     with tab3:
         st.subheader("⚡ Skill Lift Analysis")
-        st.warning("This analysis compares the skill usage of Finals Winners against a baseline of non-winning participants from the Prelims. It identifies skills that are significantly more common among winners, indicating potential meta advantages. Note that this is a statistical overview from **SUBMITTED OCR DATA** and may not account for all variables.")
-        if finals_ocr.empty or prelims_baseline.empty:
+        st.markdown(f"**Analyzing {len(champion_stats_df)} Champion profiles (Own + Verified Opponents).**")
+        
+        if champion_stats_df.empty or prelims_baseline.empty:
             st.warning("Need Finals OCR + Prelims OCR data.")
         else:
             c1, c2 = st.columns(2)
-            winners_ocr = finals_ocr[finals_ocr['Is_Winner'] == 1].copy()
-            if 'Clean_Role' in winners_ocr.columns:
-                winners_ocr = winners_ocr[winners_ocr['Clean_Role'].str.contains('Ace', case=False, na=False)]
-            
             with c1:
-                all_umas = sorted(list(set(winners_ocr['Match_Uma'].unique()) | set(prelims_baseline['Match_Uma'].unique()))) if 'Match_Uma' in prelims_baseline.columns else sorted(winners_ocr['Match_Uma'].unique())
+                all_umas = sorted(list(set(champion_stats_df['Match_Uma'].unique()) | set(prelims_baseline['Match_Uma'].unique())))
                 sel_uma = st.selectbox("Filter by Character:", ["All"] + all_umas, key="lift_uma")
             with c2:
-                sel_style = st.selectbox("Filter by Style:", ["All"] + sorted(winners_ocr['Clean_Style'].unique()), key="lift_style")
+                # Use 'Unknown' style if missing from Opponent data
+                avail_styles = sorted(champion_stats_df['Clean_Style'].unique())
+                sel_style = st.selectbox("Filter by Style:", ["All"] + avail_styles, key="lift_style")
             
-            w_filt = winners_ocr.copy()
+            w_filt = champion_stats_df.copy()
             p_filt = prelims_baseline.copy()
             
             if sel_uma != "All":
@@ -495,7 +539,7 @@ def show_view(current_config):
             if sel_style != "All":
                 w_filt = w_filt[w_filt['Clean_Style'] == sel_style]
 
-            if len(w_filt) < 5: st.caption("⚠️ Low sample size for winners.")
+            st.caption(f"Comparing **{len(w_filt)} Winners** vs **{len(p_filt)} Baseline** entries.")
 
             def get_freq(df):
                 if 'skills' not in df.columns or df.empty: return pd.Series()
@@ -509,27 +553,26 @@ def show_view(current_config):
             
             top = lift.sort_values('Lift', ascending=False).head(20).copy()
             if not top.empty:
-                fig = px.bar(top, x='Lift', y=top.index, orientation='h', color='New',
-                             title="Skill Lift (Winners vs Baseline)", template='plotly_dark',
-                             color_discrete_map={True: '#FFD700', False: '#00CC96'})
+                fig = px.bar(top, x='Lift', y=top.index, orientation='h', color='New', title="Skill Lift (Winners vs Baseline)", template='plotly_dark', color_discrete_map={True: '#FFD700', False: '#00CC96'})
                 fig.update_layout(yaxis={'categoryorder':'total ascending'})
                 st.plotly_chart(style_fig(fig), width='stretch', config=PLOT_CONFIG)
             else:
                 st.info("No significant skills found.")
 
-    # --- TAB 4: CHAMPION STATS ---
+    # --- TAB 4: CHAMPION STATS (UPDATED WITH EXPANDED POOL) ---
     with tab4:
         st.subheader("🏆 Champion Stat Distribution")
-        st.warning("This analysis compares the base stats of Finals Winners against a baseline of non-winning participants from the Prelims. It helps identify if certain stat distributions are more common among champions. Note that this is a statistical overview from **SUBMITTED OCR DATA** and may not account for all variables.")
-        if not finals_ocr.empty and not prelims_baseline.empty:
+        
+        if not champion_stats_df.empty and not prelims_baseline.empty:
             c1, c2 = st.columns(2)
             with c1:
-                all_umas_stat = sorted(list(set(finals_ocr['Match_Uma'].unique()) | set(prelims_baseline['Match_Uma'].unique()))) if 'Match_Uma' in prelims_baseline.columns else sorted(finals_ocr['Match_Uma'].unique())
+                all_umas_stat = sorted(list(set(champion_stats_df['Match_Uma'].unique()) | set(prelims_baseline['Match_Uma'].unique())))
                 sel_uma_stat = st.selectbox("Character:", ["All"] + all_umas_stat, key="stat_uma")
             with c2:
-                sel_style_stat = st.selectbox("Style:", ["All"] + sorted(finals_ocr['Clean_Style'].unique()), key="stat_style")
+                avail_styles_stat = sorted(champion_stats_df['Clean_Style'].unique())
+                sel_style_stat = st.selectbox("Style:", ["All"] + avail_styles_stat, key="stat_style")
             
-            w_df = finals_ocr[finals_ocr['Is_Winner'] == 1].copy()
+            w_df = champion_stats_df.copy()
             w_df['Group'] = 'Champions'
             f_df = prelims_baseline.copy()
             f_df['Group'] = 'The Field'
@@ -541,11 +584,12 @@ def show_view(current_config):
                 w_df = w_df[w_df['Clean_Style'] == sel_style_stat]
                 if 'Clean_Style' in f_df.columns: f_df = f_df[f_df['Clean_Style'] == sel_style_stat]
 
+            st.caption(f"Comparing stats of **{len(w_df)} Champions**.")
+
             cols = [c for c in ['Speed', 'Stamina', 'Power', 'Guts', 'Wit'] if c in w_df.columns and c in f_df.columns]
             if cols and not w_df.empty and not f_df.empty:
                 melt = pd.concat([w_df[cols+['Group']], f_df[cols+['Group']]]).melt(id_vars='Group', value_vars=cols)
-                fig = px.box(melt, x='variable', y='value', color='Group', template='plotly_dark',
-                             color_discrete_map={'Champions': '#00CC96', 'The Field': '#EF553B'})
+                fig = px.box(melt, x='variable', y='value', color='Group', template='plotly_dark', color_discrete_map={'Champions': '#00CC96', 'The Field': '#EF553B'})
                 st.plotly_chart(style_fig(fig), width='stretch', config=PLOT_CONFIG)
             else:
                 st.warning("Insufficient stats data.")
