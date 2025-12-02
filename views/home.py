@@ -26,12 +26,30 @@ def show_view(df, team_df, current_config):
     col_header, col_btn = st.columns([1, 1], gap="medium")
 
     with col_header:
-        with st.expander("✨ What's New: The Finals Update", expanded=True):
+        with st.expander("✨ What's New: Bug Fixes and Logic Updates", expanded=True):
             st.markdown("""
-            **Patch Notes: Finals Analysis 🏆**
-            - **True Winners:** Now identifying the specific horse that won the lobby.
-            - **Oshi Awards:** Highlighting low-pick-rate winners.
-            - **Cumulative Taiki Impact:** Measuring dominance across the full event.
+            ### 🔄 Unified Character Variants (Normalization)
+- **Feature:** Implemented a `normalize_name` system to merge identical characters with slightly different variant names.
+- **Impact:** Names like *"Uma (Anime Collab)"* are now correctly grouped with *"Uma (Anime)"*. This prevents statistics from splitting into two separate entries, ensuring more accurate Win Rates and Pick Rates in the **Meta Matrix** and **Oshi Awards**.
+
+### 🕵️ Expanded Champion Pool (Opponent Recovery)
+- **The Problem:** Previously, "Skill Lift" and "Champion Stats" only analyzed the submitting player's team. If an opponent won the lobby, their data was often ignored even if it existed in the logs.
+- **The Solution:** The dashboard now cross-references confirmed **Lobby Winners** against the raw `finals.parquet` file.
+- **Impact:** It successfully "recovers" winning opponent data by filtering for the winner's name and excluding known losers (verified via stats/skills signatures). This significantly increases the sample size for meta analysis (e.g., capturing missing Opponent King Halo winners).
+
+### 🧩 Smart Style Backfilling
+- **Feature:** Added logic to "patch" missing style data for opponents.
+
+## Bug Fixes
+
+- **🐛 Fixed Parquet Loading Error:** Resolved a `KeyError: 'Match_Uma'` crash that occurred when loading raw parquet files that used different column schemas (e.g., `name` vs `Match_Uma`).
+- **🛡️ Robust Column Generation:** Added a fail-safe to automatically generate `Match_Uma` using `smart_match_name` if the column is missing from the source file.
+
+## Technical Changes
+
+- **New Function:** `normalize_name(name)` added to `views/finals.py`.
+- **Dependencies:** Now imports `VARIANT_MAP` and `smart_match_name` from `virgo_utils`.
+- **Logic Update:** The "True Winners" calculation now applies normalization before counting, ensuring the "Individual Lobby Winners" chart is accurate.
             """)
 
     with col_btn:
