@@ -265,7 +265,7 @@ def show_view(current_config):
                 st.caption(f"Highest Win Rate characters with < {oshi_cutoff} Picks")
                 
                 oshi_stats = stats[stats['Is_Oshi'] ].sort_values('Win_Rate', ascending=False).head(10)
-                
+                oshi_stats = oshi_stats[oshi_stats['Win_Rate'] > 0]
                 if not oshi_stats.empty:
                     fig_gems = px.bar(
                         oshi_stats, x='Win_Rate', y='Uma', orientation='h',
