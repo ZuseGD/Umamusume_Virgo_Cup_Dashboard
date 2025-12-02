@@ -562,7 +562,7 @@ def show_view(current_config):
     # --- TAB 4: CHAMPION STATS (UPDATED WITH EXPANDED POOL) ---
     with tab4:
         st.subheader("🏆 Champion Stat Distribution")
-        
+        st.warning("This analysis compares the in-game stats of all identified Finals Champions (including Opponents) against the general pool of Prelims participants. It helps identify any statistical advantages held by winning characters against **SUBMITTED ROUNDS DATA** (which is a smaller pool) THIS MEANS THAT IF THERE IS A SMALLER SAMPLE OF UMAS THEN THE GRAPHS MAY BE SIMILAR DUE TO SURVIVORSHIP BIAS.")
         if not champion_stats_df.empty and not prelims_baseline.empty:
             c1, c2 = st.columns(2)
             with c1:
