@@ -481,8 +481,8 @@ def show_view(current_config):
         comp_stats['Label'] = comp_stats.apply(lambda x: f"<b>{int(x['Win_Rate'])}%</b> ({int(x['Wins'])}/{int(x['Entries'])})", axis=1)
         
         fig = px.bar(
-            comp_stats, x='Wins', y='Team', orientation='h', text='Label',
-            title="Top Winning Teams (Win Count)", template='plotly_dark', color='Win_Rate', color_continuous_scale='Plasma'
+            comp_stats, x='Win_Rate', y='Team', orientation='h', text='Label',
+            title="Top Winning Teams (Win Count)", template='plotly_dark', color='Wins', color_continuous_scale='Plasma'
         )
         fig.update_layout(yaxis={'categoryorder':'total ascending'})
         st.plotly_chart(style_fig(fig), width='stretch', config=PLOT_CONFIG)
