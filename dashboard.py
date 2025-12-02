@@ -19,39 +19,32 @@ event_names = list(CM_LIST.keys())
 selected_event_name = st.sidebar.selectbox("Select Event", event_names, index=0, key="event_selector")
 current_config = CM_LIST[selected_event_name]
 
-
-
 st.markdown("""
 <style>
-    [data-testid="stSidebar"] {min-width: 250px;}
     
-    /* Navigation Buttons Styling */
     div.stButton > button {
         width: 100%;
-        border-radius: 8px;       /* Softer corners */
-        height: 3.5em;            /* Taller buttons */
-        font-size: 1.1rem;        /* Bigger text */
+        border-radius: 8px;
+        height: 3.5em;
+        font-size: 1.1rem;
         font-weight: bold;
         border: 1px solid #444;
         transition: all 0.2s ease-in-out;
     }
     
-    /* Hover Effect */
     div.stButton > button:hover {
         border-color: #00CC96;
         color: #00CC96;
-        transform: translateY(-2px); /* Slight lift effect */
+        transform: translateY(-2px);
     }
     
-    /* Primary Button (Active Tab) Specifics */
     div.stButton > button[kind="primary"] {
-        background-color: #FF4B4B; /* Or your theme color */
+        background-color: #FF4B4B;
         border-color: #FF4B4B;
         color: white;
     }
 </style>
 """, unsafe_allow_html=True)
-# -------------------------------
 
 # 4. LOAD DATA
 try:
@@ -73,6 +66,7 @@ except Exception as e:
 
 # 5. FILTERS
 st.sidebar.header("⚙️ Global Filters")
+st.sidebar.warning("Adjusting filters will refresh data across all tabs other than finals.")
 
 if 'Clean_Group' in df.columns:
     groups = list(df['Clean_Group'].unique())
@@ -98,21 +92,19 @@ if 'Day' in df.columns:
 # 6. HEADER
 st.title(f"{current_config['icon']} {selected_event_name} Dashboard")
 
-# 7. NAVIGATION (Updated with Highlight Logic)
-nav_cols = st.columns(7)
+# 7. NAVIGATION (Streamlined)
+# Reduced columns to 6 for better spacing
+nav_cols = st.columns(6)
 if 'current_page' not in st.session_state: st.session_state.current_page = "Home"
 
 def set_page(p):
     st.session_state.current_page = p
 
-def nav_btn(col, label, page_name):
+def nav_btn(col, label, page_name, icon=""):
     with col:
-        # Determine style: Primary (Red/Filled) if active, Secondary (Ghost) if not
         btn_type = "primary" if st.session_state.current_page == page_name else "secondary"
-        
-        # Use on_click to update state BEFORE the re-run, ensuring instant highlight
         st.button(
-            label, 
+            f"{icon} {label}", 
             type=btn_type, 
             on_click=set_page, 
             args=(page_name,), 
@@ -120,14 +112,12 @@ def nav_btn(col, label, page_name):
         )
 
 # Render Buttons
-nav_btn(nav_cols[0], "🌍 Home", "Home")
-nav_btn(nav_cols[1], "⚔️ Teams", "Teams")
-nav_btn(nav_cols[2], "🐴 Umas", "Umas")
-nav_btn(nav_cols[3], "🃏 Resources", "Resources")
-nav_btn(nav_cols[4], "📸 OCR", "OCR")
-nav_btn(nav_cols[5], "🏆 Finals", "Finals")
-nav_btn(nav_cols[6], "📚 Guides", "Guides")
-
+nav_btn(nav_cols[0], "Overview", "Home", "🌍")
+nav_btn(nav_cols[1], "Meta Tier List", "Umas", "📊")
+nav_btn(nav_cols[2], "Team Comps", "Teams", "⚔️")
+nav_btn(nav_cols[3], "Build Analysis", "OCR", "🔬") # Formerly OCR + Resources
+nav_btn(nav_cols[4], "Finals Results", "Finals", "🏆")
+nav_btn(nav_cols[5], "Library", "Guides", "📚") # Formerly Guides
 
 # 8. ROUTING
 if st.session_state.current_page == "Home":
@@ -139,12 +129,9 @@ elif st.session_state.current_page == "Teams":
 elif st.session_state.current_page == "Umas":
     from views import umas
     umas.show_view(df, team_df)
-elif st.session_state.current_page == "Resources":
-    from views import resources
-    resources.show_view(df, team_df)
 elif st.session_state.current_page == "OCR":
     from views import ocr
-    # Pass the config dictionary, let the view handle loading
+    # Now handles Builds + Support Cards
     ocr.show_view(current_config)
 elif st.session_state.current_page == "Finals":
     from views import finals
@@ -152,8 +139,5 @@ elif st.session_state.current_page == "Finals":
 elif st.session_state.current_page == "Guides":
     from views import guides
     guides.show_view(current_config)
-elif st.session_state.current_page == "Credits":
-    from views import credits
-    credits.show_view()
 
 st.markdown(footer_html, unsafe_allow_html=True)

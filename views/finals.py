@@ -144,9 +144,15 @@ def show_view(current_config):
         wins = pd.DataFrame(columns=['Uma', 'Wins'])
         
     # 3. Merge for Analysis
-    stats = pd.merge(popularity, wins, on='Uma', how='left').fillna(0)
+    # 3. Merge (OUTER JOIN to catch opponent-only winners)
+    stats = pd.merge(popularity, wins, on='Uma', how='outer').fillna(0)
+    
+    # 4. Data Correction: Entries cannot be less than Wins
+    # (If an opponent played a horse that no one in the survey played, Entries would be 0 but Wins > 0)
+    stats['Entries'] = stats[['Entries', 'Wins']].max(axis=1)
+    
     stats['Win_Rate'] = (stats['Wins'] / stats['Entries']) * 100
-    stats['Win_Rate'] = stats['Win_Rate'].clip(upper=100) # Cap at 100 just in case of data mismatch
+    stats['Win_Rate'] = stats['Win_Rate'].clip(upper=100)
     
     # Define Oshi Threshold (e.g. < 20 entries)
     # Find median or use a static number. Let's use 20 as a reasonable "Niche" cutoff for a large dataset

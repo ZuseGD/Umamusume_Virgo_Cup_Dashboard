@@ -156,6 +156,7 @@ VARIANT_MAP = {
     "Chiffon-Wrapped Mummy": "Halloween", "New Year": "New Year",
     "Vampire Makeover!": "Halloween", "Festival": "Festival",
     "Quercus Civilis": "Wedding", "End of the Skies": "Anime", "Beyond the Horizon": "Anime",
+    "Anime Collab": "Anime", "Cyberpunk": "Cyberpunk",
     "Lucky Tidings": "Full Armor", "Princess": "Princess"
 }
 
@@ -445,7 +446,7 @@ def load_ocr_data(parquet_file):
         st.error(f"Error loading Parquet: {e}")
         return pd.DataFrame()
 
-# --- UPDATED LOAD FINALS DATA ---
+# --- LOAD FINALS DATA (UPDATED FOR ROBUST MERGING) ---
 @st.cache_data(ttl=3600)
 def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
     if not csv_path or not os.path.exists(csv_path):
@@ -454,9 +455,7 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
     try:
         raw_df = pd.read_csv(csv_path)
         
-        # Extended Keywords for Metadata
         col_spent = find_column(raw_df, ['spent', 'money', 'eur/usd', 'how much have you spent'])
-        # Added exact phrases from typical forms
         col_runs = find_column(raw_df, ['career runs', 'runs per day', 'how many career runs']) 
         col_kitasan = find_column(raw_df, ['kitasan', 'speed: kitasan'])
         col_fine = find_column(raw_df, ['fine motion', 'wit: fine'])
@@ -491,10 +490,13 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
                 role = row.get(f'Own team - Uma {i} - Role', 'Unknown')
                 
                 if pd.notna(uma_name) and str(uma_name).strip() != "":
+                    clean_uma_name = parse_uma_details(pd.Series([uma_name]))[0]
+                    
                     processed_rows.append({
                         'Match_IGN': ign.lower(),
+                        'Normalized_IGN': re.sub(r'[^a-z0-9]', '', ign.lower()), # Add key for fuzzy matching
                         'Display_IGN': ign,
-                        'Clean_Uma': parse_uma_details(pd.Series([uma_name]))[0],
+                        'Clean_Uma': clean_uma_name,
                         'Clean_Style': style,
                         'Clean_Role': role,
                         'Result': result,
@@ -516,42 +518,65 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
         return pd.DataFrame(), pd.DataFrame()
 
     try:
-        merged_results = []
+        # Combine multiple sources for OCR
+        ocr_sources = []
         valid_names = finals_matches['Clean_Uma'].unique().tolist() if not finals_matches.empty else []
 
-        finals_pq_df = pd.DataFrame()
+        # 1. Finals specific Parquet
         if parquet_path and os.path.exists(parquet_path):
-            finals_pq_df = pd.read_parquet(parquet_path)
-            if 'ign' in finals_pq_df.columns:
-                finals_pq_df['Match_IGN'] = finals_pq_df['ign'].astype(str).str.lower().str.strip()
-            if 'name' in finals_pq_df.columns:
-                finals_pq_df['Match_Uma'] = finals_pq_df['name'].apply(lambda x: smart_match_name(x, valid_names))
+            fpq = pd.read_parquet(parquet_path)
+            if 'ign' in fpq.columns:
+                fpq['Match_IGN'] = fpq['ign'].astype(str).str.lower().str.strip()
+                fpq['Normalized_IGN'] = fpq['Match_IGN'].apply(lambda x: re.sub(r'[^a-z0-9]', '', str(x)))
+            if 'name' in fpq.columns:
+                fpq['Match_Uma'] = fpq['name'].apply(lambda x: smart_match_name(x, valid_names))
+            ocr_sources.append(fpq)
 
-        if not finals_matches.empty and not finals_pq_df.empty:
-            finals_matches['Match_Uma'] = finals_matches['Clean_Uma']
-            merged_1 = pd.merge(finals_pq_df, finals_matches, on=['Match_IGN', 'Match_Uma'], how='inner')
-            merged_results.append(merged_1)
-        
-        if main_ocr_df is not None and not main_ocr_df.empty and not finals_matches.empty:
+        # 2. Main OCR (Prelims) as fallback
+        if main_ocr_df is not None and not main_ocr_df.empty:
             if 'Match_IGN' not in main_ocr_df.columns and 'ign' in main_ocr_df.columns:
                 main_ocr_df['Match_IGN'] = main_ocr_df['ign'].astype(str).str.lower().str.strip()
+                main_ocr_df['Normalized_IGN'] = main_ocr_df['Match_IGN'].apply(lambda x: re.sub(r'[^a-z0-9]', '', str(x)))
             if 'Match_Uma' not in main_ocr_df.columns and 'name' in main_ocr_df.columns:
                 main_ocr_df['Match_Uma'] = main_ocr_df['name'].apply(lambda x: smart_match_name(x, valid_names))
-                
-            found_keys = set()
-            if merged_results:
-                for df in merged_results:
-                    for _, r in df.iterrows():
-                        found_keys.add((r['Match_IGN'], r['Match_Uma']))
-            
-            finals_matches['match_key'] = list(zip(finals_matches['Match_IGN'], finals_matches['Match_Uma']))
-            missing_matches = finals_matches[~finals_matches['match_key'].isin(found_keys)].drop(columns=['match_key'])
-            
-            if not missing_matches.empty:
-                merged_2 = pd.merge(main_ocr_df, missing_matches, on=['Match_IGN', 'Match_Uma'], how='inner')
-                merged_results.append(merged_2)
+            ocr_sources.append(main_ocr_df)
 
-        final_merged_df = pd.concat(merged_results, ignore_index=True) if merged_results else pd.DataFrame()
+        final_merged_df = pd.DataFrame()
+        
+        if not finals_matches.empty and ocr_sources:
+            # Consolidated OCR
+            all_ocr = pd.concat(ocr_sources, ignore_index=True).drop_duplicates(subset=['Match_IGN', 'Match_Uma'])
+            
+            # Prep matches for merge
+            finals_matches['Match_Uma'] = finals_matches['Clean_Uma']
+            
+            # STRATEGY 1: Strict Merge (Best quality)
+            strict_merge = pd.merge(all_ocr, finals_matches, on=['Match_IGN', 'Match_Uma'], how='inner')
+            
+            # Find leftovers
+            matched_keys = set(zip(strict_merge['Match_IGN'], strict_merge['Match_Uma']))
+            leftover_matches = finals_matches[~finals_matches.set_index(['Match_IGN', 'Match_Uma']).index.isin(matched_keys)].copy()
+            
+            # STRATEGY 2: Fuzzy IGN Merge (Normalized alphanumeric)
+            if not leftover_matches.empty:
+                # Filter OCR to only those NOT already matched to prevent duplicates
+                leftover_ocr = all_ocr[~all_ocr.set_index(['Match_IGN', 'Match_Uma']).index.isin(matched_keys)].copy()
+                
+                fuzzy_merge = pd.merge(
+                    leftover_ocr, 
+                    leftover_matches, 
+                    on=['Normalized_IGN', 'Match_Uma'], 
+                    how='inner', 
+                    suffixes=('_ocr', '')
+                )
+                # Cleanup duplicate cols if any
+                if 'Match_IGN_ocr' in fuzzy_merge.columns:
+                    fuzzy_merge = fuzzy_merge.drop(columns=['Match_IGN_ocr'])
+                
+                final_merged_df = pd.concat([strict_merge, fuzzy_merge], ignore_index=True)
+            else:
+                final_merged_df = strict_merge
+
         return finals_matches, final_merged_df
         
     except Exception as e:
