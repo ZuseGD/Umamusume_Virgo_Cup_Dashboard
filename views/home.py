@@ -164,7 +164,8 @@ def show_view(df, team_df, current_config):
     fig_leader = px.bar(
         leaderboard, x='Score', y='Display_IGN', orientation='h', 
         color='Global_WinRate', text='Clean_Wins', color_continuous_scale='Turbo',
-        hover_data={'Team_Comp': True}
+        hover_data={'Team_Comp': True},
+        labels={'Score': 'Performance Score', 'Display_IGN': 'Trainer', 'Global_WinRate': 'Win Rate %', 'Clean_Wins': 'Wins'},
     )
     fig_leader.update_traces(texttemplate='Wins: %{text} | WR: %{marker.color:.1f}%', textposition='inside')
     st.plotly_chart(style_fig(fig_leader, height=600), width="stretch", config=PLOT_CONFIG)
@@ -183,5 +184,5 @@ def show_view(df, team_df, current_config):
                     'Rather not say': 'Rather not say'})
 
     fig_money_order = ['F2P', 'Salmon ($1-$100)', 'Bluefin Tuna ($101-$500)', 'Dolphin $501-$1000', 'Whale $1000++', 'Pirkui $10000++', 'Rather not say']
-    fig_money = px.box(team_df_sorted, x='Original_Spent', y='Calculated_WinRate', color='Original_Spent', category_orders={'Original_Spent': fig_money_order})
+    fig_money = px.box(team_df_sorted, x='Original_Spent', y='Calculated_WinRate', color='Original_Spent', category_orders={'Original_Spent': fig_money_order}, labels={'Original_Spent': 'Spending Tier', 'Calculated_WinRate': 'Win Rate %'}, title="Win Rate by Spending Tier", template='plotly_dark')
     st.plotly_chart(style_fig(fig_money, height=500), width="stretch", config=PLOT_CONFIG)
