@@ -15,9 +15,13 @@ def show_view(current_config):
     st.caption("Detailed breakdown of Stats, Skills, and Support Cards used.")
 
     with st.spinner("Loading Datasets..."):
-        ocr_df = load_ocr_data(parquet_file)
-        match_df, _ = load_data(sheet_url)
-        finals_matches, _ = load_finals_data(finals_csv, finals_pq)
+        ocr_df_cached = load_ocr_data(parquet_file)
+        ocr_df = ocr_df_cached.copy() if not ocr_df_cached.empty else pd.DataFrame()
+        match_df_cached, _ = load_data(sheet_url)
+        match_df = match_df_cached.copy() if not match_df_cached.empty else pd.DataFrame()  
+        finals_matches_cached, _ = load_finals_data(finals_csv, finals_pq)
+        finals_matches = finals_matches_cached.copy() if not finals_matches_cached.empty else pd.DataFrame()
+        
 
     if ocr_df.empty:
         st.error("❌ OCR Data not found.")

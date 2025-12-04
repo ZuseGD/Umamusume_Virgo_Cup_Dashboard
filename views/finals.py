@@ -68,13 +68,19 @@ def show_view(current_config):
             st.error(f"Could not load CSV: {e}")
             return
 
-        prelims_raw = load_ocr_data(prelims_pq)
-        matches_df, finals_ocr = load_finals_data(csv_path, pq_path, main_ocr_df=prelims_raw)
+        prelims_raw_cached = load_ocr_data(prelims_pq)
+        prelims_raw = prelims_raw_cached.copy() if not prelims_raw_cached.empty else pd.DataFrame()
+        matches_df_cached, finals_ocr_cached = load_finals_data(csv_path, pq_path, main_ocr_df=prelims_raw)
+        matches_df = matches_df_cached.copy() if not matches_df_cached.empty else pd.DataFrame()
+        finals_ocr = finals_ocr_cached.copy() if not finals_ocr_cached.empty else pd.DataFrame()
         
         # Load Raw Finals Parquet explicitly for "Opponent Recovery"
-        raw_finals_pq = load_ocr_data(pq_path)
+        raw_finals_pq_cached = load_ocr_data(pq_path)
+        raw_finals_pq = raw_finals_pq_cached.copy() if not raw_finals_pq_cached.empty else pd.DataFrame()
         
-        sheet_df, _ = load_data(SHEET_URL)
+        sheet_df_cached, _ = load_data(SHEET_URL)
+        sheet_df = sheet_df_cached.copy() if not sheet_df_cached.empty else pd.DataFrame()
+
     
     if matches_df.empty:
         st.warning("⚠️ Could not parse Finals data.")
@@ -268,7 +274,7 @@ def show_view(current_config):
         "💖 Oshi & Awards",
         "📊 Meta Overview", 
         "⚔️ Team Comps", 
-        "⚡ Skill Lift", 
+        "⚡ Skills Analysis", 
         "🏆 Champion Stats",
         "🌐 Global Stats",
         "💸 Economics"
@@ -515,7 +521,8 @@ def show_view(current_config):
 
     # --- TAB 3: SKILL LIFT (UPDATED WITH EXPANDED POOL) ---
     with tab3:
-        st.subheader("⚡ Skill Lift Analysis")
+        st.subheader("⚡ Skills Analysis")
+        st.warning("This analysis compares the skill usage of all identified Finals Champions (including Opponents) against the general pool of Prelims participants. It helps identify any skill advantages held by winning characters against **SUBMITTED ROUNDS DATA** (which is a smaller pool) THIS MEANS THAT IF THERE IS A SMALLER SAMPLE OF UMAS THEN THE GRAPHS MAY BE SIMILAR DUE TO SURVIVORSHIP BIAS.")
         st.markdown(f"**Analyzing {len(champion_stats_df)} Champion profiles (Own + Verified Opponents).**")
         
         if champion_stats_df.empty or prelims_baseline.empty:
@@ -526,7 +533,6 @@ def show_view(current_config):
                 all_umas = sorted(list(set(champion_stats_df['Match_Uma'].unique()) | set(prelims_baseline['Match_Uma'].unique())))
                 sel_uma = st.selectbox("Filter by Character:", ["All"] + all_umas, key="lift_uma")
             with c2:
-                # Use 'Unknown' style if missing from Opponent data
                 avail_styles = sorted(champion_stats_df['Clean_Style'].unique())
                 sel_style = st.selectbox("Filter by Style:", ["All"] + avail_styles, key="lift_style")
             
