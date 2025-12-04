@@ -56,7 +56,7 @@ def show_view(df, team_df):
             texttemplate='%{x:.1f}%', 
             textposition='inside',
             # Tooltip: Strategy -> Win Rate -> Distribution % -> True Race Volume
-            hovertemplate='<b>%{y}</b><br>Win Rate: %{x:.1f}%<br>Usage Split: %{customdata[2]:.1f}%<br>Races: %{customdata[0]}<extra></extra>'
+            hovertemplate='<b>%{y}</b><br>Win Rate: %{x:.1f}%'
         )
         
         fig_drill.update_layout(xaxis_title="Win Rate (%)", yaxis_title=None)

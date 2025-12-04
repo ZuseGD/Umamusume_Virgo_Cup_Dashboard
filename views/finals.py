@@ -672,7 +672,6 @@ def show_view(current_config):
         st.markdown("Impact of **Spending** and **Grind Volume** on Results.")
         
         econ_df = matches_df
-        print(econ_df.head())
         if econ_df.empty:
             st.warning("No spending/runs data found in CSV.")
         else:

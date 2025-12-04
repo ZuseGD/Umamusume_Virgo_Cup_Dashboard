@@ -86,12 +86,12 @@ DESCRIPTIONS = {
     """,
     "style": """
     **Running Style:**
-    - **Metric:** Win rate by strategy (Runaway/Nigeru, Front/Senkou, etc.).
+    - **Metric:** Win rate by strategy (Runaway/Oonige, Front, etc.).
     - **Goal:** Identifies the dominant running style for this specific track.
     """,
     "runaway": """
     **Runaway Impact:**
-    - **Hypothesis:** "You need a Runaway (Nigeru) to control the pace."
+    - **Hypothesis:** "You need a Runaway (Oonige) to control the pace."
     - **Metric:** Compares win rates of teams *with* at least one Runaway vs teams *without* one.
     """,
     # --- UMAS ---
@@ -159,6 +159,7 @@ VARIANT_MAP = {
     "Anime Collab": "Anime", "Cyberpunk": "Cyberpunk",
     "Lucky Tidings": "Full Armor", "Princess": "Princess"
 }
+
 
 def smart_match_name(raw_name, valid_csv_names):
     """
@@ -366,8 +367,7 @@ def load_data(sheet_url):
         else:
             df['Clean_Wins'] = 0
 
-        # Safety: Cap Wins to Races
-        df['Clean_Wins'] = df.apply(lambda x: min(x['Clean_Wins'], x['Clean_Races']), axis=1)
+        df = df[df['Clean_Wins'] <= df['Clean_Races']]
 
         # Calc WR
         df['Calculated_WinRate'] = (df['Clean_Wins'] / df['Clean_Races']) * 100
@@ -378,9 +378,16 @@ def load_data(sheet_url):
         # Sorting descending by Races ensures we keep the entry with the most complete data
         df = df.sort_values(by=['Clean_Races', 'Clean_Wins'], ascending=[False, False])
         df = df.drop_duplicates(subset=['Clean_IGN', 'Round', 'Day', 'Clean_Uma'], keep='first')
+       
 
         # 6. ANONYMIZE
         df = anonymize_players(df)
+
+        filter_mask = (
+            df['Clean_Style'].str.contains('Runaway|Oonige|Great Escape', case=False, na=False) & 
+            (df['Clean_Uma'] != 'Silence Suzuka')
+        )
+        df = df[~filter_mask]
         
         # 7. REBUILD TEAMS (Group by Session)
         # Since data is Long Format (1 row per Uma), we group by Session ID to get the Team
@@ -510,8 +517,10 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
                     })
         
         finals_matches = pd.DataFrame(processed_rows)
+
         if not finals_matches.empty:
             finals_matches['Sort_Money'] = clean_currency_numeric(finals_matches['Spending_Text'])
+        
 
     except Exception as e:
         st.error(f"Error parsing Finals CSV: {e}")

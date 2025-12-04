@@ -153,5 +153,16 @@ def show_view(df, team_df, current_config):
     # --- MONEY ---
     st.subheader("💰 Spending Impact")
     team_df_sorted = team_df.sort_values('Sort_Money')
-    fig_money = px.box(team_df_sorted, x='Original_Spent', y='Calculated_WinRate', color='Original_Spent')
+
+    team_df_sorted['Original_Spent'] = team_df_sorted['Original_Spent'].map({
+                    'F2P': 'F2P',
+                    '$1-$100': 'Salmon ($1-$100)',
+                    '$101-$500': 'Bluefin Tuna ($101-$500)',
+                    '$501-$1000': 'Dolphin $501-$1000',
+                    '$1000++': 'Whale $1000++',
+                    '$10000+++ (Pirkui)': 'Pirkui $10000++',
+                    'Rather not say': 'Rather not say'})
+
+    fig_money_order = ['F2P', 'Salmon ($1-$100)', 'Bluefin Tuna ($101-$500)', 'Dolphin $501-$1000', 'Whale $1000++', 'Pirkui $10000++', 'Rather not say']
+    fig_money = px.box(team_df_sorted, x='Original_Spent', y='Calculated_WinRate', color='Original_Spent', category_orders={'Original_Spent': fig_money_order})
     st.plotly_chart(style_fig(fig_money, height=500), width="stretch", config=PLOT_CONFIG)
