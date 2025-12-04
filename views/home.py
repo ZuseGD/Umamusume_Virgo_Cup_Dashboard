@@ -95,9 +95,10 @@ def show_view(df, team_df, current_config):
             fig_trend = px.line(
                 trend_df, x='Session', y='Calculated_WinRate', 
                 title="Global Win Rate Trend (Difficulty)",
-                markers=True, template='plotly_dark', text='Calculated_WinRate'
+                markers=True, template='plotly_dark', text='Calculated_WinRate',
+                labels={'Calculated_WinRate': 'Avg Win Rate %', 'Session': 'Tournament Session'}
             )
-            fig_trend.update_traces(textposition="top center", texttemplate='%{text:.1f}%')
+            fig_trend.update_traces(textposition="top center", texttemplate='%{text:.1f}%', hovertemplate='Session: %{x}<br>Avg WR: %{y:.3f}%<extra></extra>')
             st.plotly_chart(style_fig(fig_trend, height=400), width='stretch', config=PLOT_CONFIG)
         else:
             st.info("No timeline data available.")
@@ -125,10 +126,28 @@ def show_view(df, team_df, current_config):
         fig_dist.update_layout(bargap=0.1)
         st.plotly_chart(style_fig(fig_dist, height=350), width="stretch", config=PLOT_CONFIG)
     with g2:
-        group_stats = team_df.groupby('Clean_Group')['Calculated_WinRate'].mean().reset_index()
-        fig_group = px.bar(group_stats, x='Clean_Group', y='Calculated_WinRate', title="Difficulty by Group", color='Calculated_WinRate', color_continuous_scale='Redor')
-        st.plotly_chart(style_fig(fig_group, height=350), width="stretch", config=PLOT_CONFIG)
+        # UPDATED: Aggregate both Win Rate (Mean) and Races (Sum)
+        group_stats = team_df.groupby('Clean_Group').agg({
+            'Calculated_WinRate': 'mean', 
+            'Clean_Races': 'sum'
+        }).reset_index()
 
+        fig_group = px.bar(
+            group_stats, 
+            x='Clean_Group', 
+            y='Calculated_WinRate', 
+            title="Difficulty by Group", 
+            color='Calculated_WinRate', 
+            color_continuous_scale='Redor',
+            text='Clean_Races',  # <--- Bind text to Race Count
+            labels={'Clean_Races': 'Races Played', 'Calculated_WinRate': 'Win Rate %', 'Clean_Group': 'Group'}
+            
+        )
+        
+        # Display the race count inside the bar
+        fig_group.update_traces(texttemplate='%{text} Races', hovertemplate='%{text} Races', textposition='inside')
+        
+        st.plotly_chart(style_fig(fig_group, height=350), width="stretch", config=PLOT_CONFIG)
     # --- LEADERBOARD ---
     st.subheader("👑 Top Performers")
     unique_sessions = df.drop_duplicates(subset=['Display_IGN', 'Round', 'Day'])
