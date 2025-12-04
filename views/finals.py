@@ -660,13 +660,13 @@ def show_view(current_config):
         fig_place_pct.update_yaxes(categoryorder='array', categoryarray=place_pivot_sorted.index)
         st.plotly_chart(style_fig(fig_place_pct), width='stretch', config=PLOT_CONFIG)
 
-    # --- TAB 6: ECONOMICS & CARDS ---
+    # --- TAB 6: ECONOMICS (UPDATED) ---
     with tab6:
         st.subheader("💸 Economics & Investment Analysis")
         st.markdown("Impact of **Spending** and **Grind Volume** on Results.")
         
-        econ_df = matches_df[matches_df['Spending_Text'] != 'Unknown'].copy()
-        
+        econ_df = matches_df
+        print(econ_df.head())
         if econ_df.empty:
             st.warning("No spending/runs data found in CSV.")
         else:
@@ -674,20 +674,35 @@ def show_view(current_config):
             
             with c1:
                 st.markdown("##### 💰 Win Rate by Spending Tier")
+                
+                # FIX 1: Rename 'None' to 'F2P' for visibility
+                econ_df['Spending_Text'] = econ_df['Spending_Text'].replace({'None': 'F2P', 'NaN': 'F2P', 'Unknown': 'F2P'})
+                econ_df['Spending_Text'] = econ_df['Spending_Text'].fillna('F2P')
                 spend_stats = econ_df.groupby('Spending_Text').agg({
                     'Is_Winner': ['mean', 'count'],
                     'Sort_Money': 'mean' 
                 }).reset_index()
                 spend_stats.columns = ['Tier', 'Win_Rate', 'Entries', 'Sort_Val']
                 spend_stats['Win_Rate'] *= 100
-                spend_stats = spend_stats.sort_values('Sort_Val')
+                
+                spend_stats['Tier'] = spend_stats['Tier'].map({
+                    'F2P': 'F2P',
+                    '$1-$50': 'Sardine ($1-$50)',
+                    '$51-100': 'Salmon ($51-$100)',
+                    '$101-$500': 'Bluefin Tuna ($101-$500)',
+                    '$501-$1000': 'Dolphin $501-$1000',
+                    '$1000+': 'Whale $1000+'})
+
+                custom_order = ['F2P', 'Sardine ($1-$50)', 'Salmon ($51-$100)', 'Bluefin Tuna ($101-$500)', 'Dolphin $501-$1000', 'Whale $1000+']
                 
                 fig_spend = px.bar(
-                    spend_stats, x='Tier', y='Win_Rate', text='Entries',
+                    spend_stats, x='Tier', y='Win_Rate', text= 'Entries',
                     title="Money vs. Win Rate",
-                    template='plotly_dark', color='Win_Rate', color_continuous_scale='Greens'
+                    template='plotly_dark', color='Win_Rate', color_continuous_scale='Greens', category_orders={'Tier': custom_order}
                 )
                 fig_spend.update_traces(texttemplate='%{text} Entries', textposition='outside')
+                fig_spend.update_xaxes(categoryorder='array', categoryarray=custom_order)
+                
                 st.plotly_chart(style_fig(fig_spend), width='stretch', config=PLOT_CONFIG)
             
             with c2:
@@ -697,11 +712,13 @@ def show_view(current_config):
                     
                     if not runs_df.empty:
                         def sort_runs(val):
-                            val = str(val)
-                            if '0' in val: return 0
-                            if '1' in val: return 1
-                            if '3' in val: return 3
-                            if '6' in val: return 6
+                            v = str(val).lower()
+                            if '0-2' in v: return 0
+                            if '0-3' in v: return 1
+                            if '1-3' in v: return 2
+                            if v.strip() == '3': return 3
+                            if '4-5' in v: return 4
+                            if '6+' in v: return 6
                             return 99
 
                         run_stats = runs_df.groupby('Runs_Text').agg({
@@ -711,6 +728,9 @@ def show_view(current_config):
                         run_stats['Sort_Val'] = run_stats['Runs'].apply(sort_runs)
                         run_stats['Win_Rate'] *= 100
                         run_stats = run_stats.sort_values('Sort_Val')
+                        
+                        # FIX 3: Enforce Order
+                        run_order = run_stats['Runs'].tolist()
 
                         fig_runs = px.bar(
                             run_stats, x='Runs', y='Win_Rate', text='Entries',
@@ -718,10 +738,10 @@ def show_view(current_config):
                             template='plotly_dark', color='Win_Rate', color_continuous_scale='Blues'
                         )
                         fig_runs.update_traces(texttemplate='%{text} Entries', textposition='outside')
+                        fig_runs.update_xaxes(categoryorder='array', categoryarray=run_order)
+                        
                         st.plotly_chart(style_fig(fig_runs), width='stretch', config=PLOT_CONFIG)
                     else:
                         st.info("No valid run data found.")
                 else:
                     st.info("No runs data available.")
-
-            st.markdown("---")
