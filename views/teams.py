@@ -153,7 +153,8 @@ def show_view(df, team_df):
             text='Pick_Rate', 
             color_continuous_scale='Viridis', 
             height=400,
-            hover_data={'Entries': True}
+            hover_data={'Entries': True},
+            labels={'Calculated_WinRate': 'Win Rate (%)', 'Standard_Style': 'Running Style', 'Pick_Rate': 'Pick Rate (%)'}
         )
         
         fig_style.update_layout(
@@ -197,7 +198,8 @@ def show_view(df, team_df):
             runner_stats, x='Strategy', y='Calculated_WinRate', color='Strategy',
             template='plotly_dark', text='Pick_Rate',
             color_discrete_sequence=['#00CC96', '#EF553B'], height=500,
-            hover_data={'Entries': True}
+            hover_data={'Entries': True},
+            labels={'Calculated_WinRate': 'Win Rate (%)', 'Pick_Rate': 'Pick Rate (%)'}
         )
         fig_runner.update_traces(
             texttemplate='Usage: %{text:.1f}%', 
@@ -237,7 +239,7 @@ def show_view(df, team_df):
                 title="Top 5 Teams: Daily Pick Rate %",
                 markers=True, 
                 template='plotly_dark',
-                labels={'Pick_Rate': 'Pick Rate (%)'}
+                labels={'Pick_Rate': 'Pick Rate (%)', 'Team_Comp': 'Team Composition'}
             )
             fig_evo.update_layout(hovermode="x unified", yaxis_title="Pick Rate (%)")
             st.plotly_chart(style_fig(fig_evo, height=500), width="stretch", config=PLOT_CONFIG)

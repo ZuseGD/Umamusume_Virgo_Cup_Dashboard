@@ -73,7 +73,8 @@ def show_view(current_config):
                 filt_df.melt(id_vars='Group', value_vars=valid_cols), 
                 x='variable', y='value', color='Group', 
                 title="Stat Distribution: High Win Rate vs Low Win Rate",
-                template='plotly_dark'
+                template='plotly_dark',
+                labels={'variable': 'Stat', 'value': 'Stat Value'}
             )
             st.plotly_chart(style_fig(fig_box), width='stretch', config=PLOT_CONFIG)
 
@@ -97,7 +98,8 @@ def show_view(current_config):
                 skill_perf.sort_values('Calculated_WinRate', ascending=True), 
                 x='Calculated_WinRate', y='skills', orientation='h',
                 title="Win Rate of Most Common Skills",
-                template='plotly_dark', color='Calculated_WinRate'
+                template='plotly_dark', color='Calculated_WinRate',
+                labels={'Calculated_WinRate': 'Win Rate (%)', 'skills': 'Skill Name'}
             )
             st.plotly_chart(style_fig(fig_skill, height=600), width='stretch', config=PLOT_CONFIG)
 
@@ -117,7 +119,8 @@ def show_view(current_config):
             fig_card = px.bar(
                 card_stats, x=col, y='Calculated_WinRate', color='Calculated_WinRate',
                 title=f"Impact of {target}", text='Calculated_WinRate', template='plotly_dark',
-                hover_data={'Clean_IGN': True}
+                hover_data={'Clean_IGN': True},
+                labels={col: 'Card Status', 'Calculated_WinRate': 'Win Rate (%)'}
             )
             fig_card.update_traces(texttemplate='%{text:.1f}%')
             st.plotly_chart(style_fig(fig_card), width='stretch', config=PLOT_CONFIG)
@@ -169,11 +172,12 @@ def show_view(current_config):
             
             fig_hist = px.histogram(
                 combined, x='Row_WR', color='Group', barmode='overlay', nbins=20,
-                title="Win Rate Distribution: Taiki vs Field (All Rounds)",
+                title=f"Win Rate Distribution: {target} vs Field (All Rounds)",
                 template='plotly_dark', opacity=0.7,
                 color_discrete_map={target: '#00CC96', 'The Field': '#EF553B'},
                 pattern_shape='Group',
-                pattern_shape_sequence=['+', 'x']
+                pattern_shape_sequence=['+', 'x'],
+                labels={'Row_WR': 'Win Rate (%)', 'count': 'Number of Entries'}
             )
             st.plotly_chart(style_fig(fig_hist), width='stretch', config=PLOT_CONFIG)
         else:
@@ -184,11 +188,13 @@ def show_view(current_config):
         if 'Mile' in merged_df.columns:
             apt_stats = merged_df.groupby('Mile')['Calculated_WinRate'].mean().reset_index()
             apt_stats = apt_stats[apt_stats['Mile'].isin(['S', 'A'])]
-            fig_apt = px.bar(apt_stats, x='Mile', y='Calculated_WinRate', color='Mile', text='Calculated_WinRate', title="Mile Aptitude S vs A", template='plotly_dark')
+            fig_apt = px.bar(apt_stats, x='Mile', y='Calculated_WinRate', color='Mile', text='Calculated_WinRate', title="Mile Aptitude S vs A", template='plotly_dark', labels={'Calculated_WinRate': 'Win Rate (%)', 'Mile': 'Mile Aptitude'})
+            fig_apt.update_traces(texttemplate='%{text:.1f}%')
             st.plotly_chart(style_fig(fig_apt, height=400), width='stretch', config=PLOT_CONFIG)
             
     with tab6:
         if 'ultimate_level' in merged_df.columns:
             ult_stats = merged_df.groupby('ultimate_level')['Calculated_WinRate'].mean().reset_index()
-            fig_ult = px.bar(ult_stats, x='ultimate_level', y='Calculated_WinRate', text='Calculated_WinRate', title="Win Rate by Unique Level", template='plotly_dark')
+            fig_ult = px.bar(ult_stats, x='ultimate_level', y='Calculated_WinRate', text='Calculated_WinRate', title="Win Rate by Unique Level", template='plotly_dark', labels={'Calculated_WinRate': 'Win Rate (%)', 'ultimate_level': 'Unique Level'})
+            fig_ult.update_traces(texttemplate='%{text:.1f}%')
             st.plotly_chart(style_fig(fig_ult, height=400), width='stretch', config=PLOT_CONFIG)

@@ -81,8 +81,66 @@ def show_view(df, team_df, current_config):
     
     st.markdown("---")
 
+    '''
     # --- GLOBAL CONTEXT & TRENDS (Consolidated from Resources) ---
     st.subheader("📈 Meta Trends & Health")
+
+    # --- 1. PREPARE DATA ---
+    # Group by Round/Day/Style and count entries
+    daily_style = df.groupby(['Round', 'Day', 'Clean_Style']).size().reset_index(name='Count')
+
+    # Create a 'Session' column for the X-Axis (e.g., "Round 1 - Day 1")
+    daily_style['Session'] = daily_style['Round'].astype(str) + " - " + daily_style['Day'].astype(str)
+
+    # Calculate Percentage (Meta Share) per Session
+    daily_totals = daily_style.groupby('Session')['Count'].transform('sum')
+    daily_style['Percentage'] = (daily_style['Count'] / daily_totals) * 100
+
+    # --- 2. PLOT STACKED BAR CHART ---
+    fig_stack_style = px.bar(
+        daily_style, 
+        x='Clean_Style', 
+        y='Percentage', 
+        color='Session', # <--- This creates the stacks
+        title="Daily Strategy Meta Breakdown (Stacked)",
+        text='Percentage',
+        template='plotly_dark',
+        labels={'Clean_Style': 'Strategy Style', 'Percentage': 'Meta Share (%)', 'Session': 'Tournament Session'},
+        barmode='group'
+    )
+
+    # Format the text to show 1 decimal place
+    fig_stack_style.update_traces(texttemplate='%{text:.1f}%', textposition='inside')
+    fig_stack_style.update_layout(uniformtext_minsize=8, uniformtext_mode='hide')
+
+    st.plotly_chart(style_fig(fig_stack_style, height=500), width="stretch", config=PLOT_CONFIG)
+
+    # --- 1. FILTER TOP CHARACTERS ---
+    # Get the names of the Top 10 most used Umas globally
+    top_umas = df['Clean_Uma'].value_counts().head(10).index.tolist()
+    filtered_df = df[df['Clean_Uma'].isin(top_umas)]
+
+    # --- 2. PREPARE DATA ---
+    daily_uma = filtered_df.groupby(['Round', 'Day', 'Clean_Uma']).size().reset_index(name='Count')
+    daily_uma['Session'] = daily_uma['Round'].astype(str) + " - " + daily_uma['Day'].astype(str)
+
+    # --- 3. PLOT STACKED BAR CHART ---
+    fig_stack_uma = px.bar(
+        daily_uma, 
+        x='Session', 
+        y='Count', 
+        color='Clean_Uma', # <--- Stacks by Character Name
+        title="Top 10 Umas: Daily Usage Volume",
+        template='plotly_dark',
+        barmode='group',
+        labels={'Session': 'Tournament Session', 'Count': 'Usage Count', 'Clean_Uma': 'Uma Name'},
+        text='Count' # Show the raw count inside the bar
+    )
+
+    fig_stack_uma.update_traces(textposition='inside')
+
+    st.plotly_chart(style_fig(fig_stack_uma, height=500), width="stretch", config=PLOT_CONFIG)
+    '''
     
     t1, t2 = st.columns(2)
     
@@ -118,6 +176,7 @@ def show_view(df, team_df, current_config):
         st.plotly_chart(style_fig(fig_luck, height=400), width="stretch", config=PLOT_CONFIG)
 
     st.markdown("---")
+    
 
     # --- DISTRIBUTIONS ---
     g1, g2 = st.columns(2)

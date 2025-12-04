@@ -131,6 +131,7 @@ def show_view(df, team_df):
         template='plotly_dark', 
         # Pass extra data for tooltip
         hover_data={'Clean_Uma': True, 'Short_Name': False, 'Clean_Races': False, 'Pick_Rate': ':.2f'},
+        labels={'Calculated_WinRate': 'Win Rate (%)', 'Short_Name': 'Uma', 'Pick_Rate': 'Pick Rate (%)'},
         height=chart_height
     )
     

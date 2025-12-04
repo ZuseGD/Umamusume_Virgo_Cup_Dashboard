@@ -321,6 +321,8 @@ def show_view(current_config):
                     fig_gems = px.bar(
                         oshi_stats, x='Win_Rate', y='Uma', orientation='h',
                         title="Top Performing Niche Picks",
+                        labels={'Win_Rate': 'Win Rate (%)', 'Entries': 'Total Picks'},
+                        text='Entries',
                         template='plotly_dark', color='Win_Rate', color_continuous_scale='Teal'
                     )
                     fig_gems.update_layout(yaxis={'categoryorder':'total ascending'})
@@ -340,6 +342,7 @@ def show_view(current_config):
                         worst_stats, x='Win_Rate', y='Uma', orientation='h',
                         text='Entries',
                         title="Lowest Win Rates (Min 5 Entries)",
+                        labels={'Win_Rate': 'Win Rate (%)', 'Entries': 'Total Picks'},
                         template='plotly_dark', color='Win_Rate', color_continuous_scale='Redor_r'
                     )
                     fig_worst.update_traces(texttemplate='%{text} Picks', textposition='outside')
@@ -470,7 +473,7 @@ def show_view(current_config):
         else:
             st.info("Not enough cumulative data.")
 
-    # --- TAB 2: TEAM COMPS ---
+    # --- TAB 3: TEAM COMPS ---
     with tab2:
         st.subheader("⚔️ Winning Team Compositions")
         team_df = matches_df.groupby(['Display_IGN', 'Result']).agg({
@@ -488,7 +491,8 @@ def show_view(current_config):
         
         fig = px.bar(
             comp_stats, x='Win_Rate', y='Team', orientation='h', text='Label',
-            title="Top Winning Teams (Win Count)", template='plotly_dark', color='Wins', color_continuous_scale='Plasma'
+            title="Top Winning Teams (Win Count)", template='plotly_dark', color='Wins', color_continuous_scale='Plasma',
+            labels={'Win_Rate': 'Win Rate (%)', 'Team': 'Team Composition', 'Wins': 'Total Wins'}
         )
         fig.update_layout(yaxis={'categoryorder':'total ascending'})
         st.plotly_chart(style_fig(fig), width='stretch', config=PLOT_CONFIG)
@@ -514,7 +518,8 @@ def show_view(current_config):
             team_long, x='Count', y='Team_Comp', color='Place', orientation='h',
             title="Placement Breakdown for Top 15 Teams", template='plotly_dark',
             category_orders={'Place': ['1st', '2nd', '3rd']},
-            color_discrete_map={'1st': '#FFD700', '2nd': '#C0C0C0', '3rd': '#CD7F32'}
+            color_discrete_map={'1st': '#FFD700', '2nd': '#C0C0C0', '3rd': '#CD7F32'},
+            labels={'Team_Comp': 'Team Composition', 'Count': 'Number of Placements', 'Place': 'Placement'}
         )
         fig_team_place.update_layout(yaxis={'categoryorder':'total ascending'}, barmode='stack')
         st.plotly_chart(style_fig(fig_team_place, height=600), width='stretch', config=PLOT_CONFIG)
@@ -559,7 +564,8 @@ def show_view(current_config):
             
             top = lift.sort_values('Lift', ascending=False).head(20).copy()
             if not top.empty:
-                fig = px.bar(top, x='Lift', y=top.index, orientation='h', color='New', title="Skill Lift (Winners vs Baseline)", template='plotly_dark', color_discrete_map={True: '#FFD700', False: '#00CC96'})
+                fig = px.bar(top, x='Lift', y=top.index, orientation='h', color='New', title="Skill Lift (Winners vs Baseline)", template='plotly_dark', color_discrete_map={True: '#FFD700', False: '#00CC96'},
+                             labels={'Lift': 'Lift (%)', 'index': 'Skill', 'New': 'New Skill'})
                 fig.update_layout(yaxis={'categoryorder':'total ascending'})
                 st.plotly_chart(style_fig(fig), width='stretch', config=PLOT_CONFIG)
             else:
@@ -595,7 +601,8 @@ def show_view(current_config):
             cols = [c for c in ['Speed', 'Stamina', 'Power', 'Guts', 'Wit'] if c in w_df.columns and c in f_df.columns]
             if cols and not w_df.empty and not f_df.empty:
                 melt = pd.concat([w_df[cols+['Group']], f_df[cols+['Group']]]).melt(id_vars='Group', value_vars=cols)
-                fig = px.box(melt, x='variable', y='value', color='Group', template='plotly_dark', color_discrete_map={'Champions': '#00CC96', 'The Field': '#EF553B'})
+                fig = px.box(melt, x='variable', y='value', color='Group', template='plotly_dark', color_discrete_map={'Champions': '#00CC96', 'The Field': '#EF553B'}, 
+                             title="Stat Distribution: Champions vs The Field", labels={'variable': 'Stat', 'value': 'Value'})
                 st.plotly_chart(style_fig(fig), width='stretch', config=PLOT_CONFIG)
             else:
                 st.warning("Insufficient stats data.")
@@ -642,7 +649,8 @@ def show_view(current_config):
             place_counts_long, x='Count', y='Clean_Uma', color='Place', orientation='h',
             title="Placement Counts (Top 20 Most Popular)", template='plotly_dark',
             category_orders={'Place': ['1st', "Didn't Win"]},
-            color_discrete_map={'1st': '#FFD700', "Didn't Win": '#333333'}
+            color_discrete_map={'1st': '#FFD700', "Didn't Win": '#333333'},
+            labels={'Clean_Uma': 'Character', 'Count': 'Number of Placements', 'Place': 'Placement'}
         )
         fig_place_counts.update_layout(yaxis={'categoryorder':'total ascending'})
         st.plotly_chart(style_fig(fig_place_counts), width='stretch', config=PLOT_CONFIG)
@@ -661,7 +669,8 @@ def show_view(current_config):
             place_long_pct, x='Pct', y='Clean_Uma', color='Place', orientation='h',
             title="Placement Shares (Sorted by 1st Place %)", template='plotly_dark',
             category_orders={'Place': ['1st', "Didn't Win"]},
-            color_discrete_map={'1st': '#FFD700', "Didn't Win": '#333333'}
+            color_discrete_map={'1st': '#FFD700', "Didn't Win": '#333333'},
+            labels={'Clean_Uma': 'Character', 'Pct': 'Percentage (%)', 'Place': 'Placement'}
         )
         fig_place_pct.update_yaxes(categoryorder='array', categoryarray=place_pivot_sorted.index)
         st.plotly_chart(style_fig(fig_place_pct), width='stretch', config=PLOT_CONFIG)
@@ -703,7 +712,8 @@ def show_view(current_config):
                 fig_spend = px.bar(
                     spend_stats, x='Tier', y='Win_Rate', text= 'Entries',
                     title="Money vs. Win Rate",
-                    template='plotly_dark', color='Win_Rate', color_continuous_scale='Greens', category_orders={'Tier': custom_order}
+                    template='plotly_dark', color='Win_Rate', color_continuous_scale='Greens', category_orders={'Tier': custom_order},
+                    labels={'Tier': 'Spending Tier', 'Win_Rate': 'Win Rate (%)', 'Entries': 'Number of Entries'}
                 )
                 fig_spend.update_traces(texttemplate='%{text} Entries', textposition='outside')
                 fig_spend.update_xaxes(categoryorder='array', categoryarray=custom_order)
@@ -740,7 +750,8 @@ def show_view(current_config):
                         fig_runs = px.bar(
                             run_stats, x='Runs', y='Win_Rate', text='Entries',
                             title="Grind Volume vs. Win Rate",
-                            template='plotly_dark', color='Win_Rate', color_continuous_scale='Blues'
+                            template='plotly_dark', color='Win_Rate', color_continuous_scale='Blues',
+                            labels={'Runs': 'Daily Runs', 'Win_Rate': 'Win Rate (%)', 'Entries': 'Number of Entries'}
                         )
                         fig_runs.update_traces(texttemplate='%{text} Entries', textposition='outside')
                         fig_runs.update_xaxes(categoryorder='array', categoryarray=run_order)

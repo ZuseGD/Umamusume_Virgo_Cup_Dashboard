@@ -10,7 +10,7 @@ def show_view():
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("Zuse")
-        st.caption("Website Designer & Graphs Team")
+        st.caption("Website & Graphs guy, Data Analyst")
         st.markdown("- **Discord:** @zusethegoose\n- **GitHub:** [ZuseGD](https://github.com/ZuseGD)")
         
     with col2:
@@ -36,7 +36,7 @@ def show_view():
         st.markdown("#### 🖼️ Canva Slides")
         st.markdown("- Ramen")
         st.markdown("#### 🔍 OCR & Testing")
-        st.markdown("- Vali")
+        st.markdown("- Vali\n- Chloe\n - JohnnyZB")
 
     st.markdown("---")
     st.subheader("☕ Support the Project")
