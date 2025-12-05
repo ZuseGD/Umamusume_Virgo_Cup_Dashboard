@@ -681,7 +681,7 @@ def show_view(current_config):
         st.subheader("💸 Economics & Investment Analysis")
         st.markdown("Impact of **Spending** and **Grind Volume** on Results.")
         
-        econ_df = matches_df
+        econ_df = matches_df.copy()
         if econ_df.empty:
             st.warning("No spending/runs data found in CSV.")
         else:

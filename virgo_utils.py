@@ -290,7 +290,7 @@ def _clean_raw_data(df: pd.DataFrame) -> pd.DataFrame:
         df['Clean_Wins'] = 0
 
     # Sanity check: Wins cannot exceed Races
-    df = df[df['Clean_Wins'] <= df['Clean_Races']]
+    df = df[df['Clean_Wins'] <= df['Clean_Races']].copy()
 
     # Calculate Win Rate
     df['Calculated_WinRate'] = (df['Clean_Wins'] / df['Clean_Races']) * 100
