@@ -1,10 +1,12 @@
+from decouple import config
+
 # update the relevant CM form_url with link when form is live/none when inactive
 # update sheet_url with the exploded CSV link from Google Sheets when available use the previous event's link as placeholder if needed
 CM_LIST = {
     "Virgo Cup (2025)": {
         "id": "cm5",
         "icon": "🏆",
-        "sheet_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vTR8Pa4QQVSNwepSe9dYnro3ZaVEpYQmBdZUzumuLL-U2IR3nKVh-_GbZeJHT2x9aCqnp7P-0hPm5Zd/pub?gid=221070242&single=true&output=csv",
+        "sheet_url": config('VIRGO_SHEET_URL', default=''),
         "parquet_file": "data/1_virgo_prelims.parquet",
 
         # FINALS DATA (New)
@@ -21,7 +23,7 @@ CM_LIST = {
         "id": "cm6",
         "icon": "⚖️",
         # Placeholder URL (You can update this when Libra data exists)
-        "sheet_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vTR8Pa4QQVSNwepSe9dYnro3ZaVEpYQmBdZUzumuLL-U2IR3nKVh-_GbZeJHT2x9aCqnp7P-0hPm5Zd/pub?gid=221070242&single=true&output=csv",
+        "sheet_url": config('VIRGO_SHEET_URL', default=''),
         "parquet_file": "libra.parquet" ,
         "finals_csv": None, 
         "finals_parquet": None,
