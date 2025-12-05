@@ -92,32 +92,33 @@ if 'Day' in df.columns:
 # 6. HEADER
 st.title(f"{current_config['icon']} {selected_event_name} Dashboard")
 
-# 7. NAVIGATION (Streamlined)
-# Reduced columns to 6 for better spacing
-nav_cols = st.columns(6)
+# 7. NAVIGATION
+pages = [
+    {"label": "Overview", "name": "Home", "icon": "🌍"},
+    {"label": "Meta Tier List", "name": "Umas", "icon": "📊"},
+    {"label": "Team Comps", "name": "Teams", "icon": "⚔️"},
+    {"label": "Build Analysis", "name": "OCR", "icon": "🔬"},
+    {"label": "Finals Results", "name": "Finals", "icon": "🏆"},
+    {"label": "Library", "name": "Guides", "icon": "📚"},
+]
+
+nav_cols = st.columns(len(pages))
 if 'current_page' not in st.session_state: st.session_state.current_page = "Home"
 
 def set_page(p):
     st.session_state.current_page = p
 
-def nav_btn(col, label, page_name, icon=""):
-    with col:
-        btn_type = "primary" if st.session_state.current_page == page_name else "secondary"
+for i, page in enumerate(pages):
+    with nav_cols[i]:
+        is_active = st.session_state.current_page == page["name"]
         st.button(
-            f"{icon} {label}", 
-            type=btn_type, 
+            f"{page['icon']} {page['label']}", 
+            type="primary" if is_active else "secondary", 
             on_click=set_page, 
-            args=(page_name,), 
-            width='stretch'
+            args=(page["name"],), 
+            width='stretch',
+            key=f"nav_btn_{i}" # Unique keys are good practice
         )
-
-# Render Buttons
-nav_btn(nav_cols[0], "Overview", "Home", "🌍")
-nav_btn(nav_cols[1], "Meta Tier List", "Umas", "📊")
-nav_btn(nav_cols[2], "Team Comps", "Teams", "⚔️")
-nav_btn(nav_cols[3], "Build Analysis", "OCR", "🔬") # Formerly OCR + Resources
-nav_btn(nav_cols[4], "Finals Results", "Finals", "🏆")
-nav_btn(nav_cols[5], "Library", "Guides", "📚") # Formerly Guides
 
 # 8. ROUTING
 if st.session_state.current_page == "Home":
