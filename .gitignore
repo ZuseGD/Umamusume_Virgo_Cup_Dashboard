@@ -46,8 +46,6 @@ pip-delete-this-directory.txt
 # Exception: If you have config JSONs you want to keep, un-comment the next line:
 # !config.json
 
-# If you want to ignore the entire data folder:
-data/
 
 # --- IDEs & System ---
 .vscode/
