@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
 import re
-from virgo_utils import load_finals_data, load_ocr_data, load_data, style_fig, PLOT_CONFIG, calculate_score, SHEET_URL, find_column, parse_uma_details, VARIANT_MAP, smart_match_name
+from virgo_utils import load_finals_data, load_ocr_data, load_data, style_fig, PLOT_CONFIG, calculate_score, find_column, parse_uma_details, VARIANT_MAP, smart_match_name
 
 def normalize_name(name):
     """
@@ -53,6 +53,7 @@ def show_view(current_config):
     **Deep Dive into the Finals Meta.** """)
     
     # 1. LOAD DATA
+    rounds_csv_path = current_config.get('sheet_url')
     csv_path = current_config.get('finals_csv')
     pq_path = current_config.get('finals_parquet')
     prelims_pq = current_config.get('parquet_file') 
@@ -78,7 +79,7 @@ def show_view(current_config):
         raw_finals_pq_cached = load_ocr_data(pq_path)
         raw_finals_pq = raw_finals_pq_cached.copy() if not raw_finals_pq_cached.empty else pd.DataFrame()
         
-        sheet_df_cached, _ = load_data(SHEET_URL)
+        sheet_df_cached, _ = load_data(rounds_csv_path)
         sheet_df = sheet_df_cached.copy() if not sheet_df_cached.empty else pd.DataFrame()
 
     
