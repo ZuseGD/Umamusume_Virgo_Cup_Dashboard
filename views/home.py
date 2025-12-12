@@ -56,11 +56,11 @@ def show_view(df, team_df, current_config):
         form_url = current_config.get('form_url')
         banner_path = "images/survey_banner.png"
         if form_url:
-            if os.path.exists(banner_path):
-                img_b64 = get_base64_image(banner_path)
-                if img_b64:
-                    st.markdown(f'<div style="display:flex;justify-content:flex-end;"><a href="{form_url}" target="_blank"><img src="data:image/png;base64,{img_b64}" class="survey-img-btn" style="width:100%;max-width:350px;border-radius:12px;border:2px solid #333;"></a></div>', unsafe_allow_html=True)
-            else:
+            # if os.path.exists(banner_path):
+                # img_b64 = get_base64_image(banner_path)
+                # if img_b64:
+                    # st.markdown(f'<div style="display:flex;justify-content:flex-end;"><a href="{form_url}" target="_blank"><img src="data:image/png;base64,{img_b64}" class="survey-img-btn" style="width:100%;max-width:350px;border-radius:12px;border:2px solid #333;"></a></div>', unsafe_allow_html=True)
+            # else:
                 st.link_button(label="📝 Submit Run Data", url=form_url, type="primary", width='stretch')
         else:
             st.info(current_config.get('status_msg'))
