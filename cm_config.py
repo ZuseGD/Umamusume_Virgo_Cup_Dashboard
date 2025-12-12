@@ -13,7 +13,7 @@ CM_LIST = {
         "finals_csv": "data/1_virgo_finals.csv", 
         "finals_parquet": "data/1_virgo_finals.parquet",
 
-        "form_url": None, 
+        "form_url": 'https://forms.gle/qHZdPC2DfvzB2xVE7', 
         "status_msg": "Forms have closed for this event.",
         "guide_images": [
             "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/virgo.png"
@@ -27,7 +27,7 @@ CM_LIST = {
         "parquet_file": "libra.parquet" ,
         "finals_csv": None, 
         "finals_parquet": None,
-        "form_url": None,
+        "form_url": 'https://forms.gle/qHZdPC2DfvzB2xVE7',
         "status_msg": "Forms have not started yet.",
         "guide_images": [
             "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/libra.png"
