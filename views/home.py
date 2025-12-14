@@ -233,15 +233,45 @@ def show_view(df, team_df, current_config):
     st.subheader("💰 Spending Impact")
     team_df_sorted = team_df.sort_values('Sort_Money')
 
-    team_df_sorted['Original_Spent'] = team_df_sorted['Original_Spent'].map({
-                    'F2P': 'F2P',
-                    '$1-$100': 'Salmon ($1-$100)',
-                    '$101-$500': 'Bluefin Tuna ($101-$500)',
-                    '$501-$1000': 'Dolphin $501-$1000',
-                    '$1000++': 'Whale $1000++',
-                    '$10000+++ (Pirkui)': 'Pirkui $10000++',
-                    'Rather not say': 'Rather not say'})
+   # Comprehensive Mapping to cover both Virgo and Libra variations
+    spending_map = {
+        'F2P': 'F2P',
+        '0' : 'F2P',
+        '$0': 'F2P',
+        
+        '$1-100' : 'Salmon ($1-$100)',
+        '$1-$100': 'Salmon ($1-$100)',
+        
+        '$101-500': 'Bluefin Tuna ($101-$500)',
+        
+        '$501-1000': 'Dolphin ($501-$1000)',
+        
+        '$1000++': 'Whale ($1000+)',
+        '$1001-5000': 'Whale ($1000+)',
+        '$5000+': 'Whale ($1000+)',
+        
+        '$10000+++ (Pirkui)': 'Pirkui ($10000+)',
+        
+        'Rather not say': 'Rather not say'
+    }
 
-    fig_money_order = ['F2P', 'Salmon ($1-$100)', 'Bluefin Tuna ($101-$500)', 'Dolphin $501-$1000', 'Whale $1000++', 'Pirkui $10000++', 'Rather not say']
-    fig_money = px.box(team_df_sorted, x='Original_Spent', y='Calculated_WinRate', color='Original_Spent', category_orders={'Original_Spent': fig_money_order}, labels={'Original_Spent': 'Spending Tier', 'Calculated_WinRate': 'Win Rate %'}, title="Win Rate by Spending Tier", template='plotly_dark')
+    team_df_sorted['Original_Spent'] = team_df_sorted['Original_Spent'].map(spending_map)
+
+    # Define the ideal order
+    ideal_order = [
+        'F2P', 
+        'Salmon ($1-$100)', 
+        'Bluefin Tuna ($101-$500)', 
+        'Dolphin ($501-$1000)', 
+        'Whale ($1000+)', 
+        'Pirkui ($10000+)', 
+        'Rather not say'
+    ]
+    
+    # FILTER: Create dynamic order based on what actually exists in the data
+    # This removes empty columns (like Pirkui in Libra) from the plot
+    existing_tiers = set(team_df_sorted['Original_Spent'].unique())
+    final_order = [tier for tier in ideal_order if tier in existing_tiers]
+
+    fig_money = px.box(team_df_sorted, x='Original_Spent', y='Calculated_WinRate', color='Original_Spent', category_orders={'Original_Spent': final_order}, labels={'Original_Spent': 'Spending Tier', 'Calculated_WinRate': 'Win Rate %'}, title="Win Rate by Spending Tier", template='plotly_dark')
     st.plotly_chart(style_fig(fig_money, height=500), width="stretch", config=PLOT_CONFIG)

@@ -23,7 +23,7 @@ CM_LIST = {
         "id": "cm6",
         "icon": "⚖️",
         # Placeholder URL (You can update this when Libra data exists)
-        "sheet_url": config('VIRGO_SHEET_URL', default=''),
+        "sheet_url": config('LIBRA_SHEET_URL', default=''),
         "parquet_file": "libra.parquet" ,
         "finals_csv": None, 
         "finals_parquet": None,

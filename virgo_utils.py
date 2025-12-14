@@ -55,16 +55,6 @@ DESCRIPTIONS = {
     - **Metric:** Average Win Rate of all players within a specific CM Group.
     - **Goal:** To see which bracket was the most competitive. Lower average win rates usually indicate a harder group (players beating each other up).
     """,
-    "leaderboard": """
-    **Leaderboard Logic:**
-    - **Score Formula:** `Win Rate * log(Total Races + 1)`
-    - **Why?** This rewards players who maintain a high win rate over *many* races, rather than someone who went 1/1 (100%).
-    """,
-    "money": """
-    **Spending vs. Performance:**
-    - **Box Plot:** The box shows the middle 50% of players. The line in the middle is the median.
-    - **Goal:** To visualize if spending more money guarantees a higher win rate (pay-to-win) or if F2P players remain competitive.
-    """,
     # --- TEAMS ---
     "teams_meta": """
     **Meta Teams:**
@@ -229,6 +219,71 @@ def find_column(df: pd.DataFrame, keywords: List[str], case_sensitive: bool = Fa
             if key.lower() in col: return df.columns[i]
     return None
 
+def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Detects if the dataframe is in raw 'Wide' format (Day 1 - Team 1 - Uma 1...)
+    and transforms it into the 'Long' format (One row per Uma) expected by the dashboard.
+    """
+    
+    # 1. Detection: Check for specific raw column pattern
+    is_raw_format = any('Day 1 - Team Comp 1 - Uma 1 - Name' in col for col in df.columns)
+    
+    if not is_raw_format:
+        return df
+
+    # 2. Identify Core Metadata Columns (Common for all rows)
+    ign_col = find_column(df, ['ign', 'player'])
+    group_col = find_column(df, ['cmgroup', 'bracket', 'league', 'selection'])
+    money_col = find_column(df, ['spent', 'eur/usd', 'money'])
+    
+    # 3. Iteration & Transformation
+    processed_dfs = []
+    
+    # We iterate through Days (1-4) and Teams (1-2)
+    for day in range(1, 5):
+        for team_idx in range(1, 3):
+            # Dynamic Column prefixes based on Google Form schema
+            prefix = f"Day {day} - Team Comp {team_idx}"
+            
+            # Find the Wins/Races columns for this specific Team/Day combo
+            # These column names vary slightly in the form ("Number of wins", "No. of wins", etc.)
+            cols_in_df = df.columns
+            wins_col = next((c for c in cols_in_df if prefix in c and 'wins' in c.lower()), None)
+            races_col = next((c for c in cols_in_df if prefix in c and ('races' in c.lower() or 'attempts' in c.lower())), None)
+            
+            # If we can't find win/race data, this Day/Team probably doesn't exist in the form
+            if not wins_col or not races_col:
+                continue
+
+            # Now get the 3 Umas for this team
+            for uma_idx in range(1, 4):
+                name_col = f"{prefix} - Uma {uma_idx} - Name"
+                style_col = f"{prefix} - Uma {uma_idx} - Running Style"
+                
+                if name_col not in df.columns: 
+                    continue
+                
+                # Extract subset
+                subset = df[[ign_col, group_col, money_col, name_col, style_col, wins_col, races_col]].copy()
+                
+                # Rename to standard internal names
+                subset.columns = ['ign', 'group', 'money', 'uma', 'style', 'wins', 'races']
+                
+                # Add Day/Round context
+                subset['Day'] = f"Day {day}"
+                subset['Round'] = f"Round {1 if day <= 2 else 2}" # We will normalize this later in _clean_raw_data
+                
+                # Filter out empty rows (where user didn't enter a team for this day)
+                subset = subset[subset['uma'].notna() & (subset['uma'] != '')]
+                
+                if not subset.empty:
+                    processed_dfs.append(subset)
+
+    if not processed_dfs:
+        return df # Fallback
+        
+    return pd.concat(processed_dfs, ignore_index=True)
+
 def _clean_raw_data(df: pd.DataFrame) -> pd.DataFrame:
     """Internal function to sanitize and normalize the raw dataframe."""
     
@@ -237,11 +292,11 @@ def _clean_raw_data(df: pd.DataFrame) -> pd.DataFrame:
     for col in string_cols: 
         df[col] = df[col].apply(sanitize_text)
 
-    # 2. Map Columns
+    # 2. Map Columns (Updated for multi-dataset support)
     col_map = {
         'ign': find_column(df, ['ign', 'player']),
-        'group': find_column(df, ['cmgroup', 'bracket']),
-        'money': find_column(df, ['spent', 'eur/usd']),
+        'group': find_column(df, ['cmgroup', 'bracket', 'league', 'selection', 'group']),
+        'money': find_column(df, ['spent', 'eur/usd', 'money']),
         'uma': find_column(df, ['uma']),
         'style': find_column(df, ['style', 'running']),
         'wins': find_column(df, ['wins', 'victory']),
@@ -251,7 +306,6 @@ def _clean_raw_data(df: pd.DataFrame) -> pd.DataFrame:
     }
 
     # 3. Apply Mappings & Defaults
-    # Using a helper dict to avoid repetitive code
     defaults = {
         'money': ('Original_Spent', "Unknown"),
         'group': ('Clean_Group', "Unknown"),
@@ -268,6 +322,65 @@ def _clean_raw_data(df: pd.DataFrame) -> pd.DataFrame:
             df[target_col] = df[source_col].fillna(default_val)
         else:
             df[target_col] = default_val
+
+    # --- 4. DATA NORMALIZATION & MAPPING ---
+    
+    # A. Normalize Group Names (Libra/Virgo Standardization)
+    group_map = {
+        'Graded (No Uma Restrictions)': 'Graded (No Limit)',
+        'Graded': 'Graded (No Limit)',
+        'Open (No Uma Restrictions)': 'Open (B and below)',
+        'Open': 'Open (B and below)'
+    }
+    df['Clean_Group'] = df['Clean_Group'].replace(group_map)
+
+    # B. Normalize Round/Day (Libra Fix: Days 1-4 -> R1/R2)
+    if not df.empty and 'Day' in df.columns:
+        # Convert Day to string first to handle both "1" (int) and "Day 1" (str)
+        day_str = df['Day'].astype(str)
+        
+        # Check if we need to apply the mapping (if we see "Day 3" or "Day 4" or just "3"/"4")
+        # OR if Round is "CM"
+        is_libra_format = day_str.str.contains(r'[34]').any() or (df['Round'].astype(str).str.contains('CM').any())
+
+        if is_libra_format:
+            # Map Day 1/2 -> R1, Day 3/4 -> R2
+            # Note: We match partial strings to catch "Day 1" and "1"
+            
+            # R1 D1
+            mask_r1d1 = day_str.str.contains(r'1', regex=True)
+            df.loc[mask_r1d1, 'Round'] = "R1"
+            df.loc[mask_r1d1, 'Day'] = "D1"
+
+            # R1 D2
+            mask_r1d2 = day_str.str.contains(r'2', regex=True)
+            df.loc[mask_r1d2, 'Round'] = "R1"
+            df.loc[mask_r1d2, 'Day'] = "D2"
+
+            # R2 D1 (Day 3)
+            mask_r2d1 = day_str.str.contains(r'3', regex=True)
+            df.loc[mask_r2d1, 'Round'] = "R2"
+            df.loc[mask_r2d1, 'Day'] = "D1"
+
+            # R2 D2 (Day 4)
+            mask_r2d2 = day_str.str.contains(r'4', regex=True)
+            df.loc[mask_r2d2, 'Round'] = "R2"
+            df.loc[mask_r2d2, 'Day'] = "D2"
+
+    # C. General Round/Day Cleanup (Fallback)
+    round_map = {
+        'Round 1': 'R1', 'Round 2': 'R2', 'Round 3': 'R3', 'Finals': 'Finals', 'CM': 'R1'
+    }
+    day_map = {
+        'Day 1': 'D1', 'Day 2': 'D2', '1': 'D1', '2': 'D2'
+    }
+    
+    df['Round'] = df['Round'].replace(round_map)
+    df['Day'] = df['Day'].astype(str).replace(day_map)
+
+    # --- 5. TYPE ENFORCEMENT ---
+    df['Round'] = df['Round'].astype(str)
+    df['Day'] = df['Day'].astype(str)
 
     # Special handling for numerics
     if col_map['money']:
@@ -333,6 +446,9 @@ def load_data(sheet_url: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
     try:
         # Load raw
         df = pd.read_csv(sheet_url)
+        
+        # NEW: Check for and Handle Raw Wide Format
+        df = _explode_raw_form_data(df)
         
         # Clean
         df = _clean_raw_data(df)

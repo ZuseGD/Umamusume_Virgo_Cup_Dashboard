@@ -24,7 +24,7 @@ def show_view(current_config):
         
 
     if ocr_df.empty:
-        st.error("❌ OCR Data not found.")
+        st.error("❌ OCR Data not available. Cannot proceed with Build Analysis.")
         return
 
     # --- DATA MERGING ---

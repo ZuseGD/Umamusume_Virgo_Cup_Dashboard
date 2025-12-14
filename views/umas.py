@@ -4,7 +4,7 @@ from virgo_utils import style_fig, PLOT_CONFIG, dynamic_height, show_description
 
 def show_view(df, team_df):
     st.header("🐴 Individual Uma Performance")
-    st.warning("⚠️ **NOTE:** Win Rates are based on **TEAM Performance** when this Uma is present. It does NOT track individual race wins.")
+    st.warning("⚠️ **NOTE:** Win Rates are based on **TEAM Performance** when this Uma is present. It does NOT track individual race wins. Use this data to analyze overall Uma effectiveness within team compositions.")
     
     # Calculate Total Entries for Percentage Maths
     total_entries = len(df)
@@ -119,6 +119,7 @@ def show_view(df, team_df):
     
     # BAR CHART (Rankings)
     st.markdown("#### 🏆 Detailed Rankings")
+    st.warning("⚠️ **NOTE:** Win Rates are based on **TEAM Performance** when this Uma is present. It does NOT track individual race wins. Also note that lower pick rate Umas may have less reliable Win Rate data due to smaller sample sizes.")
 
     fig_uma = px.bar(
         top_umas,
