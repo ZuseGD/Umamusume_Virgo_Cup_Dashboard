@@ -97,6 +97,7 @@ pages = [
     {"label": "Overview", "name": "Home", "icon": "🌍"},
     {"label": "Meta Tier List", "name": "Umas", "icon": "📊"},
     {"label": "Team Comps", "name": "Teams", "icon": "⚔️"},
+    {"label": "Card Usage", "name": "Cards", "icon": "🗃️"},
     {"label": "Build Analysis", "name": "OCR", "icon": "🔬"},
     {"label": "Finals Results", "name": "Finals", "icon": "🏆"},
     {"label": "Library", "name": "Guides", "icon": "📚"},
@@ -130,9 +131,11 @@ elif st.session_state.current_page == "Teams":
 elif st.session_state.current_page == "Umas":
     from views import umas
     umas.show_view(df, team_df)
+elif st.session_state.current_page == "Cards":
+    from views import cards
+    cards.show_view(team_df)
 elif st.session_state.current_page == "OCR":
     from views import ocr
-    # Now handles Builds + Support Cards
     ocr.show_view(current_config)
 elif st.session_state.current_page == "Finals":
     from views import finals

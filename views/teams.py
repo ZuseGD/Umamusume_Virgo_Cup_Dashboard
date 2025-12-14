@@ -213,7 +213,7 @@ def show_view(df, team_df):
     # --- TAB 4: EVOLUTION ---
     with tab4:
         st.subheader("📈 Meta Evolution over Time")
-        
+        st.warning("Double click the legend items to isolate specific teams.")
         # Get Top 5 Teams
         top_teams = team_df['Team_Comp'].value_counts().head(5).index.tolist()
         

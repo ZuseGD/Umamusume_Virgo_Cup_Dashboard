@@ -152,147 +152,176 @@ VARIANT_MAP = {
 
 
 def smart_match_name(raw_name, valid_csv_names):
-    """
-    Tries to find the best match in the CSV list (Variant > Base > Fallback).
-    """
     if pd.isna(raw_name): return "Unknown"
     raw_name = str(raw_name)
-
-    # 1. Extract Base Name & Title
     base_match = re.search(r'\]\s*(.*)', raw_name)
     title_match = re.search(r'\[(.*?)\]', raw_name)
     
     base_name = base_match.group(1).strip() if base_match else raw_name.strip()
     title_text = title_match.group(1) if title_match else ""
 
-    # 2. Detect Variant Suffix
     variant_suffix = None
     for keyword, suffix in VARIANT_MAP.items():
         if keyword.lower() in title_text.lower():
             variant_suffix = suffix
             break
     
-    # 3. Construct Potential Names
     candidates = []
     if variant_suffix:
         candidates.append(f"{base_name} ({variant_suffix})")
         candidates.append(f"{variant_suffix} {base_name}")
     candidates.append(base_name)
     
-    # 4. Check against Valid CSV Names
     for cand in candidates:
         match = next((valid for valid in valid_csv_names if valid.lower() == cand.lower()), None)
         if match: return match
             
-    # 5. Fallback
     if base_name in ORIGINAL_UMAS: return base_name
     return base_name 
 
 def sanitize_text(text):
-    """Escapes HTML characters in a string to prevent injection attacks."""
-    if pd.isna(text):
-        return text
+    if pd.isna(text): return text
     return html.escape(str(text))
 
 def show_description(key):
-    """Displays an expander with the description if the key exists."""
     if key in DESCRIPTIONS:
         with st.expander("ℹ️ How is this calculated?", expanded=False):
             st.markdown(DESCRIPTIONS[key])
 
 def find_column(df: pd.DataFrame, keywords: List[str], case_sensitive: bool = False) -> Optional[str]:
-    """Helper to find a column name fuzzy-matching a list of keywords."""
     if df.empty: return None
     cols = df.columns.tolist()
     
-    # 1. Exact/Case-insensitive match
     for col in cols:
         for key in keywords:
             if case_sensitive:
                 if col == key: return col
             elif col.lower() == key.lower(): return col
             
-    # 2. Fuzzy match (ignore spaces/underscores)
     clean_cols = df.columns.str.lower().str.replace(r'[\s_\-]', '', regex=True)
     for i, col in enumerate(clean_cols):
         for key in keywords:
             if key.lower() in col: return df.columns[i]
     return None
 
+def find_col_fuzzy(df_columns, pattern_str):
+    pattern = re.compile(pattern_str, re.IGNORECASE)
+    for col in df_columns:
+        if pattern.search(col):
+            return col
+    return None
+
 def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Detects if the dataframe is in raw 'Wide' format (Day 1 - Team 1 - Uma 1...)
-    and transforms it into the 'Long' format (One row per Uma) expected by the dashboard.
+    Detects and transforms Raw 'Wide' format. 
+    Preserves Timestamp (for run uniqueness) and Cards.
     """
+    print("DEBUG: Checking if file is Raw Data...")
     
-    # 1. Detection: Check for specific raw column pattern
-    is_raw_format = any('Day 1 - Team Comp 1 - Uma 1 - Name' in col for col in df.columns)
-    
-    if not is_raw_format:
+    # 1. Detection
+    test_col = find_col_fuzzy(df.columns, r"Day\s*1.*Team\s*Comp\s*1.*Uma\s*1.*Name")
+    if test_col:
+        print(f"DEBUG: Raw Data detected! Found key column: {test_col}")
+    else:
+        print("DEBUG: Not Raw Data (or detection failed). Skipping explode.")
         return df
 
-    # 2. Identify Core Metadata Columns (Common for all rows)
+    # 2. Identify Core Metadata
     ign_col = find_column(df, ['ign', 'player'])
     group_col = find_column(df, ['cmgroup', 'bracket', 'league', 'selection'])
     money_col = find_column(df, ['spent', 'eur/usd', 'money'])
+    # --- NEW: Preserve Timestamp for unique run ID ---
+    time_col = find_column(df, ['timestamp', 'date'])
     
-    # 3. Iteration & Transformation
+    # --- CARD DETECTION ---
+    card_cols = [c for c in df.columns if "card status in account" in c.lower()]
+    print(f"DEBUG: Found {len(card_cols)} card columns in Raw Data.")
+    
+    card_rename_map = {}
+    for col in card_cols:
+        match = re.search(r'\[(.*?)\]', col)
+        if match:
+            clean_name = match.group(1).strip()
+            card_rename_map[col] = f"card_{clean_name}"
+        else:
+            card_rename_map[col] = f"card_{col[:30]}"
+    # ----------------------
+
+    # 3. Iteration
     processed_dfs = []
     
-    # We iterate through Days (1-4) and Teams (1-2)
     for day in range(1, 5):
         for team_idx in range(1, 3):
-            # Dynamic Column prefixes based on Google Form schema
-            prefix = f"Day {day} - Team Comp {team_idx}"
+            prefix_pattern = f"Day\\s*{day}.*Team\\s*Comp\\s*{team_idx}"
             
-            # Find the Wins/Races columns for this specific Team/Day combo
-            # These column names vary slightly in the form ("Number of wins", "No. of wins", etc.)
-            cols_in_df = df.columns
-            wins_col = next((c for c in cols_in_df if prefix in c and 'wins' in c.lower()), None)
-            races_col = next((c for c in cols_in_df if prefix in c and ('races' in c.lower() or 'attempts' in c.lower())), None)
+            wins_col = find_col_fuzzy(df.columns, f"{prefix_pattern}.*wins")
+            races_col = find_col_fuzzy(df.columns, f"{prefix_pattern}.*(races|attempts)")
             
-            # If we can't find win/race data, this Day/Team probably doesn't exist in the form
             if not wins_col or not races_col:
                 continue
 
-            # Now get the 3 Umas for this team
             for uma_idx in range(1, 4):
-                name_col = f"{prefix} - Uma {uma_idx} - Name"
-                style_col = f"{prefix} - Uma {uma_idx} - Running Style"
+                name_col = find_col_fuzzy(df.columns, f"{prefix_pattern}.*Uma\\s*{uma_idx}.*Name")
+                style_col = find_col_fuzzy(df.columns, f"{prefix_pattern}.*Uma\\s*{uma_idx}.*Style")
                 
-                if name_col not in df.columns: 
+                if not name_col:
                     continue
                 
-                # Extract subset
-                subset = df[[ign_col, group_col, money_col, name_col, style_col, wins_col, races_col]].copy()
+                # Selection
+                cols_to_select = [ign_col, group_col, money_col, name_col, style_col, wins_col, races_col] + card_cols
+                if time_col: cols_to_select.append(time_col)
+
+                subset = df[cols_to_select].copy()
                 
-                # Rename to standard internal names
-                subset.columns = ['ign', 'group', 'money', 'uma', 'style', 'wins', 'races']
+                # Renaming
+                base_rename = {
+                    ign_col: 'ign', 
+                    group_col: 'group', 
+                    money_col: 'money', 
+                    name_col: 'uma', 
+                    style_col: 'style', 
+                    wins_col: 'wins', 
+                    races_col: 'races'
+                }
+                if time_col: base_rename[time_col] = 'Timestamp'
+
+                subset.rename(columns={**base_rename, **card_rename_map}, inplace=True)
                 
-                # Add Day/Round context
-                subset['Day'] = f"Day {day}"
-                subset['Round'] = f"Round {1 if day <= 2 else 2}" # We will normalize this later in _clean_raw_data
+                # Context
+                subset['Day'] = str(day)
+                subset['Round'] = "CM" 
+                subset['Team_Comp'] = str(team_idx) # Keep track of which team it was
                 
-                # Filter out empty rows (where user didn't enter a team for this day)
                 subset = subset[subset['uma'].notna() & (subset['uma'] != '')]
                 
                 if not subset.empty:
                     processed_dfs.append(subset)
 
     if not processed_dfs:
-        return df # Fallback
-        
-    return pd.concat(processed_dfs, ignore_index=True)
+        return df 
+    
+    final_df = pd.concat(processed_dfs, ignore_index=True)
+    return final_df
 
 def _clean_raw_data(df: pd.DataFrame) -> pd.DataFrame:
-    """Internal function to sanitize and normalize the raw dataframe."""
-    
-    # 1. Sanitize Strings
     string_cols = df.select_dtypes(include=['object']).columns
     for col in string_cols: 
         df[col] = df[col].apply(sanitize_text)
 
-    # 2. Map Columns (Updated for multi-dataset support)
+    # Backup Card Normalization
+    raw_card_cols = [c for c in df.columns if "card status in account" in c.lower() and not c.startswith("card_")]
+    if raw_card_cols:
+        print(f"DEBUG: Normalizing {len(raw_card_cols)} card columns in _clean_raw_data")
+        card_rename_map = {}
+        for col in raw_card_cols:
+            match = re.search(r'\[(.*?)\]', col)
+            if match:
+                clean_name = match.group(1).strip()
+                card_rename_map[col] = f"card_{clean_name}"
+            else:
+                card_rename_map[col] = f"card_{col[:30]}"
+        df.rename(columns=card_rename_map, inplace=True)
+
     col_map = {
         'ign': find_column(df, ['ign', 'player']),
         'group': find_column(df, ['cmgroup', 'bracket', 'league', 'selection', 'group']),
@@ -300,12 +329,12 @@ def _clean_raw_data(df: pd.DataFrame) -> pd.DataFrame:
         'uma': find_column(df, ['uma']),
         'style': find_column(df, ['style', 'running']),
         'wins': find_column(df, ['wins', 'victory']),
-        'races': find_column(df, ['races', 'played', 'attempts']),
+        'races': find_column(df, ['races', 'played', 'attempts', 'career']),
         'Round': find_column(df, ['Round'], case_sensitive=True), 
         'Day': find_column(df, ['Day'], case_sensitive=True),
+        'Timestamp': find_column(df, ['Timestamp', 'timestamp'], case_sensitive=False)
     }
 
-    # 3. Apply Mappings & Defaults
     defaults = {
         'money': ('Original_Spent', "Unknown"),
         'group': ('Clean_Group', "Unknown"),
@@ -313,7 +342,8 @@ def _clean_raw_data(df: pd.DataFrame) -> pd.DataFrame:
         'style': ('Clean_Style', "Unknown"),
         'Round': ('Round', "Unknown"),
         'Day': ('Day', "Unknown"),
-        'uma': ('Clean_Uma', "Unknown")
+        'uma': ('Clean_Uma', "Unknown"),
+        'Timestamp': ('Clean_Timestamp', "Unknown")
     }
 
     for key, (target_col, default_val) in defaults.items():
@@ -323,9 +353,15 @@ def _clean_raw_data(df: pd.DataFrame) -> pd.DataFrame:
         else:
             df[target_col] = default_val
 
-    # --- 4. DATA NORMALIZATION & MAPPING ---
+    # Type Casting
+    if 'Round' in df.columns: df['Round'] = df['Round'].astype(str)
+    if 'Day' in df.columns: df['Day'] = df['Day'].astype(str)
     
-    # A. Normalize Group Names (Libra/Virgo Standardization)
+    # Fill Cards
+    card_cols = [c for c in df.columns if c.startswith('card_')]
+    if card_cols: df[card_cols] = df[card_cols].fillna("Unknown")
+
+    # Group Mapping
     group_map = {
         'Graded (No Uma Restrictions)': 'Graded (No Limit)',
         'Graded': 'Graded (No Limit)',
@@ -334,78 +370,46 @@ def _clean_raw_data(df: pd.DataFrame) -> pd.DataFrame:
     }
     df['Clean_Group'] = df['Clean_Group'].replace(group_map)
 
-    # B. Normalize Round/Day (Libra Fix: Days 1-4 -> R1/R2)
+    # Round/Day Normalization
     if not df.empty and 'Day' in df.columns:
-        # Convert Day to string first to handle both "1" (int) and "Day 1" (str)
-        day_str = df['Day'].astype(str)
+        has_day_34 = df['Day'].astype(str).str.contains(r'[34]').any()
+        round_is_cm = df['Round'].astype(str).str.contains('CM').any()
         
-        # Check if we need to apply the mapping (if we see "Day 3" or "Day 4" or just "3"/"4")
-        # OR if Round is "CM"
-        is_libra_format = day_str.str.contains(r'[34]').any() or (df['Round'].astype(str).str.contains('CM').any())
-
-        if is_libra_format:
-            # Map Day 1/2 -> R1, Day 3/4 -> R2
-            # Note: We match partial strings to catch "Day 1" and "1"
-            
-            # R1 D1
-            mask_r1d1 = day_str.str.contains(r'1', regex=True)
+        if has_day_34 or round_is_cm:
+            mask_r1d1 = df['Day'].str.contains(r'1')
             df.loc[mask_r1d1, 'Round'] = "R1"
             df.loc[mask_r1d1, 'Day'] = "D1"
 
-            # R1 D2
-            mask_r1d2 = day_str.str.contains(r'2', regex=True)
+            mask_r1d2 = df['Day'].str.contains(r'2')
             df.loc[mask_r1d2, 'Round'] = "R1"
             df.loc[mask_r1d2, 'Day'] = "D2"
 
-            # R2 D1 (Day 3)
-            mask_r2d1 = day_str.str.contains(r'3', regex=True)
+            mask_r2d1 = df['Day'].str.contains(r'3')
             df.loc[mask_r2d1, 'Round'] = "R2"
             df.loc[mask_r2d1, 'Day'] = "D1"
 
-            # R2 D2 (Day 4)
-            mask_r2d2 = day_str.str.contains(r'4', regex=True)
+            mask_r2d2 = df['Day'].str.contains(r'4')
             df.loc[mask_r2d2, 'Round'] = "R2"
             df.loc[mask_r2d2, 'Day'] = "D2"
 
-    # C. General Round/Day Cleanup (Fallback)
-    round_map = {
-        'Round 1': 'R1', 'Round 2': 'R2', 'Round 3': 'R3', 'Finals': 'Finals', 'CM': 'R1'
-    }
-    day_map = {
-        'Day 1': 'D1', 'Day 2': 'D2', '1': 'D1', '2': 'D2'
-    }
+    round_map = {'Round 1': 'R1', 'Round 2': 'R2', 'Round 3': 'R3', 'Finals': 'Finals', 'CM': 'R1'}
+    day_map = {'Day 1': 'D1', 'Day 2': 'D2', '1': 'D1', '2': 'D2'}
     
-    df['Round'] = df['Round'].replace(round_map)
-    df['Day'] = df['Day'].astype(str).replace(day_map)
+    if 'Round' in df.columns: df['Round'] = df['Round'].replace(round_map)
+    if 'Day' in df.columns: df['Day'] = df['Day'].astype(str).replace(day_map)
 
-    # --- 5. TYPE ENFORCEMENT ---
-    df['Round'] = df['Round'].astype(str)
-    df['Day'] = df['Day'].astype(str)
+    if col_map['money']: df['Sort_Money'] = clean_currency_numeric(df[col_map['money']])
+    else: df['Sort_Money'] = 0.0
 
-    # Special handling for numerics
-    if col_map['money']:
-        df['Sort_Money'] = clean_currency_numeric(df[col_map['money']])
-    else:
-        df['Sort_Money'] = 0.0
+    if col_map['uma']: df['Clean_Uma'] = parse_uma_details(df[col_map['uma']])
 
-    if col_map['uma']:
-        df['Clean_Uma'] = parse_uma_details(df[col_map['uma']])
-
-    # 4. Parse Stats
-    if col_map['races']:
-        df['Clean_Races'] = extract_races_count(df[col_map['races']])
-    else:
-        df['Clean_Races'] = 1
+    if col_map['races']: df['Clean_Races'] = extract_races_count(df[col_map['races']])
+    else: df['Clean_Races'] = 1
         
-    if col_map['wins']:
-        df['Clean_Wins'] = pd.to_numeric(df[col_map['wins']], errors='coerce').fillna(0)
-    else:
-        df['Clean_Wins'] = 0
+    if col_map['wins']: df['Clean_Wins'] = pd.to_numeric(df[col_map['wins']], errors='coerce').fillna(0)
+    else: df['Clean_Wins'] = 0
 
-    # Sanity check: Wins cannot exceed Races
     df = df[df['Clean_Wins'] <= df['Clean_Races']].copy()
-
-    # Calculate Win Rate
     df['Calculated_WinRate'] = (df['Clean_Wins'] / df['Clean_Races']) * 100
     df.loc[df['Calculated_WinRate'] > 100, 'Calculated_WinRate'] = 100
 
@@ -414,60 +418,82 @@ def _clean_raw_data(df: pd.DataFrame) -> pd.DataFrame:
 def _process_teams(df: pd.DataFrame) -> pd.DataFrame:
     """Aggregates individual uma rows into team rows."""
     
-    # Filter out Runaway Suzuka for fairness (specific business logic)
     filter_mask = (
         df['Clean_Style'].str.contains('Runaway|Oonige|Great Escape', case=False, na=False) & 
         (df['Clean_Uma'] != 'Silence Suzuka')
     )
-    df_filtered = df[~filter_mask]
+    df_filtered = df[~filter_mask].copy()
 
-    team_df = df_filtered.groupby(['Clean_IGN', 'Display_IGN', 'Clean_Group', 'Round', 'Day', 'Original_Spent', 'Sort_Money']).agg({
+    # --- CRITICAL FIX: DO NOT GROUP BY CARDS ---
+    # We move cards to Aggregation so they don't split the rows if data is messy
+    card_cols = [c for c in df.columns if c.startswith('card_')]
+    
+    # Identify unique run keys. Use Timestamp if available, otherwise fallback.
+    # Note: 'Team_Comp' comes from exploded data to distinguish Team 1 vs 2 on same day
+    potential_keys = ['Clean_IGN', 'Display_IGN', 'Clean_Group', 'Round', 'Day', 'Original_Spent', 'Sort_Money', 'Clean_Timestamp', 'Team_Comp']
+    group_cols = [c for c in potential_keys if c in df.columns]
+
+    print(f"DEBUG: Grouping by {len(group_cols)} keys: {group_cols}")
+    print(f"DEBUG: Collapsing {len(card_cols)} card columns using 'first'.")
+
+    # Define Aggregations
+    agg_rules = {
         'Clean_Uma': lambda x: sorted(list(x)), 
         'Clean_Style': lambda x: list(x),       
         'Calculated_WinRate': 'mean',    
         'Clean_Races': 'max',            
         'Clean_Wins': 'max'              
-    }).reset_index()
+    }
+    
+    # Add cards to aggregation rules (Take first value found for the team)
+    for c in card_cols:
+        agg_rules[c] = 'first'
+
+    # Perform Grouping
+    team_df = df_filtered.groupby(group_cols, dropna=False).agg(agg_rules).reset_index()
     
     team_df['Score'] = team_df.apply(lambda x: calculate_score(x['Clean_Wins'], x['Clean_Races']), axis=1)
     
-    # Ensure valid teams only (3 members)
+    # Filter for valid teams (3 members)
     team_df = team_df[team_df['Clean_Uma'].apply(len) == 3]
     team_df['Team_Comp'] = team_df['Clean_Uma'].apply(lambda x: ", ".join(x))
     
+    print(f"DEBUG: Final Team DF Shape: {team_df.shape}")
     return team_df
 
 @st.cache_data(ttl=3600)
 def load_data(sheet_url: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    Main entry point for data loading.
-    Orchestrates fetching, cleaning, and team building.
-    """
     try:
-        # Load raw
         df = pd.read_csv(sheet_url)
-        
-        # NEW: Check for and Handle Raw Wide Format
         df = _explode_raw_form_data(df)
-        
-        # Clean
         df = _clean_raw_data(df)
 
-        # Deduplicate (Long Format: 1 row per Uma per Session)
-        # Sorting by Races ensures we keep the entry with the most data if duplicates exist
-        df = df.sort_values(by=['Clean_Races', 'Clean_Wins'], ascending=[False, False])
-        df = df.drop_duplicates(subset=['Clean_IGN', 'Round', 'Day', 'Clean_Uma'], keep='first')
-
-        # Anonymize
-        df = anonymize_players(df)
+        # Sort by timestamp (if available) or Races/Wins to keep the best data
+        sort_cols = ['Clean_Races', 'Clean_Wins']
+        if 'Clean_Timestamp' in df.columns:
+            # Convert timestamp to datetime for accurate sorting
+            df['Clean_Timestamp'] = pd.to_datetime(df['Clean_Timestamp'], errors='coerce')
+            sort_cols.insert(0, 'Clean_Timestamp')
+            
+        df = df.sort_values(by=sort_cols, ascending=False)
         
-        # Build Teams
+        # --- CRITICAL FIX: AGGRESSIVE DEDUPLICATION ---
+        # We assume one submission per player per round/day is the valid one.
+        # We drop duplicates based on Player + Round + Day + Uma Name
+        # This keeps the "latest" or "most complete" entry for that specific slot.
+        subset_cols = ['Clean_IGN', 'Round', 'Day', 'Clean_Uma']
+        df = df.drop_duplicates(subset=subset_cols, keep='first')
+
+        df = anonymize_players(df)
         team_df = _process_teams(df)
+        
+        # --- DOUBLE CHECK: Deduplicate Teams ---
+        # Ensure we don't have multiple team entries for the same player/round/day in the final team_df
+        team_df = team_df.drop_duplicates(subset=['Clean_IGN', 'Round', 'Day'], keep='first')
         
         return df, team_df
 
     except Exception as e:
-        # In production, log this error properly!
         print(f"Error in load_data: {e}") 
         st.error(f"Data Error: {e}")
         return pd.DataFrame(), pd.DataFrame()
@@ -529,13 +555,11 @@ def style_fig(fig, height=600):
     return fig
 
 def dynamic_height(n_items, min_height=400, per_item=40):
-    """Calculates chart height based on number of bars"""
     calc_height = n_items * per_item
     return max(min_height, calc_height)
 
 # --- SHARED FILTER WIDGET ---
 def render_filters(df):
-    # Create a consistent filter bar at the top of the page
     with st.expander("⚙️ **Global Filters** (Round / Day / Group)", expanded=False):
         c1, c2, c3 = st.columns(3)
         with c1:
@@ -548,7 +572,6 @@ def render_filters(df):
             days = sorted(list(df['Day'].unique()))
             sel_day = st.multiselect("Day", days, default=days)
             
-    # Apply Logic
     if sel_group: df = df[df['Clean_Group'].isin(sel_group)]
     if sel_round: df = df[df['Round'].isin(sel_round)]
     if sel_day: df = df[df['Day'].isin(sel_day)]
@@ -556,40 +579,31 @@ def render_filters(df):
     return df
 
 
-@st.cache_data(ttl=300) # Cache for 5 minutes
+@st.cache_data(ttl=300) 
 def load_ocr_data(parquet_file):
     try:
         if not os.path.exists(parquet_file):
             return pd.DataFrame()
             
         df = pd.read_parquet(parquet_file)
-
-        # --- 🛡️ SECURITY: SANITIZE INPUTS ---
         string_cols = df.select_dtypes(include=['object']).columns
         for col in string_cols:
             df[col] = df[col].apply(sanitize_text)
         
-        # --- 1. CLEANING MISSING VALUES ---
-        # Remove empty names
         df.dropna(subset=['name'], inplace=True)
         
-        # Fill stats with median
         stat_cols = ['Speed', 'Stamina', 'Power', 'Guts', 'Wit', 'score']
         for col in stat_cols:
             if col in df.columns:
-                # Force numeric first to turn "12OO" into NaN
                 df[col] = pd.to_numeric(df[col], errors='coerce')
                 df[col] = df[col].fillna(df[col].median())
                 df[col] = df[col].astype(int)
 
-        # Fill text with 'Unknown'
         text_cols = ['rank', 'skills', 'Turf', 'Dirt', 'Sprint', 'Mile', 'Medium', 'Long'] 
         for col in text_cols:
             if col in df.columns:
                 df[col] = df[col].fillna('Unknown')
                 
-        # --- 2. OUTLIER CAPPING ---
-        # Cap stats at 2000 (adjust based on game scenario)
         for col in stat_cols:
              if col in df.columns:
                 df[col] = df[col].clip(upper=2000)
@@ -599,7 +613,7 @@ def load_ocr_data(parquet_file):
         st.error(f"Error loading Parquet: {e}")
         return pd.DataFrame()
 
-# --- LOAD FINALS DATA (UPDATED FOR ROBUST MERGING) ---
+# --- LOAD FINALS DATA ---
 @st.cache_data(ttl=3600)
 def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
     if not csv_path or not os.path.exists(csv_path):
@@ -607,15 +621,14 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
 
     try:
         raw_df = pd.read_csv(csv_path)
-        
-        col_spent = find_column(raw_df, ['spent', 'money', 'eur/usd', 'how much have you spent'])
-        col_runs = find_column(raw_df, ['career runs', 'runs per day', 'how many career runs']) 
+        col_spent = find_column(raw_df, ['spent', 'money', 'eur/usd'])
+        col_runs = find_column(raw_df, ['career runs', 'runs per day']) 
         col_kitasan = find_column(raw_df, ['kitasan', 'speed: kitasan'])
         col_fine = find_column(raw_df, ['fine motion', 'wit: fine'])
         
         opp_cols = []
         for i in range(1, 4):
-            c = find_column(raw_df, [f"opponent's team - uma {i}", f"opponent team - uma {i}", f"opponent team uma {i}"])
+            c = find_column(raw_df, [f"opponent's team - uma {i}", f"opponent team uma {i}"])
             opp_cols.append(c)
 
         processed_rows = []
@@ -647,7 +660,7 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
                     
                     processed_rows.append({
                         'Match_IGN': ign.lower(),
-                        'Normalized_IGN': re.sub(r'[^a-z0-9]', '', ign.lower()), # Add key for fuzzy matching
+                        'Normalized_IGN': re.sub(r'[^a-z0-9]', '', ign.lower()),
                         'Display_IGN': ign,
                         'Clean_Uma': clean_uma_name,
                         'Clean_Style': style,
@@ -663,21 +676,17 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
                     })
         
         finals_matches = pd.DataFrame(processed_rows)
-
         if not finals_matches.empty:
             finals_matches['Sort_Money'] = clean_currency_numeric(finals_matches['Spending_Text'])
-        
 
     except Exception as e:
         st.error(f"Error parsing Finals CSV: {e}")
         return pd.DataFrame(), pd.DataFrame()
 
     try:
-        # Combine multiple sources for OCR
         ocr_sources = []
         valid_names = finals_matches['Clean_Uma'].unique().tolist() if not finals_matches.empty else []
 
-        # 1. Finals specific Parquet
         if parquet_path and os.path.exists(parquet_path):
             fpq = pd.read_parquet(parquet_path)
             if 'ign' in fpq.columns:
@@ -687,7 +696,6 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
                 fpq['Match_Uma'] = fpq['name'].apply(lambda x: smart_match_name(x, valid_names))
             ocr_sources.append(fpq)
 
-        # 2. Main OCR (Prelims) as fallback
         if main_ocr_df is not None and not main_ocr_df.empty:
             if 'Match_IGN' not in main_ocr_df.columns and 'ign' in main_ocr_df.columns:
                 main_ocr_df['Match_IGN'] = main_ocr_df['ign'].astype(str).str.lower().str.strip()
@@ -699,35 +707,18 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
         final_merged_df = pd.DataFrame()
         
         if not finals_matches.empty and ocr_sources:
-            # Consolidated OCR
             all_ocr = pd.concat(ocr_sources, ignore_index=True).drop_duplicates(subset=['Match_IGN', 'Match_Uma'])
-            
-            # Prep matches for merge
             finals_matches['Match_Uma'] = finals_matches['Clean_Uma']
             
-            # STRATEGY 1: Strict Merge (Best quality)
             strict_merge = pd.merge(all_ocr, finals_matches, on=['Match_IGN', 'Match_Uma'], how='inner')
-            
-            # Find leftovers
             matched_keys = set(zip(strict_merge['Match_IGN'], strict_merge['Match_Uma']))
             leftover_matches = finals_matches[~finals_matches.set_index(['Match_IGN', 'Match_Uma']).index.isin(matched_keys)].copy()
             
-            # STRATEGY 2: Fuzzy IGN Merge (Normalized alphanumeric)
             if not leftover_matches.empty:
-                # Filter OCR to only those NOT already matched to prevent duplicates
                 leftover_ocr = all_ocr[~all_ocr.set_index(['Match_IGN', 'Match_Uma']).index.isin(matched_keys)].copy()
-                
-                fuzzy_merge = pd.merge(
-                    leftover_ocr, 
-                    leftover_matches, 
-                    on=['Normalized_IGN', 'Match_Uma'], 
-                    how='inner', 
-                    suffixes=('_ocr', '')
-                )
-                # Cleanup duplicate cols if any
+                fuzzy_merge = pd.merge(leftover_ocr, leftover_matches, on=['Normalized_IGN', 'Match_Uma'], how='inner', suffixes=('_ocr', ''))
                 if 'Match_IGN_ocr' in fuzzy_merge.columns:
                     fuzzy_merge = fuzzy_merge.drop(columns=['Match_IGN_ocr'])
-                
                 final_merged_df = pd.concat([strict_merge, fuzzy_merge], ignore_index=True)
             else:
                 final_merged_df = strict_merge
@@ -737,7 +728,7 @@ def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
     except Exception as e:
         st.error(f"Error merging Finals Parquet: {e}")
         return finals_matches, pd.DataFrame()
-# Common Footer
+
 footer_html = """
 <style>
 .footer {

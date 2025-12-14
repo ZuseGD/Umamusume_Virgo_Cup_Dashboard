@@ -26,30 +26,19 @@ def show_view(df, team_df, current_config):
     col_header, col_btn = st.columns([1, 1], gap="medium")
 
     with col_header:
-        with st.expander("✨ What's New: Bug Fixes and Logic Updates", expanded=True):
+        with st.expander("⚖️ Libra Cup Update", expanded=True):
             st.markdown("""
-            ### 🔄 Unified Character Variants (Normalization)
-- **Feature:** Implemented a `normalize_name` system to merge identical characters with slightly different variant names.
-- **Impact:** Names like *"Uma (Anime Collab)"* are now correctly grouped with *"Uma (Anime)"*. This prevents statistics from splitting into two separate entries, ensuring more accurate Win Rates and Pick Rates in the **Meta Matrix** and **Oshi Awards**.
+            ### 🌟 New Features
+- **Full Libra Cup Support:** The dashboard is now ready for the Libra Cup (2025)! You can easily switch between the Virgo and Libra events in the sidebar.
+- **Most Recent Data First:** By default, the dashboard now shows the latest event data (Libra Cup) for a more relevant experience.
+- **Double Click:** Double click on any line on a line chart to only view that specific data series for focused analysis.
+- **Cards:** The cards tab has been revamped to better handle missing/unknown data and provide clearer statistics.
 
-### 🕵️ Expanded Champion Pool (Opponent Recovery)
-- **The Problem:** Previously, "Skill Lift" and "Champion Stats" only analyzed the submitting player's team. If an opponent won the lobby, their data was often ignored even if it existed in the logs.
-- **The Solution:** The dashboard now cross-references confirmed **Lobby Winners** against the raw `finals.parquet` file.
-- **Impact:** It successfully "recovers" winning opponent data by filtering for the winner's name and excluding known losers (verified via stats/skills signatures). This significantly increases the sample size for meta analysis (e.g., capturing missing Opponent King Halo winners).
+### 🛠️ Fixes & Polish
+- **Group Name Cleanup:** Whether the form says "Graded (No Restrictions)" or just "Graded", the dashboard now recognizes them as the same group for consistent filtering.
+- **Crash Fixes:** Resolved an issue where the "Win Rate Trend" chart would sometimes crash due to mixed data types (Text vs Numbers).
+- **Better Stability:** Improved how the system reads files to prevent errors when loading data directly from your local folder.
 
-### 🧩 Smart Style Backfilling
-- **Feature:** Added logic to "patch" missing style data for opponents.
-
-## Bug Fixes
-
-- **🐛 Fixed Parquet Loading Error:** Resolved a `KeyError: 'Match_Uma'` crash that occurred when loading raw parquet files that used different column schemas (e.g., `name` vs `Match_Uma`).
-- **🛡️ Robust Column Generation:** Added a fail-safe to automatically generate `Match_Uma` using `smart_match_name` if the column is missing from the source file.
-
-## Technical Changes
-
-- **New Function:** `normalize_name(name)` added to `views/finals.py`.
-- **Dependencies:** Now imports `VARIANT_MAP` and `smart_match_name` from `virgo_utils`.
-- **Logic Update:** The "True Winners" calculation now applies normalization before counting, ensuring the "Individual Lobby Winners" chart is accurate.
             """)
 
     with col_btn:
