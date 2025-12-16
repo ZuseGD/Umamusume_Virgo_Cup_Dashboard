@@ -21,6 +21,7 @@ def show_view(df, team_df, current_config):
         div[data-testid="stLinkButton"] > a { height: 100%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.1rem; }
     </style>
     """, unsafe_allow_html=True)
+    
 
     # --- TOP LAYOUT ---
     col_header, col_btn = st.columns([1, 1], gap="medium")
@@ -198,6 +199,7 @@ def show_view(df, team_df, current_config):
         st.plotly_chart(style_fig(fig_group, height=350), width="stretch", config=PLOT_CONFIG)
     # --- LEADERBOARD ---
     st.subheader("👑 Top Performers")
+    st.warning("We are aware of an issue where some duplicate igns cause leaderboard inaccuracies. A fix is in progress.")
     unique_sessions = df.drop_duplicates(subset=['Display_IGN', 'Round', 'Day'])
     stats_source = unique_sessions[unique_sessions['Display_IGN'] != "Anonymous Trainer"]
     
