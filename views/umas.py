@@ -1,6 +1,6 @@
 import streamlit as st
 import plotly.express as px
-from virgo_utils import style_fig, PLOT_CONFIG, dynamic_height, show_description
+from virgo_utils import style_fig, PLOT_CONFIG, dynamic_height, show_description, analyze_significant_roles
 
 def show_view(df, team_df):
     st.header("🐴 Individual Uma Performance")
@@ -10,7 +10,7 @@ def show_view(df, team_df):
     total_entries = len(df)
 
     # --- 1. UMA INSPECTOR ---
-    st.subheader("🔎 Uma Inspector")
+    st.subheader("🔎 Uma Inspector (NEW)")
     all_umas = sorted(df['Clean_Uma'].unique())
     target_uma = st.selectbox("Select Uma:", [""] + all_umas)
 
@@ -18,24 +18,41 @@ def show_view(df, team_df):
         uma_data = df[df['Clean_Uma'] == target_uma]
         avg_wr = uma_data['Calculated_WinRate'].mean()
         unique_players = uma_data['Clean_IGN'].nunique()
+        total_uma_entries = len(uma_data) # Calculate raw count of entries
         
         # Calculate Global Pick Rate for this specific Uma
-        uma_pick_rate = (len(uma_data) / total_entries) * 100
+        uma_pick_rate = (total_uma_entries / total_entries) * 100
         
-        c1, c2, c3 = st.columns(3)
+        # --- UPDATE: Added c4 for Total Count ---
+        c1, c2, c3, c4 = st.columns(4)
         c1.metric("Win Rate", f"{avg_wr:.1f}%")
         c2.metric("Pick Rate", f"{uma_pick_rate:.1f}%")
         c3.metric("Unique Users", int(unique_players))
+        c4.metric("Total Entries", int(total_uma_entries)) # Display Count
         
+        # --- NEW: Role Impact Analysis for this Uma ---
+        # Checks if specific roles (Ace, Debuffer) on THIS Uma change the win rate
+        role_res = analyze_significant_roles(uma_data, role_col='Clean_Role', threshold=2.0)
+        st.warning("The following roles for this Uma have a significant impact on Win Rate (>2% difference):, if there is no data shown, it means no roles had significant impact.")
+        if role_res:
+            sig_df, g_avg = role_res
+            st.markdown(f"**🎭 Significant Role Impact** (vs Average: {g_avg:.1f}%)")
+            
+            sig_df.rename(columns={'Clean_Role': 'User Inputted Role of Uma', 'Win_Rate': 'Win Rate', 'Diff_vs_Avg': 'Difference vs Average (%)'}, inplace=True)
+            st.dataframe(
+                sig_df.style.format({'Win Rate': '{:.1f}%', 'Difference vs Average (%)': '{:+.1f}%'}),
+                width='stretch',
+                hide_index=True
+            )
+        # -----------------------------------------------
+
         # 1. PREPARE DATA: Aggregate by Summing Races (True Volume)
-        # We sum 'Clean_Races' to get the total volume of matches played
         strat_stats = uma_data.groupby('Clean_Style').agg({
             'Calculated_WinRate': 'mean',
-            'Clean_Races': 'sum'  # <--- UPDATED: Summing races for volume
+            'Clean_Races': 'sum' 
         }).reset_index()
         strat_stats.columns = ['Strategy', 'Win_Rate', 'Race_Volume']
         
-        # Calculate Strategy Distribution %
         total_vol = strat_stats['Race_Volume'].sum()
         strat_stats['Style_Dist'] = (strat_stats['Race_Volume'] / total_vol) * 100
 
@@ -48,15 +65,13 @@ def show_view(df, team_df):
             title=f"Strategy Breakdown for {target_uma}", 
             template='plotly_dark', 
             height=400,
-            # Pass Race_Volume to hover
             hover_data={'Race_Volume': True, 'Win_Rate': ':.1f', 'Style_Dist': ':.1f', 'Strategy': False}
         )
         
         fig_drill.update_traces(
             texttemplate='%{x:.1f}%', 
             textposition='inside',
-            # Tooltip: Strategy -> Win Rate -> Distribution % -> True Race Volume
-            hovertemplate='<b>%{y}</b><br>Win Rate: %{x:.1f}%'
+            hovertemplate='<b>%{y}</b><br>Win Rate: %{x:.1f}%<br>Count: %{customdata[0]}<extra></extra>'
         )
         
         fig_drill.update_layout(xaxis_title="Win Rate (%)", yaxis_title=None)

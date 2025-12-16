@@ -150,6 +150,40 @@ VARIANT_MAP = {
     "Lucky Tidings": "Full Armor", "Princess": "Princess"
 }
 
+def analyze_significant_roles(df, role_col='Clean_Role', score_col='Calculated_WinRate', threshold=5.0):
+    """
+    Analyzes if specific roles have a significant impact on Win Rate.
+    Only returns stats if deviation from global average > threshold %.
+    """
+    if role_col not in df.columns or df[role_col].nunique() <= 1:
+        return None
+
+    # Filter out "Unknown" or invalid roles
+    valid_df = df[~df[role_col].isin(['Unknown', '', 'nan'])]
+    if valid_df.empty:
+        return None
+
+    global_avg = valid_df[score_col].mean()
+    
+    # Aggregation
+    role_stats = valid_df.groupby(role_col).agg(
+        Win_Rate=(score_col, 'mean'),
+        Count=('Clean_Races', 'sum') # Use Sum of races for weight, or 'count' for entries
+    ).reset_index()
+
+    # Calculate Impact
+    role_stats['Diff_vs_Avg'] = role_stats['Win_Rate'] - global_avg
+    
+    # Filter for significance (e.g., > 5% difference) and Sample Size (> 5 entries)
+    sig_roles = role_stats[
+        (role_stats['Diff_vs_Avg'].abs() >= threshold) & 
+        (role_stats['Count'] >= 10)
+    ].sort_values('Win_Rate', ascending=False)
+    
+    if sig_roles.empty:
+        return None
+        
+    return sig_roles, global_avg
 
 def smart_match_name(raw_name, valid_csv_names):
     if pd.isna(raw_name): return "Unknown"
@@ -215,6 +249,7 @@ def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Detects and transforms Raw 'Wide' format. 
     Preserves Timestamp (for run uniqueness) and Cards.
+    Updated to capture 'Role' if available.
     """
     print("DEBUG: Checking if file is Raw Data...")
     
@@ -230,7 +265,6 @@ def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
     ign_col = find_column(df, ['ign', 'player'])
     group_col = find_column(df, ['cmgroup', 'bracket', 'league', 'selection'])
     money_col = find_column(df, ['spent', 'eur/usd', 'money'])
-    # --- NEW: Preserve Timestamp for unique run ID ---
     time_col = find_column(df, ['timestamp', 'date'])
     
     # --- CARD DETECTION ---
@@ -245,7 +279,6 @@ def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
             card_rename_map[col] = f"card_{clean_name}"
         else:
             card_rename_map[col] = f"card_{col[:30]}"
-    # ----------------------
 
     # 3. Iteration
     processed_dfs = []
@@ -263,6 +296,8 @@ def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
             for uma_idx in range(1, 4):
                 name_col = find_col_fuzzy(df.columns, f"{prefix_pattern}.*Uma\\s*{uma_idx}.*Name")
                 style_col = find_col_fuzzy(df.columns, f"{prefix_pattern}.*Uma\\s*{uma_idx}.*Style")
+                # --- NEW: Look for Role ---
+                role_col = find_col_fuzzy(df.columns, f"{prefix_pattern}.*Uma\\s*{uma_idx}.*Role")
                 
                 if not name_col:
                     continue
@@ -270,6 +305,7 @@ def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
                 # Selection
                 cols_to_select = [ign_col, group_col, money_col, name_col, style_col, wins_col, races_col] + card_cols
                 if time_col: cols_to_select.append(time_col)
+                if role_col: cols_to_select.append(role_col)
 
                 subset = df[cols_to_select].copy()
                 
@@ -284,13 +320,14 @@ def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
                     races_col: 'races'
                 }
                 if time_col: base_rename[time_col] = 'Timestamp'
+                if role_col: base_rename[role_col] = 'role'
 
                 subset.rename(columns={**base_rename, **card_rename_map}, inplace=True)
                 
                 # Context
                 subset['Day'] = str(day)
                 subset['Round'] = "CM" 
-                subset['Team_Comp'] = str(team_idx) # Keep track of which team it was
+                subset['Team_Comp'] = str(team_idx)
                 
                 subset = subset[subset['uma'].notna() & (subset['uma'] != '')]
                 
@@ -311,7 +348,6 @@ def _clean_raw_data(df: pd.DataFrame) -> pd.DataFrame:
     # Backup Card Normalization
     raw_card_cols = [c for c in df.columns if "card status in account" in c.lower() and not c.startswith("card_")]
     if raw_card_cols:
-        print(f"DEBUG: Normalizing {len(raw_card_cols)} card columns in _clean_raw_data")
         card_rename_map = {}
         for col in raw_card_cols:
             match = re.search(r'\[(.*?)\]', col)
@@ -332,7 +368,8 @@ def _clean_raw_data(df: pd.DataFrame) -> pd.DataFrame:
         'races': find_column(df, ['races', 'played', 'attempts', 'career']),
         'Round': find_column(df, ['Round'], case_sensitive=True), 
         'Day': find_column(df, ['Day'], case_sensitive=True),
-        'Timestamp': find_column(df, ['Timestamp', 'timestamp'], case_sensitive=False)
+        'Timestamp': find_column(df, ['Timestamp', 'timestamp'], case_sensitive=False),
+        'Role': find_column(df, ['role', 'position'])
     }
 
     defaults = {
@@ -343,7 +380,8 @@ def _clean_raw_data(df: pd.DataFrame) -> pd.DataFrame:
         'Round': ('Round', "Unknown"),
         'Day': ('Day', "Unknown"),
         'uma': ('Clean_Uma', "Unknown"),
-        'Timestamp': ('Clean_Timestamp', "Unknown")
+        'Timestamp': ('Clean_Timestamp', "Unknown"),
+        'Role': ('Clean_Role', "Unity Cup Scenario Ace")
     }
 
     for key, (target_col, default_val) in defaults.items():

@@ -27,18 +27,18 @@ def show_view(df, team_df, current_config):
     col_header, col_btn = st.columns([1, 1], gap="medium")
 
     with col_header:
-        with st.expander("⚖️ Libra Cup Update", expanded=True):
+        with st.expander("Uma Inspector Update", expanded=True):
             st.markdown("""
-            ### 🌟 New Features
-- **Full Libra Cup Support:** The dashboard is now ready for the Libra Cup (2025)! You can easily switch between the Virgo and Libra events in the sidebar.
-- **Most Recent Data First:** By default, the dashboard now shows the latest event data (Libra Cup) for a more relevant experience.
-- **Double Click:** Double click on any line on a line chart to only view that specific data series for focused analysis.
-- **Cards:** The cards tab has been revamped to better handle missing/unknown data and provide clearer statistics.
+           
+### 🎭 New Feature: Role Impact Analysis
+Ever wondered if running a "Debuffer" actually helps your team?
+* **What it does:** The system now automatically scans for specific roles (like **Ace**, **Debuffer**, or **Lead**) on each character.
+* **The Insight:** If a specific role performs significantly better or worse than the average (by >5%), it will now be highlighted in the **Uma Inspector**.
+* *Example:* If "Debuffer Nice Nature" has a 10% higher win rate than "Ace Nice Nature," the dashboard will tell you.
 
-### 🛠️ Fixes & Polish
-- **Group Name Cleanup:** Whether the form says "Graded (No Restrictions)" or just "Graded", the dashboard now recognizes them as the same group for consistent filtering.
-- **Crash Fixes:** Resolved an issue where the "Win Rate Trend" chart would sometimes crash due to mixed data types (Text vs Numbers).
-- **Better Stability:** Improved how the system reads files to prevent errors when loading data directly from your local folder.
+#### 2. 🔎 Improved Uma Inspector
+We heard your feedback about missing data in the detailed view.
+* **Total Entries Counter:** We added a "Total Entries" metric to the Inspector. You can now see exactly how many times a character was submitted, helping you judge if a high win rate is real or just from a small sample size.
 
             """)
 
