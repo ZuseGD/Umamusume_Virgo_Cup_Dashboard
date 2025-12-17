@@ -11,7 +11,7 @@ const events = [
     side: "left",
     range: "JAN 20 - JAN 29",
     title: "Tamamo Cross",
-    description: `Tamamo Cross is a weird horse that has <span style="color: red;">3 different position skills</span> in her innate kit. Her unique is mainly used for longs in terms of good proc timing so she's really just an end closer/late surger so some skills are kind of wasted. <span style="color: red;">Being specialized is better than being versatile</span>, oshi horse.`,
+    description: `Tamamo Cross is a weird horse that has <span style="color: red;">3 different position skills</span> in her innate kit. Her unique is mainly used for longs in terms of good proc timing so she's really just an end closer/late surger so some skills are kind of wasted. <span style="color: red;">Being specialized is better than being versatile</span>, <span style="color: #17c571;">oshi horse</span>.`,
     fills: ["fill-green"],
     image: "images/0120-left-1.png",
     iconsLeft: ["icons/pace.png", "icons/late.png", "icons/end.png"],
@@ -24,7 +24,7 @@ const events = [
     side: "right",
     range: "JAN 20 - JAN 29",
     title: "Nice Nature Wit & Oguri Cap Power",
-    description: `A gambler banner, Nice Nature gives <span style="color: #17c571;">On Your Left</span> while Oguri gives <span style="color: #17c571;">Furious Feat</span>. Both are <span style="color: red;">gambling skills for End Closers/Late Surgers primarily</span>. Pull if you love Lates/Ends otherwise save for major banners/horses.`,
+    description: `A gambler banner, Nice Nature gives <span style="color: #17c571;">On Your Left</span> while Oguri gives <span style="color: #17c571;">Furious Feat</span>. Both are <span style="color: red;">gambling skills for End Closers/Late Surgers primarily</span>. <span style="color: #17c571;">Pull if you love Lates/Ends otherwise save for major banners/horses</span>.`,
     fills: ["fill-purple"],
     image: "images/0120-right-1.png",
     iconsLeft: ["icons/late.png"],
@@ -37,22 +37,22 @@ const events = [
     side: "left",
     range: "JAN 27 - FEB 07",
     title: "NY Haru Urara & NY T.M. Opera",
-    description: `NY Urara is much better than OG Urara but she is still not very strong, yet the Urara enjoyer shall want to pull this as <span style="color: red;">this will allow more Urara wins overall.</span>
-As for NY TM Opera O, <span style="color: red;">she is one of the most used parents later on and she's a solid horse that can win as well</span>. Her unique gives you 0.25 speed if you activate 7 skills (an easy task later on).`,
-    fills: ["fill-purple", "fill-orange"],
+    description: `NY Urara is much better than OG Urara but she is <span style="color: red;">still not very strong</span>, yet the Urara enjoyer shall want to pull this as <span style="color: #17c571;">this will allow more Urara wins overall.</span>
+As for NY TM Opera O, <span style="color: #17c571;">she is one of the most used parents later on and she's a solid horse that can win as well</span>. Her unique gives you 0.25 speed if you activate 7 skills (an easy task later on).`,
+    fills: ["fill-green", "fill-orange"],
     image: "images/0127-left-1.png",
     iconsLeft: ["icons/late.png"],
     iconsRight: ["icons/pace.png", "icons/late.png"],
     buttonsLeft: ["DIRT"],
     buttonsRight: ["MED", "LONG"],
-    tags: ["LATE", "PACE", "DIRT", "MED", "LONG", "LUXURY", "META"]
+    tags: ["LATE", "PACE", "DIRT", "MED", "LONG", "NICHE", "META"]
   },
   {
     side: "right",
     range: "JAN 27 - FEB 07",
     title: "Admire Vega Power & Fukukitaru Speed",
-      description: `Admire Vega Power gives <span style="color: #17c571;">daring attack</span> a solid speed skill but unfortunately the card is only usable at MLB, very expensive and power cards are less than ideal because you would rather click wit than power most of the time.<br><br>
-Fukukitaru Speed is a very strong high roll card but the key word is high roll, she can <span style="color: red;">low roll very hard</span>. She's a friendship card in disguise who gives you a ton of stats. You can <span style="color: red;">pull her if you like to high roll</span> but <span style="color: #17c571;">if you rather have higher consistency pull Top Road</span>. (Or pull both if rich)`,
+      description: `Admire Vega Power gives <span style="color: #17c571;">daring attack</span> a solid speed skill but unfortunately the card is only usable at MLB, very expensive and <span style="color: red;">power cards are less than ideal</span> because you would rather click wit than power most of the time.<br><br>
+Fukukitaru Speed is a very strong high roll card but the key word is high roll, she can <span style="color: red;">low roll very hard</span>. She's a friendship card in disguise who gives you a ton of stats. You can pull her if you like to high roll</span> but <span style="color: #17c571;">if you rather have higher consistency pull Top Road</span>. (Or pull both if rich)`,
       fills: ["fill-purple", "fill-orange"],
     image: "images/0127-right-1.png",
     iconsLeft: ["icons/end.png"],
@@ -91,7 +91,7 @@ Fukukitaru Speed is a very strong high roll card but the key word is high roll, 
     side: "right",
     range: "FEB 03 - FEB 12",
     title: "S. Anshinzawa Friend & Tamamo Cross Guts",
-    description: `Anshinzawa is a <span style="color: red;">troll card</span>, no deck ever runs her. Tamamo Cross Guts is not a particularly significant card, no race bonus inside. Easy skip banner.<center><img src="${GITHUB_BASE_URL}icons/stat-card.png" style="max-width: 100%; height: auto;"></center>`,
+    description: `Anshinzawa is a <span style="color: red;">troll card</span>, no deck ever runs her. Tamamo Cross Guts is not a particularly significant card, no race bonus inside. <span style="color: #17c571;">Easy skip</span> banner.`,
     fills: ["fill-green"],
     image: "images/0203-right-1.png",
     iconsLeft: [],
@@ -104,7 +104,7 @@ Fukukitaru Speed is a very strong high roll card but the key word is high roll, 
     side: "left",
     range: "FEB 07 - MAR 27",
     title: "New Year Paid Banner (Uma)",
-    description: `Nicknamed the scam banner. You are probably getting a dupe rather than a new horse but that also depends on your number of horses owned. Pull if you want.`,
+    description: `Nicknamed the scam banner. You are probably getting a dupe rather than a new horse but that also depends on your number of horses owned. <span style="color: #17c571;">Pull if you want</span>.`,
     fills: ["fill-purple"],
     image: "images/0207-left-1.png",
     iconsLeft: [],
@@ -117,7 +117,7 @@ Fukukitaru Speed is a very strong high roll card but the key word is high roll, 
     side: "right",
     range: "FEB 07 - MAR 27",
     title: "New Year Paid Banner (Support Card)",
-    description: `Nicknamed the scam banner. You are probably getting Air Shakur Wit or Goldship Stam rather than an important card. Pull if you want.`,
+    description: `Nicknamed the scam banner. You are probably getting Air Shakur Wit or Goldship Stam rather than an important card. <span style="color: #17c571;">Pull if you want</span>.`,
     fills: ["fill-purple"],
     image: "images/0207-right-1.png",
     iconsLeft: [],
@@ -130,7 +130,7 @@ Fukukitaru Speed is a very strong high roll card but the key word is high roll, 
     side: "left",
     range: "FEB 09 - FEB 17",
     title: "Sakura Chiyono O",
-    description: `A spring oriented pace/front runner, comes with speed star, spring runner and pace savvy. Nothing else particularly strong about her. <span style="color: red;">Oshi horse</span>.`,
+    description: `A spring oriented pace/front runner, comes with speed star, spring runner and pace savvy. <span style="color: red;">Nothing else particularly strong about her</span>. <span style="color: #17c571;">Oshi horse</span>.`,
     fills: ["fill-green"],
     image: "images/0209-left-1.png",
     iconsLeft: ["icons/pace.png"],
@@ -143,7 +143,7 @@ Fukukitaru Speed is a very strong high roll card but the key word is high roll, 
     side: "right",
     range: "FEB 09 - FEB 17",
     title: "Tazuna Friend & Riko Kashimoto Friend",
-    description: `At this point, <span style="color: red;">these cards will no longer be used</span> except for MLB SSR Riko because of her 10% race bonus but even then she will fall off after MANT as well. I wouldn't recommend going out of your way to get the MLB Riko, there's plenty of good banners to pull on. <span style="color: #17c571;">Easy Skip</span>.`,
+    description: `At this point, <span style="color: red;">these cards will no longer be used</span> except for <span style="color: #17c571;">MLB SSR Riko because of her 10% race bonus</span> but even then she will fall off after MANT as well. I wouldn't recommend going out of your way to get the MLB Riko, there's plenty of good banners to pull on. <span style="color: #17c571;">Easy Skip</span>.`,
     fills: ["fill-green"],
     image: "images/0209-right-1.png",
     iconsLeft: [],
@@ -156,8 +156,8 @@ Fukukitaru Speed is a very strong high roll card but the key word is high roll, 
     side: "left",
     range: "FEB 15 - FEB 27",
     title: "Val. Mihono Bourbon & Val. Eishin Flash",
-    description: `Valentine Bourbon is the <span style="color: red;">EASIEST front runner to make</span>, she has groundwork + front savvy + concentration + a secret event where if you get 60000 fans before valentine's day you get early lead.  Meta now, falls off a bit, Meta when LoH starts. 
-Valentine Eishin Flash is <span style="color: red;">mostly just another dominator debuffer</span>, the other skills she has and her unique aren't much to speak about. `,
+    description: `Valentine Bourbon is the <span style="color: #17c571;">EASIEST front runner to make</span>, she has groundwork + front savvy + concentration + a secret event where if you get 60000 fans before valentine's day you get early lead.  <span style="color: #17c571;">Meta now</span>, falls off a bit, Meta when LoH starts. 
+Valentine Eishin Flash is <span style="color: #17c571;">mostly just another dominator debuffer</span>, the other skills she has and her unique aren't much to speak about. `,
     fills: ["fill-orange", "fill-green"],
     image: "images/0215-left-1.png",
     iconsLeft: ["icons/front.png"],
@@ -170,9 +170,9 @@ Valentine Eishin Flash is <span style="color: red;">mostly just another dominato
     side: "right",
     range: "FEB 15 - FEB 27",
     title: "Nishino Flower Wit & Sakura Baksuhin O Guts",
-    description: `Nishino Wit is <span style="color: red;">primarily used to get the gold skill downward descent</span>, it's really niche however, not every track has an ideal downhill. 
-Bakushin O guts has <span style="color: red;">groundwork on 1st event</span> and a decent sprint mid-leg gold skill. 
-Both of these cards don't have race bonus, not recommended since MANT is coming.
+    description: `Nishino Wit is <span style="color: #17c571;">primarily used to get the gold skill downward descent</span>, it's really niche however, not every track has an ideal downhill. 
+Bakushin O guts has <span style="color: #17c571;">groundwork on 1st event</span> and a decent sprint mid-leg gold skill. 
+<span style="color: red;">Both of these cards don't have race bonus</span>, not recommended since MANT is coming.
 <span style="color: #17c571;">Skip</span>.`,
     fills: ["fill-green"],
     image: "images/0215-right-1.png",
@@ -186,7 +186,7 @@ Both of these cards don't have race bonus, not recommended since MANT is coming.
     side: "right",
     range: "FEB 15 - FEB 27",
     title: "Tosen Jordan SSR Speed",
-    description: `If your cards are horrible, this speed card is an F2P's lifesaver. If your cards are good enough, not relevant. <span style="color: red;">It has Breath of Fresh Air</span> though.`,
+    description: `If your cards are horrible, this speed card is an F2P's lifesaver. If your cards are good enough, not relevant. <span style="color: #17c571;">It has Breath of Fresh Air</span> though. <span style="color: #17c571;">Free Card</span>.`,
     fills: ["fill-green"],
     image: "images/0215-right-2.png",
     iconsLeft: [],
@@ -199,7 +199,7 @@ Both of these cards don't have race bonus, not recommended since MANT is coming.
     side: "left",
     range: "FEB 23 - MAR 03",
     title: "Mejiro Ardan",
-    description: `Primarily a pace chaser for medium, she has a unique that activates on the last straight and has race planner. <span style="color: red;">Suffers from glass legs when racing too much</span> which eats 10 extra energy when you race consecutively <span style="color: red;">which isn't great when MANT is coming</span>.
+    description: `Primarily a pace chaser for medium, she has a unique that activates on the last straight and has race planner. 
 <span style="color: #17c571;">Oshi horse</span>.`,
     fills: ["fill-green"],
     image: "images/0223-left-1.png",
@@ -215,7 +215,7 @@ Both of these cards don't have race bonus, not recommended since MANT is coming.
     title: "Agnes Digital  SSR Power & Ines Fujin SR Wit",
     description: `Digital is <span style="color: #17c571;">another way to hunt down Uma Stan</span> but other than that is not too important because <span style="color: red;">she is a power card</span>. Also she has 5% race bonus, and her unique effect wants you to run a highlander deck (1 of every card). We aren't in JP yet sorry.
 Ines Fujin <span style="color: #17c571;">gives some decent front runner skills</span> but sadly has <span style="color: red;">5% race bonus only</span>. 
-<span style="color: #17c571;">Skip</span>.`,
+<span style="color: #17c571;">Easy Skip</span>.`,
     fills: ["fill-green"],
     image: "images/0223-right-1.png",
     iconsLeft: ["icons/late.png"],
@@ -272,10 +272,10 @@ Mambo is the complete opposite, she's pretty much like Haru Urara, a horse that 
     range: "MAR 06 - MAR 17",
     title: "Narita Top Road SSR Speed & Admire Vega SR Guts",
     description: `NTR is <span style="color: #17c571;">a consistently powerful speed SSR made for MANT</span> and <span style="color: red;">falls off the moment MANT ends</span>. It's because she scales off Fans which requires a lot of races. 
-<br>The real prize is <span style="color: red;">admire vega guts</span>, this card is so broken that even whales will use it. <span style="color: #17c571;">15% Race bonus with 1 speed and 1 power bonus</span> is just ridiculous.
+<br>The real prize is Admire Vega guts, this card is so broken that even whales will use it. <span style="color: #17c571;">15% Race bonus with 1 speed and 1 power bonus</span> is just ridiculous.
 Ryan has 5% race bonus, unusable in MANT.
 Bakushin has 10% race bonus and gives tail held high, actually quite ok.
-<span style="color: red;">Recommended to pull for Vega, NTR is more for dolphin/whale</span>.`,
+<span style="color: #17c571;">Recommended to pull for Vega, NTR is more for dolphin/whale</span>.`,
     fills: ["fill-purple", "fill-orange"],
     image: "images/0306-right-1.png",
     iconsLeft: [],
@@ -288,7 +288,7 @@ Bakushin has 10% race bonus and gives tail held high, actually quite ok.
     side: "right",
     range: "MAR 06 - MAR 17",
     title: "Mejiro Bright SSR Stamina",
-    description: `Mejiro Bright Stamina gives the gold skill of pressure. <span style="color: red;">Not relevant meta wise</span>. Free Card.`,
+    description: `Mejiro Bright Stamina gives the gold skill of pressure. <span style="color: red;">Not relevant meta wise</span>. <span style="color: #17c571;">Free Card</span>.`,
     fills: ["fill-green"],
     image: "images/0306-right-2.png",
     iconsLeft: [],
@@ -315,7 +315,7 @@ Bakushin has 10% race bonus and gives tail held high, actually quite ok.
     range: "MAR 13 - MAR 24",
     title: "Marvelous Sunday SSR Guts & Curren SR Speed",
     description: ` Marvelous Sunday Guts SSR is <span style="color: red;">very bad and can be easily skipped</span>, Marvelous Sunday Power SSR is a free card that is superior to her in every way especially for MANT. 
-Curren Speed SR is a very good stat stick SR, very good for people with poor speed cards. <span style="color: red;">Don't pull this banner JUST for curren</span>.
+Curren Speed SR is a <span style="color: #17c571;">very good stat stick SR</span>, very good for people with poor speed cards. <span style="color: red;">Don't pull this banner JUST for curren</span>.
 <span style="color: #17c571;">Easy Skip</span>.`,
     fills: ["fill-green", "fill-purple"],
     image: "images/0313-right-1.png",
@@ -344,7 +344,7 @@ Curren Speed SR is a very good stat stick SR, very good for people with poor spe
     title: "Zenno Rob Roy SSR Speed & Curren SSR Wit",
     description: `Zenno Rob Roy <span style="color: red;">falls off in MANT</span> due to no race bonus. <br><br>
 
-Curren Wit does have 10% race bonus and gives perfect prep a good skill for sprint. <span style="color: #17c571;">She will be relevant for sprint CMs</span> which happens maybe 1-2 times a year (better off borrowing).
+Curren Wit does have 10% race bonus and gives <span style="color: #17c571;">perfect prep</span> a good skill for sprint. <span style="color: #17c571;">She will be relevant for sprint CMs</span> which happens maybe 1-2 times a year (<span style="color: red;">better off borrowing</span>).
 <span style="color: #17c571;">Recommended to skip.</span>`,
     fills: ["fill-purple"],
     image: "images/0321-right-1.png",
@@ -358,7 +358,7 @@ Curren Wit does have 10% race bonus and gives perfect prep a good skill for spri
     side: "left",
     range: "MAR 21 - APR 12",
     title: "1st Anniversary Paid Banner (Uma)",
-    description: `Nicknamed the scam banner. You are probably getting a dupe rather than a new horse but that also depends on your number of horses owned. Pull if you want.`,
+    description: `Nicknamed the scam banner. You are probably getting a dupe rather than a new horse but that also depends on your number of horses owned. <span style="color: #17c571;">Pull if you want</span>.`,
     fills: ["fill-purple"],
     image: "images/0322-left-1.png",
     iconsLeft: [],
@@ -371,7 +371,7 @@ Curren Wit does have 10% race bonus and gives perfect prep a good skill for spri
     side: "right",
     range: "MAR 21 - APR 12",
     title: "1st Anniversary Paid Banner (Support Card)",
-    description: `Nicknamed the scam banner. You are probably getting Air Shakur Wit or Goldship Stamina rather than a relevant card. Pull if you want.`,
+    description: `Nicknamed the scam banner. You are probably getting Air Shakur Wit or Goldship Stamina rather than a relevant card. <span style="color: #17c571;">Pull if you want</span>.`,
     fills: ["fill-purple"],
     image: "images/0322-right-1.png",
     iconsLeft: [],
@@ -386,7 +386,7 @@ Curren Wit does have 10% race bonus and gives perfect prep a good skill for spri
     title: "Ballroom Seiun Sky & Ballroom Fuji Kiseki",
     description: `Ballroom Seiun Sky is <span style="color: #17c571;">a strong front runner horse</span> and is <span style="color: #17c571;">a relevant parent for some tracks</span> just like the OG Seiun Sky. She does not make it any easier to make a front so you will still have to do it the old fashioned way (Sparks + Cards).
 <br><br>
-Ballroom Fuji is <span style="color: #17c571;">a strong mile pace chaser horse</span> and she will only get stronger with the addition of evolved skills. Meta wise, <span style="color: red;">there are better milers than her so not a must have</span>.`,
+Ballroom Fuji is <span style="color: #17c571;">a strong mile pace chaser horse</span> and she will only get stronger with the addition of evolved skills. Meta wise, <span style="color: red;">there are better milers than her so not a must have</span>.<span style="color: #17c571;"> Oshi pull</span>.`,
     fills: ["fill-orange", "fill-purple"],
     image: "images/0329-left-1.png",
     iconsLeft: ["icons/front.png"],
@@ -414,7 +414,7 @@ Ballroom Fuji is <span style="color: #17c571;">a strong mile pace chaser horse</
     side: "right",
     range: "MAR 29 - APR 11",
     title: "Air Shakur SSR Speed Card",
-    description: `Usable if no other options, or if you want to hunt for calm and collected gold recovery.`,
+    description: `Usable if no other options, or if you want to hunt for calm and collected gold recovery. <span style="color: #17c571;">Free Card</span>.`,
     fills: ["fill-green"],
     image: "images/0329-right-2.png",
     iconsLeft: [],
@@ -427,7 +427,7 @@ Ballroom Fuji is <span style="color: #17c571;">a strong mile pace chaser horse</
     side: "left",
     range: "APR 07 - APR 14",
     title: "Nishino Flower",
-    description: `Nishino Flower is <span style="color: red;">a Meta parent</span> and can be used for
+    description: `Nishino Flower is <span style="color: #17c571;">a Meta parent</span> and can be used for
 shorts or miles as an ace.
  Usually you just inherit her since her innate skills
 aren't super amazing but there will be times

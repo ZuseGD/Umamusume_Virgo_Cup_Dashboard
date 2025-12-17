@@ -5,8 +5,8 @@ from pathlib import Path
 
 def render_timeline_tab():
 
-  st.set_page_config(page_title="Site Timeline", layout="wide", initial_sidebar_state="collapsed")
-
+  st.set_page_config(page_title="Unc Timeline", layout="wide", initial_sidebar_state="collapsed")
+  
   st.markdown("""
       <style>
           .main {
@@ -20,6 +20,8 @@ def render_timeline_tab():
           }
       </style>
   """, unsafe_allow_html=True)
+  st.info("The timeline visualization is best viewed on larger screens. For optimal experience, please use a desktop or laptop. ")
+  st.warning("This timeline is not linear; it is dynamic based on user filters. The filters are \"AND\" operation, not \"OR\" operation.")
 
   # 2. Error Handling & Resource Loading
   try:
@@ -96,4 +98,4 @@ def render_timeline_tab():
   </html>
   """
 
-  components.html(full_html, height=6767, scrolling=True)
+  components.html(full_html, height=800, scrolling=True)
