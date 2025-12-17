@@ -13,6 +13,7 @@ def get_base64_image(image_path):
         return None
 
 def show_view(df, team_df, current_config):
+    st.set_page_config(page_title="Moomamusume Dashboard", layout="wide")
     
     # --- CSS: Styling ---
     st.markdown("""

@@ -4,10 +4,12 @@ import base64
 import os
 
 def show_view(current_config):
+    st.set_page_config(page_title="📚 Event Guides", layout="wide")
+    st.info(" **NOTE:** If the guides are not loading, that means there are no guides available for this CM yet. Please check back later!")
     # 1. Header
     cm_id = current_config.get('id', 'Champion Meeting')
     event_name = cm_id.replace('_', ' ').title()
-    st.header(f"📚 Guides: {event_name}")
+    st.header(f"📚 Canva Guides: {event_name}")
     
     # 2. Load Images
     images = current_config.get('guide_images', [])

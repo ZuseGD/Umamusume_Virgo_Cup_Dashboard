@@ -1,9 +1,10 @@
 import streamlit as st
 import os
+import pandas as pd
 from virgo_utils import load_data, footer_html, load_ocr_data
 from PIL import Image
 from cm_config import CM_LIST
-
+from views.timeline import render_timeline_tab
 
 # 1. Page Config
 page_icon = "🏆"
@@ -12,6 +13,7 @@ if os.path.exists(icon_path):
     page_icon = icon_path
 
 st.set_page_config(page_title="Moomamusume Dashboard", page_icon=page_icon, layout="wide")
+
 
 #  EVENT SELECTION
 st.sidebar.header("📅 Event Selector")
@@ -46,66 +48,92 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 4. LOAD DATA
+# 3. LOAD DATA (Robust Mode)
+data_loaded = False
+df = pd.DataFrame()
+team_df = pd.DataFrame()
+
 try:
-    if not current_config['sheet_url'].startswith("http"):
-        if not os.path.exists(current_config['sheet_url']):
-            st.error(f"❌ File not found: **{current_config['sheet_url']}**")
-            st.info("Please ensure the CSV file is in the same folder as `dashboard.py`.")
-            st.stop()
-
-    df, team_df = load_data(current_config['sheet_url'])
+    sheet_url = current_config.get('sheet_url', '')
     
-    if df.empty:
-        st.error("⚠️ Data loaded but is empty. Check CSV format.")
-        st.stop()
-        
+    # Check if URL or local file exists
+    file_exists = True
+    if not sheet_url.startswith("http"):
+        if not os.path.exists(sheet_url):
+            file_exists = False
+    
+    if file_exists and sheet_url:
+        df, team_df = load_data(sheet_url)
+        if not df.empty:
+            data_loaded = True
+            
 except Exception as e:
-    st.error(f"❌ Critical Data Error: {e}")
-    st.stop()
+    print(f"Data load skipped or failed: {e}")
+    # We do not stop execution here; we simply proceed with data_loaded = False
 
-# 5. FILTERS
-st.sidebar.header("⚙️ Global Filters")
-st.sidebar.warning("Adjusting filters will refresh data across all tabs other than finals.")
+# 4. FILTERS (Only show if data exists)
+if data_loaded:
+    st.sidebar.header("⚙️ Global Filters")
+    st.sidebar.warning("Adjusting filters will refresh data across all tabs other than finals.")
 
-if 'Clean_Group' in df.columns:
-    groups = list(df['Clean_Group'].unique())
-    selected_group = st.sidebar.multiselect("CM Group", groups, default=groups, key="filter_group") 
-    if selected_group:
-        df = df[df['Clean_Group'].isin(selected_group)]
-        team_df = team_df[team_df['Clean_Group'].isin(selected_group)]
+    if 'Clean_Group' in df.columns:
+        groups = list(df['Clean_Group'].unique())
+        selected_group = st.sidebar.multiselect("CM Group", groups, default=groups, key="filter_group") 
+        if selected_group:
+            df = df[df['Clean_Group'].isin(selected_group)]
+            team_df = team_df[team_df['Clean_Group'].isin(selected_group)]
 
-if 'Round' in df.columns:
-    rounds = sorted(list(df['Round'].unique()))
-    selected_round = st.sidebar.multiselect("Round", rounds, default=rounds, key="filter_round")
-    if selected_round:
-        df = df[df['Round'].isin(selected_round)]
-        team_df = team_df[team_df['Round'].isin(selected_round)]
+    if 'Round' in df.columns:
+        rounds = sorted(list(df['Round'].unique()))
+        selected_round = st.sidebar.multiselect("Round", rounds, default=rounds, key="filter_round")
+        if selected_round:
+            df = df[df['Round'].isin(selected_round)]
+            team_df = team_df[team_df['Round'].isin(selected_round)]
 
-if 'Day' in df.columns:
-    days = sorted(list(df['Day'].unique()))
-    selected_day = st.sidebar.multiselect("Day", days, default=days, key="filter_day")
-    if selected_day:
-        df = df[df['Day'].isin(selected_day)]
-        team_df = team_df[team_df['Day'].isin(selected_day)]
+    if 'Day' in df.columns:
+        days = sorted(list(df['Day'].unique()))
+        selected_day = st.sidebar.multiselect("Day", days, default=days, key="filter_day")
+        if selected_day:
+            df = df[df['Day'].isin(selected_day)]
+            team_df = team_df[team_df['Day'].isin(selected_day)]
+else:
+    # Optional: Sidebar message when no data
+    st.sidebar.info("🚫 No data available for this event yet.")
 
-# 6. HEADER
-st.title(f"{current_config['icon']} {selected_event_name} Dashboard")
+# 5. HEADER
+st.title(f"{current_config.get('icon', '🏆')} {selected_event_name} Dashboard")
 
-# 7. NAVIGATION
-pages = [
-    {"label": "Overview", "name": "Home", "icon": "🌍"},
-    {"label": "Meta Tier List", "name": "Umas", "icon": "📊"},
-    {"label": "Team Comps", "name": "Teams", "icon": "⚔️"},
-    {"label": "Card Usage", "name": "Cards", "icon": "🗃️"},
-    {"label": "Build Analysis", "name": "OCR", "icon": "🔬"},
-    {"label": "Finals Results", "name": "Finals", "icon": "🏆"},
-    {"label": "Library", "name": "Guides", "icon": "📚"},
-]
+# 6. NAVIGATION
+if 'current_page' not in st.session_state: 
+    st.session_state.current_page = "Home"
 
+# Define available pages based on data status
+if data_loaded:
+    pages = [
+        {"label": "Overview", "name": "Home", "icon": "🌍"},
+        {"label": "Umas", "name": "Umas", "icon": "📊"},
+        {"label": "Team Comps", "name": "Teams", "icon": "⚔️"},
+        {"label": "Card Usage", "name": "Cards", "icon": "🗃️"},
+        {"label": "Build Analysis", "name": "OCR", "icon": "🔬"},
+        {"label": "Finals Results", "name": "Finals", "icon": "🏆"},
+        {"label": "Timeline", "name": "Timeline", "icon": "📍"},
+        {"label": "Guides", "name": "Guides", "icon": "📚"},
+    ]
+else:
+    # LIMITED NAVIGATION: Only Home, Timeline, Guides
+    pages = [
+        {"label": "Overview", "name": "Home", "icon": "🌍"},
+        {"label": "Timeline", "name": "Timeline", "icon": "📍"},
+        {"label": "Guides", "name": "Guides", "icon": "📚"},
+    ]
+
+# Safety Check: If user was on a page that no longer exists (e.g. switched event), reset to Home
+valid_page_names = [p['name'] for p in pages]
+if st.session_state.current_page not in valid_page_names:
+    st.session_state.current_page = "Home"
+
+# Render Navigation Buttons
 nav_cols = st.columns(len(pages))
-if 'current_page' not in st.session_state: st.session_state.current_page = "Home"
-
 def set_page(p):
     st.session_state.current_page = p
 
@@ -118,30 +146,58 @@ for i, page in enumerate(pages):
             on_click=set_page, 
             args=(page["name"],), 
             width='stretch',
-            key=f"nav_btn_{i}" # Unique keys are good practice
+            key=f"nav_btn_{i}"
         )
 
-# 8. ROUTING
+# 7. ROUTING & CONTENT
 if st.session_state.current_page == "Home":
-    from views import home
-    home.show_view(df, team_df, current_config)
-elif st.session_state.current_page == "Teams":
-    from views import teams
-    teams.show_view(df, team_df)
-elif st.session_state.current_page == "Umas":
-    from views import umas
-    umas.show_view(df, team_df)
-elif st.session_state.current_page == "Cards":
-    from views import cards
-    cards.show_view(team_df)
-elif st.session_state.current_page == "OCR":
-    from views import ocr
-    ocr.show_view(current_config)
-elif st.session_state.current_page == "Finals":
-    from views import finals
-    finals.show_view(current_config)
+    if data_loaded:
+        from views import home
+        home.show_view(df, team_df, current_config)
+    else:
+        # --- LANDING PAGE FOR NO DATA ---
+        st.markdown("---")
+        st.header("👋 Welcome to the Dashboard!")
+        st.warning("**Note:** Data for this event is not yet available.")
+        
+        st.info(f"⚠️ **Data collection for {selected_event_name} has not started or is currently processing.**")
+        st.markdown("""
+            ### 🔍 What can I do now?
+            While we wait for the data to roll in, you can still access our strategy guides!
+            
+            1. Click the **Guides** tab above.
+            2. View detailed course analysis and recommendations.
+            3. Check back later once the event goes live!
+            """)
+            
+        # If you have a submission link in your config, you can show it here
+        if 'form_url' in current_config:
+            st.markdown(f"**Got data?** [Submit your results here!]({current_config['form_url']})")
+
+        
+
 elif st.session_state.current_page == "Guides":
     from views import guides
     guides.show_view(current_config)
+elif st.session_state.current_page == "Timeline":
+    render_timeline_tab()
+
+# Only allow loading these views if data is actually loaded
+elif data_loaded:
+    if st.session_state.current_page == "Teams":
+        from views import teams
+        teams.show_view(df, team_df)
+    elif st.session_state.current_page == "Umas":
+        from views import umas
+        umas.show_view(df, team_df)
+    elif st.session_state.current_page == "Cards":
+        from views import cards
+        cards.show_view(team_df)
+    elif st.session_state.current_page == "OCR":
+        from views import ocr
+        ocr.show_view(current_config)
+    elif st.session_state.current_page == "Finals":
+        from views import finals
+        finals.show_view(current_config)
 
 st.markdown(footer_html, unsafe_allow_html=True)

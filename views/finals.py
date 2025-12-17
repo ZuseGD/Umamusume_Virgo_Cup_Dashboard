@@ -48,6 +48,7 @@ def resolve_lobby_winner(row, winner_ref, col_map):
     return None
 
 def show_view(current_config):
+    st.set_page_config(page_title="Finals: Comprehensive Analysis", layout="wide")
     st.header("🏆 Finals: Comprehensive Analysis")
     st.markdown("""
     **Deep Dive into the Finals Meta.** """)

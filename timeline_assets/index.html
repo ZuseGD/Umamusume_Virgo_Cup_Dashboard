@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Site Timeline</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Search Bar -->
+  <div class="timeline-search">
+    <input type="text" id="timeline-search-input" placeholder="Search timeline..." />
+  </div>
+
+  <!-- Filter Container with Image -->
+  <div class="filter-container">
+    <img src="https://raw.githubusercontent.com/moomoocowsteam/timeline_app/main/icons/taz.png" alt="Taz" class="filter-image">
+    <div class="filter-boxes">
+      <div class="filter-box-row">
+        <div class="filter-box" data-tag="RA">RA</div>
+        <div class="filter-box" data-tag="FRONT">FRONT</div>
+        <div class="filter-box" data-tag="PACE">PACE</div>
+        <div class="filter-box" data-tag="LATE">LATE</div>
+        <div class="filter-box" data-tag="END">END</div>
+      </div>
+
+      <div class="filter-box-row">
+        <div class="filter-box" data-tag="SHORT">SHORT</div>
+        <div class="filter-box" data-tag="DIRT">DIRT</div>
+        <div class="filter-box" data-tag="MILE">MILE</div>
+        <div class="filter-box" data-tag="MED">MED</div>
+        <div class="filter-box" data-tag="LONG">LONG</div>
+      </div>
+
+      <div class="filter-box-row">
+        <div class="filter-box" data-tag="META">META</div>
+        <div class="filter-box" data-tag="LUXURY">LUXURY</div>
+        <div class="filter-box" data-tag="NICHE">NICHE</div>
+        <div class="filter-box" data-tag="OSHI">OSHI</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Timeline Wrapper -->
+  <div class="timeline-wrapper">
+    <!-- Timeline -->
+    <div id="timeline" class="timeline">
+      <div class="timeline-line" id="timeline-line"></div>
+      <!-- .date-range boxes will be rendered here dynamically -->
+    </div>
+
+    <!-- Legend Card -->
+    <div class="timeline-card" id="legend">
+      <!-- Blue header bar acts as toggle -->
+      <div class="header-bar" id="legend-toggle">
+        <span class="header-label">LEGEND</span>
+        <span class="header-icon">▼</span>
+      </div>
+
+      <!-- Collapsible content -->
+      <div class="legend-content">
+        <div class="row">
+          <div class="icon-item">
+            <img src="https://raw.githubusercontent.com/moomoocowsteam/timeline_app/main/icons/runaway.png" alt="Runaway Icon">
+            <span>RA</span>
+          </div>
+          <div class="rectangle-item">
+            <div class="color-rectangle rect-orange"></div>
+            <span>Meta</span>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="icon-item">
+            <img src="https://raw.githubusercontent.com/moomoocowsteam/timeline_app/main/icons/front.png" alt="Front Icon">
+            <span>Front</span>
+          </div>
+          <div class="rectangle-item">
+            <div class="color-rectangle rect-purple"></div>
+            <span>Luxury</span>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="icon-item">
+            <img src="https://raw.githubusercontent.com/moomoocowsteam/timeline_app/main/icons/pace.png" alt="Pace Icon">
+            <span>Pace</span>
+          </div>
+          <div class="rectangle-item">
+            <div class="color-rectangle rect-green"></div>
+            <span>Niche</span>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="icon-item">
+            <img src="https://raw.githubusercontent.com/moomoocowsteam/timeline_app/main/icons/late.png" alt="Late Icon">
+            <span>Late</span>
+          </div>
+          <div class="rectangle-item">
+            <div class="color-rectangle rect-red"></div>
+            <span>Oshi</span>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="icon-item">
+            <img src="https://raw.githubusercontent.com/moomoocowsteam/timeline_app/main/icons/end.png" alt="End Icon">
+            <span>End</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Back to Top Button -->
+  <button id="back-to-top" title="Back to Top">↑</button>
+
+  <!-- External Script -->
+  <script src="script.js"></script>
+</body>
+</html>

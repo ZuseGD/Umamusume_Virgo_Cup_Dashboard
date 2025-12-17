@@ -3,6 +3,7 @@ import plotly.express as px
 from virgo_utils import style_fig, PLOT_CONFIG, dynamic_height, show_description, analyze_significant_roles
 
 def show_view(df, team_df):
+    st.set_page_config(page_title="Uma Performance Dashboard", layout="wide")
     st.header("🐴 Individual Uma Performance")
     st.warning("⚠️ **NOTE:** Win Rates are based on **TEAM Performance** when this Uma is present. It does NOT track individual race wins. Use this data to analyze overall Uma effectiveness within team compositions.")
     
@@ -119,7 +120,7 @@ def show_view(df, team_df):
         hover_name='Clean_Uma',
         labels={'Pick_Rate': 'Pick Rate (%)', 'Calculated_WinRate': 'Win Rate (%)'},
         # Add entries to hover for detail
-        hover_data={'Clean_Races': True, 'Pick_Rate': ':.2f', 'Calculated_WinRate': ':.1f'}
+        hover_data={'Clean_Races': True, 'Pick_Rate': ':.2f', 'Calculated_WinRate': ':.1f'},
     )
     
     # Add Average Reference Lines

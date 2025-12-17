@@ -501,40 +501,43 @@ def _process_teams(df: pd.DataFrame) -> pd.DataFrame:
 
 @st.cache_data(ttl=3600)
 def load_data(sheet_url: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    try:
-        df = pd.read_csv(sheet_url)
-        df = _explode_raw_form_data(df)
-        df = _clean_raw_data(df)
-
-        # Sort by timestamp (if available) or Races/Wins to keep the best data
-        sort_cols = ['Clean_Races', 'Clean_Wins']
-        if 'Clean_Timestamp' in df.columns:
-            # Convert timestamp to datetime for accurate sorting
-            df['Clean_Timestamp'] = pd.to_datetime(df['Clean_Timestamp'], errors='coerce')
-            sort_cols.insert(0, 'Clean_Timestamp')
-            
-        df = df.sort_values(by=sort_cols, ascending=False)
-        
-        # --- CRITICAL FIX: AGGRESSIVE DEDUPLICATION ---
-        # We assume one submission per player per round/day is the valid one.
-        # We drop duplicates based on Player + Round + Day + Uma Name
-        # This keeps the "latest" or "most complete" entry for that specific slot.
-        subset_cols = ['Clean_IGN', 'Round', 'Day', 'Clean_Uma']
-        df = df.drop_duplicates(subset=subset_cols, keep='first')
-
-        df = anonymize_players(df)
-        team_df = _process_teams(df)
-        
-        # --- DOUBLE CHECK: Deduplicate Teams ---
-        # Ensure we don't have multiple team entries for the same player/round/day in the final team_df
-        team_df = team_df.drop_duplicates(subset=['Clean_IGN', 'Round', 'Day'], keep='first')
-        
-        return df, team_df
-
-    except Exception as e:
-        print(f"Error in load_data: {e}") 
-        st.error(f"Data Error: {e}")
+    if sheet_url == None or sheet_url.strip() == "":
         return pd.DataFrame(), pd.DataFrame()
+    else:
+        try:
+            df = pd.read_csv(sheet_url)
+            df = _explode_raw_form_data(df)
+            df = _clean_raw_data(df)
+
+            # Sort by timestamp (if available) or Races/Wins to keep the best data
+            sort_cols = ['Clean_Races', 'Clean_Wins']
+            if 'Clean_Timestamp' in df.columns:
+                # Convert timestamp to datetime for accurate sorting
+                df['Clean_Timestamp'] = pd.to_datetime(df['Clean_Timestamp'], errors='coerce')
+                sort_cols.insert(0, 'Clean_Timestamp')
+                
+            df = df.sort_values(by=sort_cols, ascending=False)
+            
+            # --- CRITICAL FIX: AGGRESSIVE DEDUPLICATION ---
+            # We assume one submission per player per round/day is the valid one.
+            # We drop duplicates based on Player + Round + Day + Uma Name
+            # This keeps the "latest" or "most complete" entry for that specific slot.
+            subset_cols = ['Clean_IGN', 'Round', 'Day', 'Clean_Uma']
+            df = df.drop_duplicates(subset=subset_cols, keep='first')
+
+            df = anonymize_players(df)
+            team_df = _process_teams(df)
+            
+            # --- DOUBLE CHECK: Deduplicate Teams ---
+            # Ensure we don't have multiple team entries for the same player/round/day in the final team_df
+            team_df = team_df.drop_duplicates(subset=['Clean_IGN', 'Round', 'Day'], keep='first')
+            
+            return df, team_df
+
+        except Exception as e:
+            print(f"Error in load_data: {e}") 
+            st.error(f"Data Error: {e}")
+            return pd.DataFrame(), pd.DataFrame()
 
 def clean_currency_numeric(series):
     return (series.astype(str)

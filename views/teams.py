@@ -3,7 +3,8 @@ import plotly.express as px
 from virgo_utils import style_fig, PLOT_CONFIG, dynamic_height, show_description
 
 def show_view(df, team_df):
-    st.header("⚔️ Team & Strategy")
+    st.set_page_config(page_title="⚔️ Team & Strategy Dashboard", layout="wide")
+    st.header("Team & Strategy")
     
     # Calculate Totals for Percentages
     total_sessions = len(team_df)

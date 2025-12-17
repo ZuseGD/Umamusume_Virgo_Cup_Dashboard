@@ -5,6 +5,7 @@ import numpy as np
 from virgo_utils import style_fig, PLOT_CONFIG, load_ocr_data, load_data, load_finals_data, show_description, smart_match_name
 
 def show_view(current_config):
+    st.set_page_config(page_title="Build Analysis Dashboard", layout="wide")
     event_name = current_config.get('id', 'Event').replace('_', ' ').title()
     parquet_file = current_config.get('parquet_file', '')
     sheet_url = current_config.get('sheet_url', '')
