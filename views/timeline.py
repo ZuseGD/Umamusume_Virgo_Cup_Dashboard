@@ -96,4 +96,4 @@ def render_timeline_tab():
   </html>
   """
 
-  components.html(full_html, height=800, scrolling=True)
+  components.html(full_html, height=6767, scrolling=True)
