@@ -139,16 +139,22 @@ We heard your feedback about missing data in the detailed view.
         # 1. Win Rate Trend
         if 'Round' in df.columns and 'Day' in df.columns:
             trend_df = team_df.groupby(['Round', 'Day']).agg({'Calculated_WinRate': 'mean'}).reset_index()
+            trend_df['Day'].drop(columns='Finals')
             trend_df['Session'] = trend_df['Round'] + " " + trend_df['Day']
-            
+            wr_order = ["R1 D1", "R1 D2", "R2 D1", "R2 D2"]
+
             fig_trend = px.line(
                 trend_df, x='Session', y='Calculated_WinRate', 
+                category_orders={'Session': wr_order},
                 title="Global Win Rate Trend (Difficulty)",
                 markers=True, template='plotly_dark', text='Calculated_WinRate',
+               
                 labels={'Calculated_WinRate': 'Avg Win Rate %', 'Session': 'Tournament Session'}
             )
+            
             fig_trend.update_traces(textposition="top center", texttemplate='%{text:.1f}%', hovertemplate='Session: %{x}<br>Avg WR: %{y:.3f}%<extra></extra>')
-            st.plotly_chart(style_fig(fig_trend, height=400), width='stretch', config=PLOT_CONFIG)
+            
+            st.plotly_chart(style_fig(fig_trend, height=400), width='stretch',  config=PLOT_CONFIG)
         else:
             st.info("No timeline data available.")
 
