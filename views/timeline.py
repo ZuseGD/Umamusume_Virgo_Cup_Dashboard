@@ -1,101 +1,115 @@
 import streamlit as st
 import streamlit.components.v1 as components
-import base64
 from pathlib import Path
 
+# PRINCIPLE: Efficiency & Resource Safety
+# Caching this function prevents the app from opening files on every single re-run.
+# This is crucial for preventing "OSError: Too many open files".
+@st.cache_data
+def load_timeline_assets(base_path: Path):
+    """
+    Loads timeline assets (CSS, JS, HTML) from the specified directory.
+    """
+    assets = {}
+    errors = []
+    
+    # Define expected filenames
+    files = {
+        "css": "style.css",
+        "js": "script.js",
+        "html": "index.html"
+    }
+
+    for key, filename in files.items():
+        file_path = base_path / filename
+        try:
+            # PRINCIPLE: Explicit Encoding
+            # Always specify encoding to avoid platform-specific UnicodeDecodeErrors
+            with open(file_path, "r", encoding="utf-8") as f:
+                assets[key] = f.read()
+        except FileNotFoundError:
+            errors.append(f"Missing critical resource: {filename} at {file_path}")
+        except Exception as e:
+            errors.append(f"Error reading {filename}: {str(e)}")
+    
+    return assets, errors
+
 def render_timeline_tab():
+    """
+    Main function to render the Timeline component tab.
+    """
+    # PRINCIPLE: Robust Pathing
+    # Calculate paths relative to THIS file (views/timeline.py), not the user's CWD.
+    # Structure: .../views/timeline.py -> parent is 'views' -> parent is 'root' -> 'timeline_assets'
+    current_dir = Path(__file__).parent
+    assets_dir = current_dir.parent / "timeline_assets"
 
-  st.set_page_config(page_title="Unc Timeline", layout="wide", initial_sidebar_state="collapsed")
-  
-  st.markdown("""
-      <style>
-          .main {
-              background-color: #0e1117;
-          }
-          [data-testid="stAppViewContainer"] {
-              background-color: #0e1117;
-          }
-          [data-testid="stHeader"] {
-              background-color: #0e1117;
-          }
-      </style>
-  """, unsafe_allow_html=True)
-  st.info("The timeline visualization is best viewed on larger screens. For optimal experience, please use a desktop or laptop. ")
-  st.warning("This timeline is not linear; it is dynamic based on user filters. The filters are \"AND\" operation, not \"OR\" operation.")
+    # Load assets via the cached function
+    assets, errors = load_timeline_assets(assets_dir)
 
-  # 2. Error Handling & Resource Loading
-  try:
+    # Handle errors gracefully without crashing the whole dashboard
+    if errors:
+        for error in errors:
+            st.error(error)
+        st.stop()
 
-    with open("timeline_assets/style.css", "r") as f:
-        css_content = f.read()
+    css_content = assets["css"]
+    js_content = assets["js"]
+    html_content = assets["html"]
 
-    with open("timeline_assets/script.js", "r") as f:
-        js_content = f.read()
+    # Extract body content (Simple parsing to isolate the Timeline container)
+    try:
+        body_start = html_content.find("<body>")
+        if body_start != -1:
+            body_start += 6  # Skip length of <body> tag
+            body_end = html_content.find("</body>")
+            body_html = html_content[body_start:body_end]
+        else:
+            body_html = html_content # Fallback
+    except Exception as e:
+        st.error(f"Error parsing HTML content: {e}")
+        return
 
-    with open("timeline_assets/index.html", "r") as f:
-        html_content = f.read()
-  except FileNotFoundError as e:
-    st.error(f"Error loading timeline assets: {e}")
-    st.stop()
+    # Construct the final HTML component
+    # We inject CSS and JS directly to ensure they work within the iframe context
+    full_html = f"""
+    <!DOCTYPE html>
+    <html style="overflow-x: auto; overflow-y: auto;">
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans&display=swap" rel="stylesheet">
+    <style>
+    /* Streamlit Iframe Scrollbar Overrides */
+    body {{
+      overflow-x: auto;
+      overflow-y: auto;
+      margin: 0;
+      padding: 0;
+    }}
+    ::-webkit-scrollbar {{ width: 12px; height: 12px; }}
+    ::-webkit-scrollbar-track {{ background: transparent; }}
+    ::-webkit-scrollbar-thumb {{ background: rgba(136, 136, 136, 0.3); border-radius: 6px; }}
+    ::-webkit-scrollbar-thumb:hover {{ background: rgba(136, 136, 136, 0.5); }}
+    * {{ scrollbar-width: thin; scrollbar-color: rgba(136, 136, 136, 0.3) transparent; }}
+    
+    /* Injected Timeline CSS */
+    {css_content}
+    </style>
+    </head>
+    <body style="overflow-x: auto; overflow-y: auto;">
+    {body_html}
 
-  body_start = html_content.find("<body>") + 6
-  body_end = html_content.find("</body>")
-  body_html = html_content[body_start:body_end]
+    <script>
+    {js_content}
+    </script>
+    </body>
+    </html>
+    """
 
-  def get_image_base64(image_path):
-      try:
-          with open(image_path, "rb") as f:
-              return base64.b64encode(f.read()).decode()
-      except:
-          return None
+    # Dashboard UX Elements
+    st.info("The timeline visualization is best viewed on larger screens. For optimal experience, please use a desktop or laptop.")
+    st.warning("This timeline is not linear; it is dynamic based on user filters. The filters use an \"AND\" operation.")
 
-  full_html = f"""
-  <!DOCTYPE html>
-  <html style="overflow-x: auto; overflow-y: auto;">
-  <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans&display=swap" rel="stylesheet">
-  <style>
-  body {{
-    overflow-x: auto;
-    overflow-y: auto;
-    margin: 0;
-    padding: 0;
-  }}
-  html {{
-    overflow-x: auto;
-    overflow-y: auto;
-  }}
-  ::-webkit-scrollbar {{
-    width: 12px;
-    height: 12px;
-  }}
-  ::-webkit-scrollbar-track {{
-    background: transparent;
-  }}
-  ::-webkit-scrollbar-thumb {{
-    background: rgba(136, 136, 136, 0.3);
-    border-radius: 6px;
-  }}
-  ::-webkit-scrollbar-thumb:hover {{
-    background: rgba(136, 136, 136, 0.5);
-  }}
-  * {{
-    scrollbar-width: thin;
-    scrollbar-color: rgba(136, 136, 136, 0.3) transparent;
-  }}
-  {css_content}
-  </style>
-  </head>
-  <body style="overflow-x: auto; overflow-y: auto;">
-  {body_html}
-
-  <script>
-  {js_content}
-  </script>
-  </body>
-  </html>
-  """
-
-  components.html(full_html, height=800, scrolling=True)
+    # Render Component
+    components.html(full_html, height=800, scrolling=True)
