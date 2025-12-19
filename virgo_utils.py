@@ -451,6 +451,14 @@ def _clean_raw_data(df: pd.DataFrame) -> pd.DataFrame:
     df['Calculated_WinRate'] = (df['Clean_Wins'] / df['Clean_Races']) * 100
     df.loc[df['Calculated_WinRate'] > 100, 'Calculated_WinRate'] = 100
 
+    # Filter out rows where Round is 'Finals'
+    if 'Round' in df.columns:
+        df = df[df['Round'] != 'Finals']
+    
+    # robustly check Day column as well just in case
+    if 'Day' in df.columns:
+        df = df[df['Day'] != 'Finals']
+
     return df
 
 def _process_teams(df: pd.DataFrame) -> pd.DataFrame:
@@ -496,7 +504,14 @@ def _process_teams(df: pd.DataFrame) -> pd.DataFrame:
     team_df = team_df[team_df['Clean_Uma'].apply(len) == 3]
     team_df['Team_Comp'] = team_df['Clean_Uma'].apply(lambda x: ", ".join(x))
     
-    print(f"DEBUG: Final Team DF Shape: {team_df.shape}")
+    
+    # Filter out rows where Round is 'Finals'
+    if 'Round' in team_df.columns:
+        team_df = team_df[team_df['Round'] != 'Finals']
+    
+    # robustly check Day column as well just in case
+    if 'Day' in team_df.columns:
+        team_df = team_df[team_df['Day'] != 'Finals']
     return team_df
 
 @st.cache_data(ttl=3600)

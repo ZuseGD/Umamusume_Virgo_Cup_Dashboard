@@ -139,7 +139,6 @@ We heard your feedback about missing data in the detailed view.
         # 1. Win Rate Trend
         if 'Round' in df.columns and 'Day' in df.columns:
             trend_df = team_df.groupby(['Round', 'Day']).agg({'Calculated_WinRate': 'mean'}).reset_index()
-            trend_df['Day'].drop(columns='Finals')
             trend_df['Session'] = trend_df['Round'] + " " + trend_df['Day']
             wr_order = ["R1 D1", "R1 D2", "R2 D1", "R2 D2"]
 
