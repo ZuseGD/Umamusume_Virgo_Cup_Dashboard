@@ -44,7 +44,8 @@ def show_view(df, team_df):
                 title="Team Tier List",
                 labels={'Pick_Rate': 'Pick Rate (%)', 'Calculated_WinRate': 'Win Rate %'},
                 hover_data={'Entries': True, 'Pick_Rate': ':.2f', 'Calculated_WinRate': ':.1f'},
-                height=500
+                height=500,
+                size_max=80
             )
             
             # Averages

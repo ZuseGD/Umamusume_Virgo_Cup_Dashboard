@@ -121,6 +121,7 @@ def show_view(df, team_df):
         labels={'Pick_Rate': 'Pick Rate (%)', 'Calculated_WinRate': 'Win Rate (%)'},
         # Add entries to hover for detail
         hover_data={'Clean_Races': True, 'Pick_Rate': ':.2f', 'Calculated_WinRate': ':.1f'},
+        size_max=100
     )
     
     # Add Average Reference Lines

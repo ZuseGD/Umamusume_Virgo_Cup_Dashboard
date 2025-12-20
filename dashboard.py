@@ -114,8 +114,7 @@ if data_loaded:
         {"label": "Umas", "name": "Umas", "icon": "📊"},
         {"label": "Team Comps", "name": "Teams", "icon": "⚔️"},
         {"label": "Card Usage", "name": "Cards", "icon": "🗃️"},
-        {"label": "Build Analysis", "name": "OCR", "icon": "🔬"},
-        {"label": "Finals Results", "name": "Finals", "icon": "🏆"},
+        {"label": "Analysis", "name": "Analysis", "icon": "🏆"},
         {"label": "Timeline", "name": "Timeline", "icon": "📍"},
         {"label": "Guides", "name": "Guides", "icon": "📚"},
     ]
@@ -193,11 +192,8 @@ elif data_loaded:
     elif st.session_state.current_page == "Cards":
         from views import cards
         cards.show_view(team_df)
-    elif st.session_state.current_page == "OCR":
-        from views import ocr
-        ocr.show_view(current_config)
-    elif st.session_state.current_page == "Finals":
-        from views import finals
-        finals.show_view(current_config)
+    elif st.session_state.current_page == "Analysis":
+        from views import analysis
+        analysis.show_view(current_config)
 
 st.markdown(footer_html, unsafe_allow_html=True)

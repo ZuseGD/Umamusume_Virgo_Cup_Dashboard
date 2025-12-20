@@ -28,18 +28,37 @@ def show_view(df, team_df, current_config):
     col_header, col_btn = st.columns([1, 1], gap="medium")
 
     with col_header:
-        with st.expander("Uma Inspector Update", expanded=True):
+        with st.expander("🚀 Dashboard Update: Libra Cup & Finals Analysis Overhaul", expanded=True):
             st.markdown("""
            
-### 🎭 New Feature: Role Impact Analysis
-Ever wondered if running a "Debuffer" actually helps your team?
-* **What it does:** The system now automatically scans for specific roles (like **Ace**, **Debuffer**, or **Lead**) on each character.
-* **The Insight:** If a specific role performs significantly better or worse than the average (by >5%), it will now be highlighted in the **Uma Inspector**.
-* *Example:* If "Debuffer Nice Nature" has a 10% higher win rate than "Ace Nice Nature," the dashboard will tell you.
+**Version 2.0 - The "Analysis" Update**
 
-#### 2. 🔎 Improved Uma Inspector
-We heard your feedback about missing data in the detailed view.
-* **Total Entries Counter:** We added a "Total Entries" metric to the Inspector. You can now see exactly how many times a character was submitted, helping you judge if a high win rate is real or just from a small sample size.
+We've completely reworked how you view Finals data! The old "OCR" and "Finals" tabs have been merged into a single, powerful **Analysis** section. This update brings robust support for the **Libra Cup** data format, smarter filtering, and a brand-new Hall of Records.
+
+---
+
+### ✨ New Features
+
+#### 🏆 Unified Analysis Hub
+* **Consolidated View:** Access all Finals insights in one place. No more switching between tabs for OCR builds and Match results.
+* **Champion Profiles:** Select any specific Uma from the sidebar to see her personal "Profile":
+    * **Radar Chart:** Compare her stats directly against the global average winner (with Speed correctly oriented at the top!).
+    * **Winning Decks:** See the top support cards used by winners of that specific character.
+    * **Skill Frequency:** View the most common skills equipped on winning runs.
+
+#### 💎 Hall of Records
+* **Superlatives:** Automatically detects standout performances:
+    * **⚡ Fastest Time:** Who ran the absolute fastest winning race?
+    * **📉 Minimalist:** Who won with the *least* amount of skills? (Now shows the exact skill list!)
+    * **🐕 Underdog:** Who won with the lowest total stats?
+    * **🦄 Niche Picks:** Highlights rare champions and off-meta strategies (e.g., a winning "Runaway" Gold Ship).
+* **Custom Cards:** Data is presented in beautiful, dark-mode friendly cards so you don't have to click dropdowns to see the details.
+
+#### 👑 Meta Impact Tier List
+* **Interactive Scatter Plot:** Visualizes the entire meta in one chart.
+* **Pick Rate vs. Win Rate:** Easily spot the "Meta Kings" (High Pick/High Win), "Sleepers" (Low Pick/High Win), and "Bait" (High Pick/Low Win).
+
+---
 
             """)
 

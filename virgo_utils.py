@@ -5,6 +5,7 @@ import numpy as np
 import os
 import re
 import html
+import ast
 from typing import Tuple, List, Optional
 
 # --- CONFIGURATION ---
@@ -149,6 +150,96 @@ VARIANT_MAP = {
     "Anime Collab": "Anime", "Cyberpunk": "Cyberpunk",
     "Lucky Tidings": "Full Armor", "Princess": "Princess"
 }
+
+def _normalize_style(style):
+    """
+    Standardizes running style names to ensure consistency between Short (Late) and Long (Late Surger) forms.
+    """
+    if pd.isna(style): return "Unknown"
+    s = str(style).strip()
+    sl = s.lower()
+    
+    # Mapping Short/Raw -> Standard Long Form
+    if sl == "late": return "Late Surger"
+    if sl == "pace": return "Pace Chaser"
+    if sl == "front": return "Front Runner"
+    if sl == "end": return "End Closer"
+    if sl in ["runaway", "oonige", "great escape"]: return "Runaway"
+    
+    return s # Return original if it matches none (e.g. "Late Surger" already)
+
+def _parse_run_time_to_seconds(time_str):
+    """Converts 'M:SS.ms' or similar formats to total seconds (float)."""
+    if pd.isna(time_str) or str(time_str).strip() == '':
+        return None
+    try:
+        parts = str(time_str).split(':')
+        if len(parts) == 2:
+            minutes = float(parts[0])
+            seconds = float(parts[1])
+            return minutes * 60 + seconds
+        return float(time_str)
+    except:
+        return None
+    
+def _normalize_libra_columns(df):
+    """
+    Standardizes raw Libra parquet columns to the Dashboard's expected format.
+    """
+    col_map = {
+        'trainee_name': 'Clean_Uma',
+        'trainer_name': 'Clean_IGN',
+        'placement': 'Result',
+        'post': 'Post',
+        'time': 'Run_Time_Str',
+        'style': 'Clean_Style',
+        'skills': 'Skill_List',
+        'skill_count': 'Skill_Count',
+        'Speed': 'Speed', 'Stamina': 'Stamina', 'Power': 'Power', 
+        'Guts': 'Guts', 'Wit': 'Wit', 'wisdom': 'Wit'
+    }
+    
+    df = df.rename(columns=col_map)
+    
+    # --- Feature Engineering ---
+    
+    if 'Result' in df.columns:
+        df['Result'] = pd.to_numeric(df['Result'], errors='coerce')
+        df['Is_Winner'] = df['Result'].apply(lambda x: 1 if x == 1 else 0)
+    else:
+        df['Is_Winner'] = 0
+
+    if 'Run_Time_Str' in df.columns:
+        df['Run_Time'] = df['Run_Time_Str'].apply(_parse_run_time_to_seconds)
+
+    # Apply Style Normalization (Fixes "Late" vs "Late Surger")
+    if 'Clean_Style' in df.columns:
+        df['Clean_Style'] = df['Clean_Style'].apply(_normalize_style)
+
+    if 'Skill_List' not in df.columns:
+        df['Skill_List'] = np.empty((len(df), 0)).tolist()
+
+    def parse_skills(x):
+        if pd.isna(x): return []
+        if isinstance(x, (np.ndarray, list)): return list(x)
+        if isinstance(x, str):
+            try:
+                if x.startswith('['): return ast.literal_eval(x)
+                return [x] 
+            except: return []
+        return []
+    
+    df['Skill_List'] = df['Skill_List'].apply(parse_skills)
+
+    if 'Skill_Count' not in df.columns:
+        df['Skill_Count'] = df['Skill_List'].apply(len)
+    else:
+        df['Skill_Count'] = df['Skill_Count'].fillna(df['Skill_List'].apply(len))
+
+    if 'Clean_Uma' in df.columns:
+        df['Clean_Uma'] = df['Clean_Uma'].apply(lambda x: smart_match_name(x, ORIGINAL_UMAS))
+
+    return df
 
 def analyze_significant_roles(df, role_col='Clean_Role', score_col='Calculated_WinRate', threshold=5.0):
     """
@@ -670,121 +761,156 @@ def load_ocr_data(parquet_file):
         return pd.DataFrame()
 
 # --- LOAD FINALS DATA ---
-@st.cache_data(ttl=3600)
-def load_finals_data(csv_path, parquet_path, main_ocr_df=None):
-    if not csv_path or not os.path.exists(csv_path):
-        return pd.DataFrame(), pd.DataFrame()
+@st.cache_data
+def load_finals_data(config_item: dict):
+    """
+    Universal loader for Finals with Strict Deduplication and Style Normalization.
+    """
+    df_auto = pd.DataFrame()
+    df_csv_exploded = pd.DataFrame()
+    raw_dfs = {} 
+    
+    # ==========================================
+    # 1. LOAD AUTOMATED PARQUETS
+    # ==========================================
+    if config_item.get('is_multipart_parquet', False):
+        parts = config_item.get('finals_parts', {})
+        try:
+            p_stat = parts.get("statsheet")
+            p_pod = parts.get("podium")
+            p_deck = parts.get("deck")
+            
+            df_stat = pd.read_parquet(p_stat) if p_stat and os.path.exists(p_stat) else pd.DataFrame()
+            df_pod = pd.read_parquet(p_pod) if p_pod and os.path.exists(p_pod) else pd.DataFrame()
+            df_deck = pd.read_parquet(p_deck) if p_deck and os.path.exists(p_deck) else pd.DataFrame()
+            
+            if 'row' in df_stat.columns and 'row_id' not in df_stat.columns:
+                df_stat = df_stat.rename(columns={'row': 'row_id'})
 
-    try:
-        raw_df = pd.read_csv(csv_path)
-        col_spent = find_column(raw_df, ['spent', 'money', 'eur/usd'])
-        col_runs = find_column(raw_df, ['career runs', 'runs per day']) 
-        col_kitasan = find_column(raw_df, ['kitasan', 'speed: kitasan'])
-        col_fine = find_column(raw_df, ['fine motion', 'wit: fine'])
-        
-        opp_cols = []
-        for i in range(1, 4):
-            c = find_column(raw_df, [f"opponent's team - uma {i}", f"opponent team uma {i}"])
-            opp_cols.append(c)
+            # Deduplicate
+            if not df_stat.empty and 'row_id' in df_stat.columns:
+                df_stat = df_stat.drop_duplicates(subset=['row_id'])
+            if not df_pod.empty and 'row_id' in df_pod.columns:
+                df_pod = df_pod.drop_duplicates(subset=['row_id'])
+            if not df_deck.empty and 'row_id' in df_deck.columns:
+                df_deck = df_deck.drop_duplicates(subset=['row_id'])
 
-        processed_rows = []
-        
-        for _, row in raw_df.iterrows():
-            ign = str(row.get('Player in-game name (IGN)', 'Unknown')).strip()
-            result = str(row.get('Finals race result', 'Unknown'))
-            is_win = 1 if result == '1st' else 0
+            raw_dfs['statsheet'] = df_stat
+            raw_dfs['podium'] = df_pod
+            raw_dfs['deck'] = df_deck
             
-            spending = row.get(col_spent, 'Unknown') if col_spent else 'Unknown'
-            runs_per_day = row.get(col_runs, 'Unknown') if col_runs else 'Unknown'
-            card_kitasan = row.get(col_kitasan, 'Unknown') if col_kitasan else 'Unknown'
-            card_fine = row.get(col_fine, 'Unknown') if col_fine else 'Unknown'
-            
-            match_opponents = []
-            for c in opp_cols:
-                if c:
-                    val = row.get(c)
-                    if pd.notna(val) and str(val).strip() != "":
-                        match_opponents.append(parse_uma_details(pd.Series([val]))[0])
-            
-            for i in range(1, 4):
-                uma_name = row.get(f'Own Team - Uma {i}')
-                style = row.get(f'Own team - Uma {i} - Running Style')
-                role = row.get(f'Own team - Uma {i} - Role', 'Unknown')
+            # Merge
+            if not df_pod.empty:
+                df_auto = df_pod
+                if not df_stat.empty:
+                    if 'row_id' in df_auto.columns and 'row_id' in df_stat.columns:
+                        df_auto = pd.merge(df_auto, df_stat, on='row_id', how='inner', suffixes=('', '_stat'))
+                    else:
+                        st.warning("Merge fallback: Concatenating.")
+                        df_auto = pd.concat([df_auto.reset_index(drop=True), df_stat.reset_index(drop=True)], axis=1)
+
+                if not df_deck.empty:
+                    if 'row_id' in df_deck.columns and 'row_id' in df_auto.columns:
+                        df_deck_clean = df_deck.drop(columns=['id', 'is_user'], errors='ignore')
+                        df_auto = pd.merge(df_auto, df_deck_clean, on='row_id', how='left')
                 
-                if pd.notna(uma_name) and str(uma_name).strip() != "":
-                    clean_uma_name = parse_uma_details(pd.Series([uma_name]))[0]
+                df_auto = df_auto.loc[:, ~df_auto.columns.duplicated()]
+                df_auto = _normalize_libra_columns(df_auto)
+                df_auto['Source'] = 'Automated'
+                df_auto['Finals_Group'] = "A Finals" 
+                
+        except Exception as e:
+            st.error(f"Error merging Libra Parquets: {e}")
+            
+    else:
+        # Legacy
+        pq_path = config_item.get('finals_parquet')
+        if pq_path and os.path.exists(pq_path):
+            try:
+                df_auto = pd.read_parquet(pq_path)
+                df_auto['Source'] = 'Automated'
+                rename_map = {'name': 'Clean_Uma', 'rank': 'Result', 'time': 'Run_Time_Str'}
+                df_auto.rename(columns=rename_map, inplace=True)
+                if 'Clean_Uma' in df_auto.columns:
+                    df_auto['Clean_Uma'] = df_auto['Clean_Uma'].apply(lambda x: smart_match_name(x, ORIGINAL_UMAS))
+                if 'Result' in df_auto.columns:
+                     df_auto['Is_Winner'] = df_auto['Result'].apply(lambda x: 1 if str(x) in ['1', '1st'] else 0)
+                # Apply Style Normalization to legacy too
+                if 'Clean_Style' not in df_auto.columns and 'style' in df_auto.columns:
+                    df_auto['Clean_Style'] = df_auto['style']
+                if 'Clean_Style' in df_auto.columns:
+                    df_auto['Clean_Style'] = df_auto['Clean_Style'].apply(_normalize_style)
                     
-                    processed_rows.append({
-                        'Match_IGN': ign.lower(),
-                        'Normalized_IGN': re.sub(r'[^a-z0-9]', '', ign.lower()),
-                        'Display_IGN': ign,
-                        'Clean_Uma': clean_uma_name,
-                        'Clean_Style': style,
-                        'Clean_Role': role,
-                        'Result': result,
-                        'Spending_Text': spending,
-                        'Runs_Text': runs_per_day,
-                        'Card_Kitasan': card_kitasan,
-                        'Card_Fine': card_fine,
-                        'Opponents': match_opponents,
-                        'Calculated_WinRate': is_win * 100, 
-                        'Is_Winner': is_win
-                    })
-        
-        finals_matches = pd.DataFrame(processed_rows)
-        if not finals_matches.empty:
-            finals_matches['Sort_Money'] = clean_currency_numeric(finals_matches['Spending_Text'])
+                df_auto['Finals_Group'] = "A Finals"
+                raw_dfs['legacy_parquet'] = df_auto
+            except Exception as e:
+                st.error(f"Error loading Legacy Parquet: {e}")
 
-    except Exception as e:
-        st.error(f"Error parsing Finals CSV: {e}")
-        return pd.DataFrame(), pd.DataFrame()
+    # ==========================================
+    # 2. IDENTIFY AUTOMATED USERS
+    # ==========================================
+    auto_ign_set = set()
+    if not df_auto.empty and 'Clean_IGN' in df_auto.columns:
+        auto_ign_set = set(df_auto['Clean_IGN'].astype(str).str.lower().str.strip().unique())
 
-    try:
-        ocr_sources = []
-        valid_names = finals_matches['Clean_Uma'].unique().tolist() if not finals_matches.empty else []
-
-        if parquet_path and os.path.exists(parquet_path):
-            fpq = pd.read_parquet(parquet_path)
-            if 'ign' in fpq.columns:
-                fpq['Match_IGN'] = fpq['ign'].astype(str).str.lower().str.strip()
-                fpq['Normalized_IGN'] = fpq['Match_IGN'].apply(lambda x: re.sub(r'[^a-z0-9]', '', str(x)))
-            if 'name' in fpq.columns:
-                fpq['Match_Uma'] = fpq['name'].apply(lambda x: smart_match_name(x, valid_names))
-            ocr_sources.append(fpq)
-
-        if main_ocr_df is not None and not main_ocr_df.empty:
-            if 'Match_IGN' not in main_ocr_df.columns and 'ign' in main_ocr_df.columns:
-                main_ocr_df['Match_IGN'] = main_ocr_df['ign'].astype(str).str.lower().str.strip()
-                main_ocr_df['Normalized_IGN'] = main_ocr_df['Match_IGN'].apply(lambda x: re.sub(r'[^a-z0-9]', '', str(x)))
-            if 'Match_Uma' not in main_ocr_df.columns and 'name' in main_ocr_df.columns:
-                main_ocr_df['Match_Uma'] = main_ocr_df['name'].apply(lambda x: smart_match_name(x, valid_names))
-            ocr_sources.append(main_ocr_df)
-
-        final_merged_df = pd.DataFrame()
-        
-        if not finals_matches.empty and ocr_sources:
-            all_ocr = pd.concat(ocr_sources, ignore_index=True).drop_duplicates(subset=['Match_IGN', 'Match_Uma'])
-            finals_matches['Match_Uma'] = finals_matches['Clean_Uma']
+    # ==========================================
+    # 3. LOAD MANUAL CSV
+    # ==========================================
+    csv_path = config_item.get('finals_csv')
+    
+    if csv_path and os.path.exists(csv_path):
+        try:
+            raw_csv = pd.read_csv(csv_path)
+            raw_dfs['manual_csv'] = raw_csv 
             
-            strict_merge = pd.merge(all_ocr, finals_matches, on=['Match_IGN', 'Match_Uma'], how='inner')
-            matched_keys = set(zip(strict_merge['Match_IGN'], strict_merge['Match_Uma']))
-            leftover_matches = finals_matches[~finals_matches.set_index(['Match_IGN', 'Match_Uma']).index.isin(matched_keys)].copy()
+            if 'A or B Finals?' in raw_csv.columns:
+                raw_csv = raw_csv.dropna(subset=['A or B Finals?'])
             
-            if not leftover_matches.empty:
-                leftover_ocr = all_ocr[~all_ocr.set_index(['Match_IGN', 'Match_Uma']).index.isin(matched_keys)].copy()
-                fuzzy_merge = pd.merge(leftover_ocr, leftover_matches, on=['Normalized_IGN', 'Match_Uma'], how='inner', suffixes=('_ocr', ''))
-                if 'Match_IGN_ocr' in fuzzy_merge.columns:
-                    fuzzy_merge = fuzzy_merge.drop(columns=['Match_IGN_ocr'])
-                final_merged_df = pd.concat([strict_merge, fuzzy_merge], ignore_index=True)
-            else:
-                final_merged_df = strict_merge
+            processed_rows = []
+            for _, row in raw_csv.iterrows():
+                ign_raw = str(row.get('Player IGN', 'Unknown'))
+                
+                if ign_raw.lower().strip() in auto_ign_set:
+                    continue
+                
+                group = row.get('A or B Finals?', 'Unknown')
+                
+                for i in range(1, 4):
+                    uma_col = f"Finals - Team Comp - Uma {i} - Name"
+                    style_col = f"Finals - Team Comp - Uma {i} - Running Style"
+                    
+                    if uma_col in raw_csv.columns:
+                        uma_name = row.get(uma_col)
+                        raw_style = row.get(style_col, 'Unknown')
+                        
+                        if pd.notna(uma_name) and str(uma_name).strip() != "":
+                            clean_name = smart_match_name(str(uma_name), ORIGINAL_UMAS)
+                            # Normalize Style Here
+                            clean_style = _normalize_style(raw_style)
+                            
+                            processed_rows.append({
+                                'Clean_Uma': clean_name,
+                                'Clean_Style': clean_style,
+                                'Clean_IGN': ign_raw,
+                                'Finals_Group': group,
+                                'Source': 'Manual',
+                                'Is_Winner': 0, 
+                                'Result': np.nan,
+                                'Skill_Count': 0
+                            })
+            
+            if processed_rows:
+                df_csv_exploded = pd.DataFrame(processed_rows)
+                
+        except Exception as e:
+            st.error(f"Error loading CSV: {e}")
 
-        return finals_matches, final_merged_df
-        
-    except Exception as e:
-        st.error(f"Error merging Finals Parquet: {e}")
-        return finals_matches, pd.DataFrame()
-
+    # ==========================================
+    # 4. COMBINE
+    # ==========================================
+    combined_df = pd.concat([df_auto, df_csv_exploded], ignore_index=True)
+    
+    return combined_df, raw_dfs
 footer_html = """
 <style>
 .footer {

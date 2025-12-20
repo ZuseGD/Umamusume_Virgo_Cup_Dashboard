@@ -36,10 +36,6 @@ pip-delete-this-directory.txt
 # Ignore secrets, but keep config.toml
 .streamlit/secrets.toml
 
-# --- Data (User Requested) ---
-# Exclude all CSV and Parquet files to keep repo light
-*.csv
-*.parquet
 *.xls
 *.xlsx
 *.json
