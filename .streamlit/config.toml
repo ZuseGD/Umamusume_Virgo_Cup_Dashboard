@@ -1,2 +1,4 @@
 [theme]
 base="dark"
+[server]
+fileWatcherType = "none"
