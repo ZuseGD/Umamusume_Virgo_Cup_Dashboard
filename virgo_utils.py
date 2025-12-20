@@ -134,7 +134,7 @@ ORIGINAL_UMAS = [
     "Nice Nature", "King Halo", "Agnes Tachyon", "Super Creek", "Mayaano Top Gun",
     "Mihono Bourbon", "Tokai Teio", "Symboli Rudolf", "Air Groove", "Seiun Sky",
     "Biwa Hayahide", "Narita Brian", "Hishi Amazon", "Fuji Kiseki", "Curren Chan",
-    "Smart Falcon", "Narita Taishin", "Kawakami Princess", "Gold City", "Sakura Bakushin O"
+    "Smart Falcon", "Narita Taishin", "Kawakami Princess", "Gold City", "Sakura Bakushin O", "T.M. Opera O"
 ]
 
 # 2. VARIANT KEYWORDS
@@ -150,6 +150,55 @@ VARIANT_MAP = {
     "Anime Collab": "Anime", "Cyberpunk": "Cyberpunk",
     "Lucky Tidings": "Full Armor", "Princess": "Princess"
 }
+
+# --- NEW: ALIAS MAP FOR KNOWN ERRORS ---
+# Use this for names that are actually missing words or are completely different
+NAME_ALIASES = {
+    "TM Opera": "T.M. Opera O",
+    "T.M. Opera": "T.M. Opera O",
+    "TM Opera O": "T.M. Opera O",
+    "El Condor": "El Condor Pasa",
+    "Curren": "Curren Chan",
+    "Cafe": "Manhattan Cafe",
+    "Rudolf": "Symboli Rudolf",
+    "Brian": "Narita Brian",
+    "Digitan": "Agnes Digital",
+    "Digital": "Agnes Digital",
+    "Ardan": "Mejiro Ardan",
+    "Rice": "Rice Shower",
+    "Chiyono": "Chiyono O",
+    "Bakushin": "Sakura Bakushin O",
+    "Urara": "Haru Urara",
+    "Ticket": "Winning Ticket",
+    "Ryan": "Mejiro Ryan",
+    "McQueen": "Mejiro McQueen",
+    "Spe": "Special Week",
+    "Suzuka": "Silence Suzuka",
+    "Tachyon": "Agnes Tachyon",
+    "Teio": "Tokai Teio",
+    "Top Gun": "Mayano Top Gun",
+    "Halo": "King Halo",
+    "Nature": "Nice Nature",
+    "Fuku": "Matikanefukukitaru",
+    "Fukukitaru": "Matikanefukukitaru",
+    "City": "Gold City",
+    "Bright": "Mejiro Bright",
+    "Dober": "Mejiro Dober",
+    "Palmer": "Mejiro Palmer",
+    "Helios": "Daitaku Helios",
+    "Strong": "Mr. C.B.",
+    "CB": "Mr. C.B.",
+    "Ramona": "Mejiro Ramona",
+}
+
+#--- NEW: HELPER FOR NORMALIZATION ---
+def _normalize_name_string(text):
+    """
+    Removes punctuation, spaces, and casing for fuzzy comparison.
+    Example: "T.M. Opera O" -> "tmoperao"
+             "TM Opera O"   -> "tmoperao"
+    """
+    return re.sub(r'[^a-zA-Z0-9]', '', str(text).lower())
 
 def _normalize_style(style):
     """
@@ -278,13 +327,26 @@ def analyze_significant_roles(df, role_col='Clean_Role', score_col='Calculated_W
 
 def smart_match_name(raw_name, valid_csv_names):
     if pd.isna(raw_name): return "Unknown"
-    raw_name = str(raw_name)
+    raw_name = str(raw_name).strip()
+    
+    # 1. FAST ALIAS CHECK (Pre-parsing)
+    # catches "TM Opera" directly if listed
+    if raw_name in NAME_ALIASES:
+        return NAME_ALIASES[raw_name]
+
+    # 2. PARSE BRACKETS (Existing Logic)
     base_match = re.search(r'\]\s*(.*)', raw_name)
     title_match = re.search(r'\[(.*?)\]', raw_name)
     
     base_name = base_match.group(1).strip() if base_match else raw_name.strip()
     title_text = title_match.group(1) if title_match else ""
 
+    # 3. ALIAS CHECK (On Base Name)
+    # catches "[New Year] TM Opera" -> "TM Opera" -> "T.M. Opera O"
+    if base_name in NAME_ALIASES:
+        base_name = NAME_ALIASES[base_name]
+
+    # 4. VARIANT DETECTION (Existing Logic)
     variant_suffix = None
     for keyword, suffix in VARIANT_MAP.items():
         if keyword.lower() in title_text.lower():
@@ -293,16 +355,39 @@ def smart_match_name(raw_name, valid_csv_names):
     
     candidates = []
     if variant_suffix:
+        # Reconstruct canonical variant name: "T.M. Opera O (New Year)"
         candidates.append(f"{base_name} ({variant_suffix})")
+        # Handle "New Year T.M. Opera O" style
         candidates.append(f"{variant_suffix} {base_name}")
+        
     candidates.append(base_name)
     
+    # 5. VALIDATION MATCHING
+    # Try exact match first
     for cand in candidates:
         match = next((valid for valid in valid_csv_names if valid.lower() == cand.lower()), None)
         if match: return match
             
+    # 6. FUZZY NORMALIZATION MATCH (The Scalable Logic)
+    # This catches "T.M. Opera O" vs "TM Opera O" without an alias
+    norm_base = _normalize_name_string(base_name)
+    
+    for valid in valid_csv_names:
+        # We assume valid_csv_names contains the canonical "T.M. Opera O"
+        if _normalize_name_string(valid) == norm_base:
+            # If we found a base match, re-apply suffix if needed
+            if variant_suffix:
+                # Check if the variant exists in valid list
+                canon_variant = f"{valid} ({variant_suffix})"
+                if canon_variant in valid_csv_names:
+                    return canon_variant
+                return valid # Fallback to base if variant not found
+            return valid
+
+    # Fallback to Original List if valid_csv_names didn't help
     if base_name in ORIGINAL_UMAS: return base_name
-    return base_name 
+    
+    return base_name
 
 def sanitize_text(text):
     if pd.isna(text): return text

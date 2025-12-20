@@ -328,7 +328,7 @@ def show_view(config_item):
                     if not valid.empty:
                         min_skill = valid.loc[valid['Skill_Count'].idxmin()]
                         # For Minimalist, value is "X Skills"
-                        record_card("📉 Minimalist Build", f"{min_skill['Skill_Count']} Skills", min_skill, "#AB63FA")
+                        record_card("📉 Minimalist Build (Lowest Number of Skills)", f"{min_skill['Skill_Count']} Skills", min_skill, "#AB63FA")
             
             with c3:
                 # NICHE PICK LOGIC
