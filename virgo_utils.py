@@ -232,42 +232,29 @@ def _parse_run_time_to_seconds(time_str):
         return None
     
 def _normalize_libra_columns(df):
-    """
-    Standardizes raw Libra parquet columns to the Dashboard's expected format.
-    """
     col_map = {
-        'trainee_name': 'Clean_Uma',
-        'trainer_name': 'Clean_IGN',
-        'placement': 'Result',
-        'post': 'Post',
-        'time': 'Run_Time_Str',
-        'style': 'Clean_Style',
-        'skills': 'Skill_List',
-        'skill_count': 'Skill_Count',
-        'Speed': 'Speed', 'Stamina': 'Stamina', 'Power': 'Power', 
-        'Guts': 'Guts', 'Wit': 'Wit', 'wisdom': 'Wit'
+        'trainee_name': 'Clean_Uma', 'trainer_name': 'Clean_IGN', 'placement': 'Result',
+        'post': 'Post', 'time': 'Run_Time_Str', 'style': 'Clean_Style', 'skills': 'Skill_List',
+        'skill_count': 'Skill_Count', 'Speed': 'Speed', 'Stamina': 'Stamina', 'Power': 'Power', 
+        'Guts': 'Guts', 'Wit': 'Wit', 'wisdom': 'Wit', 
+        'score': 'Score', 'rank': 'Rank' 
     }
-    
     df = df.rename(columns=col_map)
     
-    # --- Feature Engineering ---
     
     if 'Result' in df.columns:
         df['Result'] = pd.to_numeric(df['Result'], errors='coerce')
         df['Is_Winner'] = df['Result'].apply(lambda x: 1 if x == 1 else 0)
-    else:
-        df['Is_Winner'] = 0
+    else: df['Is_Winner'] = 0
 
     if 'Run_Time_Str' in df.columns:
         df['Run_Time'] = df['Run_Time_Str'].apply(_parse_run_time_to_seconds)
 
-    # Apply Style Normalization (Fixes "Late" vs "Late Surger")
     if 'Clean_Style' in df.columns:
         df['Clean_Style'] = df['Clean_Style'].apply(_normalize_style)
 
-    if 'Skill_List' not in df.columns:
-        df['Skill_List'] = np.empty((len(df), 0)).tolist()
-
+    if 'Skill_List' not in df.columns: df['Skill_List'] = np.empty((len(df), 0)).tolist()
+    
     def parse_skills(x):
         if pd.isna(x): return []
         if isinstance(x, (np.ndarray, list)): return list(x)
@@ -277,7 +264,6 @@ def _normalize_libra_columns(df):
                 return [x] 
             except: return []
         return []
-    
     df['Skill_List'] = df['Skill_List'].apply(parse_skills)
 
     if 'Skill_Count' not in df.columns:
@@ -287,8 +273,33 @@ def _normalize_libra_columns(df):
 
     if 'Clean_Uma' in df.columns:
         df['Clean_Uma'] = df['Clean_Uma'].apply(lambda x: smart_match_name(x, ORIGINAL_UMAS))
+    
+    # --- APTITUDE MAPPING (NEW) ---
+    # 1. Distance & Surface (Hardcoded for Libra Cup: Long / Turf)
+    if 'Long' in df.columns: 
+        df['Aptitude_Dist'] = df['Long']
+    if 'Turf' in df.columns: 
+        df['Aptitude_Surface'] = df['Turf']
+
+    # 2. Strategy (Dynamic based on the runner's chosen style)
+    def get_style_aptitude(row):
+        # Normalize style string to check against column names
+        style = str(row.get('Clean_Style', '')).lower()
+        
+        # Check specific strategy columns from schema
+        if 'runaway' in style or 'front' in style: return row.get('Front')
+        if 'pace' in style: return row.get('Pace')
+        if 'late' in style: return row.get('Late')
+        if 'end' in style: return row.get('End')
+        return None
+
+    # Apply if style columns exist
+    if all(col in df.columns for col in ['Front', 'Pace', 'Late', 'End']):
+        df['Aptitude_Style'] = df.apply(get_style_aptitude, axis=1)
+
 
     return df
+
 
 def analyze_significant_roles(df, role_col='Clean_Role', score_col='Calculated_WinRate', threshold=5.0):
     """
@@ -811,7 +822,7 @@ def render_filters(df):
     return df
 
 
-@st.cache_data(ttl=300) 
+@st.cache_data(ttl=3600) 
 def load_ocr_data(parquet_file):
     try:
         if not os.path.exists(parquet_file):
@@ -848,16 +859,79 @@ def load_ocr_data(parquet_file):
 # --- LOAD FINALS DATA ---
 @st.cache_data
 def load_finals_data(config_item: dict):
-    """
-    Universal loader for Finals with Strict Deduplication and Style Normalization.
-    """
+    combined_df = pd.DataFrame()
     df_auto = pd.DataFrame()
     df_csv_exploded = pd.DataFrame()
     raw_dfs = {} 
     
-    # ==========================================
-    # 1. LOAD AUTOMATED PARQUETS
-    # ==========================================
+    # -------------------------------------------------------------
+    # 1. BUILD LOOKUP MAPS FROM MANUAL CSV (Source of Truth)
+    # -------------------------------------------------------------
+    # Maps for Group (A/B)
+    ign_group_map = {}
+    team_group_map = {}
+    
+    # Maps for League (Graded/Open)
+    ign_league_map = {}
+    team_league_map = {}
+    
+    csv_path = config_item.get('finals_csv')
+    if csv_path and os.path.exists(csv_path):
+        try:
+            temp_csv = pd.read_csv(csv_path)
+            
+            # Identify columns
+            group_col = 'A or B Finals?'
+            # Look for the new League Selection column
+            league_col = None
+            for col in temp_csv.columns:
+                if 'league' in col.lower() or 'selection' in col.lower():
+                    league_col = col
+                    break
+            
+            if group_col in temp_csv.columns:
+                # We iterate even if Group is empty, as long as we have the row
+                # But typically we want valid entries.
+                temp_csv = temp_csv.dropna(subset=[group_col])
+                
+                for _, row in temp_csv.iterrows():
+                    # 1. Parse Key Info
+                    ign = str(row.get('Player IGN', '')).strip()
+                    norm_ign = ign.lower()
+                    
+                    # 2. Extract Values
+                    group_val = str(row.get(group_col, 'B Finals')).strip()
+                    
+                    league_val = "Graded" # Default
+                    if league_col:
+                        raw_l = str(row.get(league_col, '')).lower()
+                        if "open" in raw_l: league_val = "Open"
+                        else: league_val = "Graded"
+
+                    # 3. Fill IGN Maps
+                    if norm_ign:
+                        ign_group_map[norm_ign] = group_val
+                        ign_league_map[norm_ign] = league_val
+                    
+                    # 4. Fill Team Maps
+                    umas = []
+                    for i in range(1, 4):
+                        u = row.get(f"Finals - Team Comp - Uma {i} - Name")
+                        if pd.notna(u) and str(u).strip():
+                            clean_u = smart_match_name(str(u), ORIGINAL_UMAS)
+                            umas.append(clean_u)
+                    
+                    if umas:
+                        team_key = frozenset(umas)
+                        team_group_map[team_key] = group_val
+                        team_league_map[team_key] = league_val
+                        
+        except Exception as e:
+            print(f"Error building lookup maps: {e}")
+
+    # -------------------------------------------------------------
+    # 2. LOAD AUTOMATED PARQUETS
+    # -------------------------------------------------------------
     if config_item.get('is_multipart_parquet', False):
         parts = config_item.get('finals_parts', {})
         try:
@@ -873,40 +947,72 @@ def load_finals_data(config_item: dict):
                 df_stat = df_stat.rename(columns={'row': 'row_id'})
 
             # Deduplicate
-            if not df_stat.empty and 'row_id' in df_stat.columns:
-                df_stat = df_stat.drop_duplicates(subset=['row_id'])
-            if not df_pod.empty and 'row_id' in df_pod.columns:
-                df_pod = df_pod.drop_duplicates(subset=['row_id'])
-            if not df_deck.empty and 'row_id' in df_deck.columns:
-                df_deck = df_deck.drop_duplicates(subset=['row_id'])
+            if not df_stat.empty: df_stat = df_stat.drop_duplicates(subset=['row_id'])
+            if not df_pod.empty: df_pod = df_pod.drop_duplicates(subset=['row_id'])
+            if not df_deck.empty: df_deck = df_deck.drop_duplicates(subset=['row_id'])
 
             raw_dfs['statsheet'] = df_stat
             raw_dfs['podium'] = df_pod
             raw_dfs['deck'] = df_deck
             
-            # Merge
             if not df_pod.empty:
                 df_auto = df_pod
                 if not df_stat.empty:
                     if 'row_id' in df_auto.columns and 'row_id' in df_stat.columns:
                         df_auto = pd.merge(df_auto, df_stat, on='row_id', how='inner', suffixes=('', '_stat'))
                     else:
-                        st.warning("Merge fallback: Concatenating.")
                         df_auto = pd.concat([df_auto.reset_index(drop=True), df_stat.reset_index(drop=True)], axis=1)
 
                 if not df_deck.empty:
                     if 'row_id' in df_deck.columns and 'row_id' in df_auto.columns:
-                        df_deck_clean = df_deck.drop(columns=['id', 'is_user'], errors='ignore')
+                        df_deck_clean = df_deck.drop(columns=['id'], errors='ignore')
                         df_auto = pd.merge(df_auto, df_deck_clean, on='row_id', how='left')
                 
                 df_auto = df_auto.loc[:, ~df_auto.columns.duplicated()]
                 df_auto = _normalize_libra_columns(df_auto)
                 df_auto['Source'] = 'Automated'
-                df_auto['Finals_Group'] = "A Finals" 
+
+                # ---------------------------------------------------------
+                # RESOLVE METADATA (Group & League) via CSV MATCH
+                # ---------------------------------------------------------
+                # Prepare Team Matches from Parquet Data
+                if 'Clean_IGN' in df_auto.columns:
+                    ign_to_team_auto = df_auto.groupby('Clean_IGN')['Clean_Uma'].apply(frozenset).to_dict()
+                else:
+                    ign_to_team_auto = {}
+
+                def resolve_metadata(row):
+                    ign = str(row.get('Clean_IGN', '')).strip()
+                    norm_ign = ign.lower()
+                    
+                    # Defaults
+                    res_group = "B Finals"
+                    res_league = "Graded"
+                    
+                    # 1. Direct Name Match
+                    if norm_ign in ign_group_map:
+                        res_group = ign_group_map[norm_ign]
+                        res_league = ign_league_map.get(norm_ign, "Graded")
+                        return pd.Series([res_group, res_league])
+                    
+                    # 2. Team Composition Match
+                    if ign in ign_to_team_auto:
+                        team_set = ign_to_team_auto[ign]
+                        if team_set in team_group_map:
+                            res_group = team_group_map[team_set]
+                            res_league = team_league_map.get(team_set, "Graded")
+                            return pd.Series([res_group, res_league])
+
+                    # 3. No Match -> Use Defaults
+                    return pd.Series([res_group, res_league])
+
+                # Apply Logic
+                meta_cols = df_auto.apply(resolve_metadata, axis=1)
+                df_auto['Finals_Group'] = meta_cols[0]
+                df_auto['League'] = meta_cols[1]
                 
         except Exception as e:
             st.error(f"Error merging Libra Parquets: {e}")
-            
     else:
         # Legacy
         pq_path = config_item.get('finals_parquet')
@@ -916,32 +1022,24 @@ def load_finals_data(config_item: dict):
                 df_auto['Source'] = 'Automated'
                 rename_map = {'name': 'Clean_Uma', 'rank': 'Result', 'time': 'Run_Time_Str'}
                 df_auto.rename(columns=rename_map, inplace=True)
+                
                 if 'Clean_Uma' in df_auto.columns:
                     df_auto['Clean_Uma'] = df_auto['Clean_Uma'].apply(lambda x: smart_match_name(x, ORIGINAL_UMAS))
                 if 'Result' in df_auto.columns:
                      df_auto['Is_Winner'] = df_auto['Result'].apply(lambda x: 1 if str(x) in ['1', '1st'] else 0)
-                # Apply Style Normalization to legacy too
-                if 'Clean_Style' not in df_auto.columns and 'style' in df_auto.columns:
-                    df_auto['Clean_Style'] = df_auto['style']
                 if 'Clean_Style' in df_auto.columns:
                     df_auto['Clean_Style'] = df_auto['Clean_Style'].apply(_normalize_style)
-                    
+                
                 df_auto['Finals_Group'] = "A Finals"
+                df_auto['League'] = "Graded" 
                 raw_dfs['legacy_parquet'] = df_auto
             except Exception as e:
                 st.error(f"Error loading Legacy Parquet: {e}")
 
-    # ==========================================
-    # 2. IDENTIFY AUTOMATED USERS
-    # ==========================================
-    auto_ign_set = set()
-    if not df_auto.empty and 'Clean_IGN' in df_auto.columns:
-        auto_ign_set = set(df_auto['Clean_IGN'].astype(str).str.lower().str.strip().unique())
-
-    # ==========================================
-    # 3. LOAD MANUAL CSV
-    # ==========================================
-    csv_path = config_item.get('finals_csv')
+    # -------------------------------------------------------------
+    # 3. LOAD MANUAL CSV (ROWS)
+    # -------------------------------------------------------------
+    auto_ign_set = set(df_auto['Clean_IGN'].astype(str).str.lower().str.strip().unique()) if not df_auto.empty and 'Clean_IGN' in df_auto.columns else set()
     
     if csv_path and os.path.exists(csv_path):
         try:
@@ -951,50 +1049,44 @@ def load_finals_data(config_item: dict):
             if 'A or B Finals?' in raw_csv.columns:
                 raw_csv = raw_csv.dropna(subset=['A or B Finals?'])
             
+            league_col = None
+            for col in raw_csv.columns:
+                if 'league' in col.lower() or 'selection' in col.lower():
+                    league_col = col
+                    break
+            
             processed_rows = []
             for _, row in raw_csv.iterrows():
                 ign_raw = str(row.get('Player IGN', 'Unknown'))
-                
-                if ign_raw.lower().strip() in auto_ign_set:
-                    continue
+                if ign_raw.lower().strip() in auto_ign_set: continue
                 
                 group = row.get('A or B Finals?', 'Unknown')
+                
+                # League Logic (Manual)
+                if league_col:
+                    raw_league = str(row.get(league_col, 'Graded'))
+                    league = "Open" if "open" in raw_league.lower() else "Graded"
+                else:
+                    league = "Graded"
                 
                 for i in range(1, 4):
                     uma_col = f"Finals - Team Comp - Uma {i} - Name"
                     style_col = f"Finals - Team Comp - Uma {i} - Running Style"
-                    
                     if uma_col in raw_csv.columns:
                         uma_name = row.get(uma_col)
                         raw_style = row.get(style_col, 'Unknown')
-                        
                         if pd.notna(uma_name) and str(uma_name).strip() != "":
                             clean_name = smart_match_name(str(uma_name), ORIGINAL_UMAS)
-                            # Normalize Style Here
                             clean_style = _normalize_style(raw_style)
-                            
                             processed_rows.append({
-                                'Clean_Uma': clean_name,
-                                'Clean_Style': clean_style,
-                                'Clean_IGN': ign_raw,
-                                'Finals_Group': group,
-                                'Source': 'Manual',
-                                'Is_Winner': 0, 
-                                'Result': np.nan,
-                                'Skill_Count': 0
+                                'Clean_Uma': clean_name, 'Clean_Style': clean_style, 'Clean_IGN': ign_raw,
+                                'Finals_Group': group, 'League': league, 'Source': 'Manual',
+                                'Is_Winner': 0, 'Result': np.nan, 'Skill_Count': 0
                             })
-            
-            if processed_rows:
-                df_csv_exploded = pd.DataFrame(processed_rows)
-                
-        except Exception as e:
-            st.error(f"Error loading CSV: {e}")
+            if processed_rows: df_csv_exploded = pd.DataFrame(processed_rows)
+        except Exception as e: st.error(f"Error loading CSV: {e}")
 
-    # ==========================================
-    # 4. COMBINE
-    # ==========================================
     combined_df = pd.concat([df_auto, df_csv_exploded], ignore_index=True)
-    
     return combined_df, raw_dfs
 footer_html = """
 <style>

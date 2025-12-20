@@ -118,9 +118,9 @@ def show_view(df, team_df):
         title="Uma Tier List: Pick Rate vs Performance",
         template='plotly_dark',
         hover_name='Clean_Uma',
-        labels={'Pick_Rate': 'Pick Rate (%)', 'Calculated_WinRate': 'Win Rate (%)'},
+        labels={'Pick_Rate': 'Pick Rate (%)', 'Calculated_WinRate': 'Win Rate (%)', 'Clean_Races': 'Number of Entries'},
         # Add entries to hover for detail
-        hover_data={'Clean_Races': True, 'Pick_Rate': ':.2f', 'Calculated_WinRate': ':.1f'},
+        hover_data={'Clean_Races': True, 'Pick_Rate': ':.1f', 'Calculated_WinRate': ':.1f'},
         size_max=100
     )
     
@@ -148,7 +148,7 @@ def show_view(df, team_df):
         text='Pick_Rate',          # <--- UPDATED: Text shows Pick Rate %
         template='plotly_dark', 
         # Pass extra data for tooltip
-        hover_data={'Clean_Uma': True, 'Short_Name': False, 'Clean_Races': False, 'Pick_Rate': ':.2f'},
+        hover_data={'Clean_Uma': False, 'Short_Name': True, 'Clean_Races': False, 'Pick_Rate': ':.2f', 'Calculated_WinRate': ':.1f'},
         labels={'Calculated_WinRate': 'Win Rate (%)', 'Short_Name': 'Uma', 'Pick_Rate': 'Pick Rate (%)'},
         height=chart_height
     )
@@ -163,7 +163,6 @@ def show_view(df, team_df):
     fig_uma.update_traces(
         texttemplate='WR: %{x:.1f}% | Pick: %{text:.1f}%', 
         textposition='inside',
-        hovertemplate='<b>%{customdata[0]}</b><br>Win Rate: %{x:.1f}%<br>Pick Rate: %{customdata[3]}%<br>Entries: %{customdata[2]}<extra></extra>'
     )
     
     st.plotly_chart(style_fig(fig_uma, height=chart_height), width="stretch", config=PLOT_CONFIG)

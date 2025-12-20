@@ -33,13 +33,45 @@ def show_view(config_item):
 
     # --- GLOBAL SIDEBAR FILTERS ---
     st.markdown("### 🎯 Analysis Filters")
-    
-    # 1. Finals Group Filter (A/B)
-    available_groups = sorted(df['Finals_Group'].dropna().unique())
-    default_idx = available_groups.index("A Finals") if "A Finals" in available_groups else 0
-    selected_group = st.sidebar.radio("Finals Group", available_groups, index=default_idx)
-    
-    df_group = df[df['Finals_Group'] == selected_group]
+    col1, col2 = st.columns(2)
+    with col1:
+        # 1. LEAGUE FILTER (Graded / Open)
+        # This comes first because A/B groups exist inside both leagues
+        if 'League' in df.columns:
+            # Determine available options dynamically
+            available_leagues = sorted(df['League'].dropna().unique())
+            
+            # Default to Graded if it exists
+            default_ix = available_leagues.index("Graded") if "Graded" in available_leagues else 0
+            
+            selected_league = st.radio("League", available_leagues, index=default_ix)
+            
+            # Filter the DataFrame immediately
+            df_league = df[df['League'] == selected_league]
+        else:
+            # Fallback for legacy data
+            selected_league = "Graded"
+            df_league = df
+
+        if df_league.empty:
+            st.warning(f"No data found for {selected_league} League.")
+            return
+    with col2:
+        # 2. FINALS GROUP FILTER (A / B)
+        # Only show groups that actually exist in the selected league
+        available_groups = sorted(df_league['Finals_Group'].dropna().unique())
+        
+        if available_groups:
+            default_idx = available_groups.index("A Finals") if "A Finals" in available_groups else 0
+            selected_group = st.radio("Finals Group", available_groups, index=default_idx)
+            df_group = df_league[df_league['Finals_Group'] == selected_group]
+        else:
+            st.warning("No groups found for this league.")
+            df_group = pd.DataFrame()
+
+        if df_group.empty:
+            st.warning("No data matching filters.")
+            return
 
     # 2. Uma Filter
     all_umas = ["All Umas"] + sorted(df_group['Clean_Uma'].dropna().unique())
@@ -95,7 +127,7 @@ def show_view(config_item):
             
             
             # Show Leaderboard if no specific Uma selected
-            st.subheader(f"🏆 {selected_group} Leaderboard")
+            st.subheader(f"🏆 {selected_league} Leaderboard")
             if selected_style != "All Styles":
                 st.caption(f"Showing rankings for **{selected_style}** strategy only.")
 
@@ -123,7 +155,7 @@ def show_view(config_item):
             st.subheader(f"🌟 {selected_uma} Analysis")
             
             if winners_df.empty:
-                st.warning(f"No significant recorded wins for {selected_uma} in {selected_group} yet.")
+                st.warning(f"No significant recorded wins for {selected_uma} in {selected_league} yet.")
             else:
                 c_radar, c_cards = st.columns([1, 1])
                 
@@ -156,7 +188,7 @@ def show_view(config_item):
                         
                         fig.update_layout(
                             polar=dict(
-                                radialaxis=dict(visible=True, range=[0, 1800]),
+                                radialaxis=dict(visible=True, range=[0, 1200]),
                                 angularaxis=dict(rotation=90, direction="clockwise")
                             ), 
                             showlegend=True
@@ -202,6 +234,50 @@ def show_view(config_item):
         if winners_df.empty:
             st.warning("No winners to analyze.")
         else:
+            # --- 1. APTITUDE ANALYSIS (NEW) ---
+            st.markdown("### 🧬 Aptitude Analysis")
+            st.caption("Percentage of winners with **S-Rank** aptitude in relevant categories.")
+            
+           # Helper to plot donut chart
+            def plot_aptitude(col, title, container):
+                counts = winners_df[col].value_counts().reset_index()
+                counts.columns = ['Rank', 'Count']
+                
+                # Sort Order
+                rank_order = ['S', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
+                counts['Rank'] = pd.Categorical(counts['Rank'], categories=rank_order, ordered=True)
+                counts = counts.sort_values('Rank')
+                
+                # Calculate S-Rate
+                total = counts['Count'].sum()
+                s_count = counts[counts['Rank'] == 'S']['Count'].sum()
+                s_rate = (s_count / total * 100) if total > 0 else 0
+                
+                with container:
+                    st.metric(f"{title} S-Rank %", f"{s_rate:.1f}%")
+                    fig = px.pie(counts, values='Count', names='Rank', 
+                                 color='Rank',
+                                 color_discrete_map={'S': '#FFD700', 'A': '#C0C0C0', 'B': '#CD7F32'},
+                                 hole=0.4)
+                    fig.update_layout(showlegend=False, margin=dict(t=0, b=0, l=0, r=0), height=120)
+                    
+                    # FIX: Added unique key based on column name
+                    st.plotly_chart(style_fig(fig, 'Aptitude Impact'), width='stretch', key=f"apt_{col}")
+
+            # Columns for the 3 metrics
+            c_apt1, c_apt2, c_apt3 = st.columns(3)
+            
+            # Plot if columns exist (mapped in utils)
+            if 'Aptitude_Dist' in winners_df.columns:
+                plot_aptitude('Aptitude_Dist', "Distance (Long)", c_apt1)
+                
+            if 'Aptitude_Surface' in winners_df.columns:
+                plot_aptitude('Aptitude_Surface', "Surface (Turf)", c_apt2)
+                
+            if 'Aptitude_Style' in winners_df.columns:
+                plot_aptitude('Aptitude_Style', "Style", c_apt3)
+            
+            st.markdown("---")
             # --- 1. BOX PLOTS (Stat Spread) ---
             stat_cols = ['Speed', 'Stamina', 'Power', 'Guts', 'Wit']
             # Melt for Faceted Box Plot
@@ -298,6 +374,12 @@ def show_view(config_item):
                     skills_str = ", ".join(skills)
                 else:
                     skills_str = "No skills recorded (Manual Data?)"
+
+                # NEW: Disclaimer Logic
+                disclaimer = ""
+                # Check if explicitly False (0/False). Assume True or NaN is a valid user.
+                if row.get('is_user') is False or row.get('is_user') == 0:
+                    disclaimer = "<br><span style='color:#EF553B; font-size:0.8em; font-style:italic;'>⚠️ Opponent Data (Not User)</span>"
                 
                 # 3. HTML Structure
                 card_html = f"""
@@ -316,9 +398,9 @@ def show_view(config_item):
                         {value}
                     </div>
                     <div style="font-size:1em; color:#00CC96; margin-bottom:10px; font-weight:500;">
-                        🏆 {row['Clean_Uma']} <span style='color:#888; font-size:0.8em'>({row['Clean_Style']})</span> <br>
+                        🏆 {row['Clean_Uma']} <span style='color:#888; font-size:0.8em'>({row['Clean_Style']})</span> <br> 
                         👤 {row['Clean_IGN']}
-                    </div>
+                        {disclaimer}  </div>
                     <div style="font-size:0.85em; color:#DDD; margin-bottom:8px; font-family:monospace;">
                         {stats_txt}
                     </div>
@@ -448,7 +530,7 @@ def show_view(config_item):
                 hover_name='Clean_Uma',
                 color_continuous_scale='RdYlGn',
                 size_max=100,
-                title=f"Meta Landscape ({selected_group})"
+                title=f"Meta Landscape ({selected_league})"
             )
             
             # Quadrant Lines (Median)
