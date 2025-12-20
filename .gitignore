@@ -35,7 +35,7 @@ pip-delete-this-directory.txt
 # --- Streamlit ---
 # Ignore secrets, but keep config.toml
 .streamlit/secrets.toml
-
+.streamlit/config.toml
 *.xls
 *.xlsx
 *.json
@@ -53,3 +53,4 @@ Thumbs.db
 .ipynb_checkpoints
 profile_default/
 ipython_config.py
+.streamlit/config.toml
