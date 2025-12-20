@@ -56,6 +56,11 @@ def show_view(config_item):
     if selected_style != "All Styles":
         df_filtered = df_filtered[df_filtered['Clean_Style'] == selected_style]
 
+    # Baseline DF (Respects Style ONLY - for Comparisons)
+    df_baseline = df_group.copy()
+    if selected_style != "All Styles":
+        df_baseline = df_baseline[df_baseline['Clean_Style'] == selected_style]
+
     # --- METRICS ---
     # Calculate strictly based on filters
     winners_df = df_filtered[df_filtered['Is_Winner'] == 1]
@@ -91,7 +96,11 @@ def show_view(config_item):
             
             # Show Leaderboard if no specific Uma selected
             st.subheader(f"🏆 {selected_group} Leaderboard")
-            leaderboard = df_group.groupby('Clean_Uma').agg(
+            if selected_style != "All Styles":
+                st.caption(f"Showing rankings for **{selected_style}** strategy only.")
+
+            # FIX: Use df_filtered to respect Strategy filter
+            leaderboard = df_filtered.groupby('Clean_Uma').agg(
                 Entries=('Clean_Uma', 'count'),
                 Wins=('Is_Winner', 'sum')
             ).reset_index()
@@ -106,7 +115,8 @@ def show_view(config_item):
                     "Win Rate %": st.column_config.ProgressColumn("Win Rate", format="%.1f%%", min_value=0, max_value=100),
                     "Clean_Uma": st.column_config.TextColumn("Uma Name"),
                     "Entries": st.column_config.NumberColumn("Total Entries")
-                }
+                },
+                column_order=["Clean_Uma", "Wins","Entries","Win Rate %"]
             )
         else:
             # --- DETAILED OSHI VIEW ---
@@ -121,19 +131,24 @@ def show_view(config_item):
                 with c_radar:
                     stats = ['Speed', 'Stamina', 'Power', 'Guts', 'Wit']
                     if all(s in winners_df.columns for s in stats):
-                        # Get Avg Stats for THIS Uma's Winners
                         uma_stats = winners_df[stats].mean().values.tolist()
-                        # Get Avg Stats for ALL Winners (Global Baseline)
-                        all_winner_stats = df_group[df_group['Is_Winner'] == 1][stats].mean().values.tolist()
                         
+                        # FIX: Baseline uses df_baseline (All Winners matching Strategy)
+                        # This ensures "Runaway Oguri" is compared to "Avg Runaway Winner", not "Avg Any Winner"
+                        baseline_winners = df_baseline[df_baseline['Is_Winner'] == 1]
+                        if not baseline_winners.empty:
+                            all_winner_stats = baseline_winners[stats].mean().values.tolist()
+                            baseline_name = f"Global Avg ({selected_style})" if selected_style != "All Styles" else "Global Avg Winner"
+                        else:
+                            all_winner_stats = [0]*5
+                            baseline_name = "Global Avg (No Data)"
+
                         fig = go.Figure()
                         
-                        # Global Average Baseline
                         fig.add_trace(go.Scatterpolar(
                             r=all_winner_stats, theta=stats, fill='toself', 
-                            name='Global Avg Winner', line_color='rgba(128, 128, 128, 0.5)'
+                            name=baseline_name, line_color='rgba(128, 128, 128, 0.5)'
                         ))
-                        # Selected Uma Stats
                         fig.add_trace(go.Scatterpolar(
                             r=uma_stats, theta=stats, fill='toself', 
                             name=f'{selected_uma} Avg', line_color='#00CC96'
@@ -141,8 +156,7 @@ def show_view(config_item):
                         
                         fig.update_layout(
                             polar=dict(
-                                radialaxis=dict(visible=True, range=[0, 1200]),
-                                # Rotate so the first axis (Speed) is at the top (90 degrees)
+                                radialaxis=dict(visible=True, range=[0, 1800]),
                                 angularaxis=dict(rotation=90, direction="clockwise")
                             ), 
                             showlegend=True
@@ -332,11 +346,25 @@ def show_view(config_item):
             
             with c3:
                 # NICHE PICK LOGIC
+                # --- UPDATED: RAREST CHAMPION LOGIC (Least Wins -> Least Entries) ---
                 if selected_uma == "All Umas":
-                    global_counts = df_group['Clean_Uma'].value_counts()
-                    rec_df['Global_Pop'] = rec_df['Clean_Uma'].map(global_counts)
-                    rarest = rec_df.loc[rec_df['Global_Pop'].idxmin()]
-                    record_card("🦄 Rarest Champion", f"{rarest['Global_Pop']} Entries", rarest, "#FFD700")
+                    # 1. Count Wins in CURRENT FILTERED VIEW
+                    win_counts = winners_df['Clean_Uma'].value_counts()
+                    # 2. Count Entries in CURRENT FILTERED VIEW
+                    entry_counts = df_filtered['Clean_Uma'].value_counts()
+                    
+                    # 3. Find unique winners and sort
+                    unique_winners = winners_df['Clean_Uma'].unique()
+                    if len(unique_winners) > 0:
+                        data = [{'Uma': u, 'Wins': win_counts.get(u,0), 'Entries': entry_counts.get(u,0)} for u in unique_winners]
+                        cand_df = pd.DataFrame(data).sort_values(by=['Wins', 'Entries'], ascending=[True, True])
+                        
+                        rarest_uma = cand_df.iloc[0]['Uma']
+                        rarest_wins = cand_df.iloc[0]['Wins']
+                        rarest_entries = cand_df.iloc[0]['Entries']
+                        
+                        rarest_row = winners_df[winners_df['Clean_Uma'] == rarest_uma].iloc[0]
+                        record_card("🦄 Rarest Champion (Least Wins/Entries)", f"{rarest_wins} Wins / {rarest_entries} Runs", rarest_row, "#FFD700")
                 else:
                     style_counts = df_filtered['Clean_Style'].value_counts()
                     rec_df['Style_Pop'] = rec_df['Clean_Style'].map(style_counts)
