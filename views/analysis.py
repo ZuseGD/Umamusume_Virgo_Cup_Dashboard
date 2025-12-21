@@ -101,7 +101,7 @@ def show_view(config_item):
     
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total Runs", len(df_filtered))
-    c2.metric("Winners Analyzed", len(winners_df))
+    c2.metric("Total Winners", len(winners_df))
     if selected_uma != "All Umas":
         win_rate = (len(winners_df) / len(df_filtered) * 100) if len(df_filtered) > 0 else 0
         c3.metric(f"{selected_uma} WR%", f"{win_rate:.1f}%")
@@ -153,7 +153,7 @@ def show_view(config_item):
         else:
             # --- DETAILED OSHI VIEW ---
             st.subheader(f"🌟 {selected_uma} Analysis")
-            
+            st.info(f"Analysis based on **{selected_league}** data. Note that Stats, Skills, and Cards are sourced from user submitted OCR data merged with manual entries (without skill/stat/card data), and uniques to uma ratios may not be 1 to 1.")
             if winners_df.empty:
                 st.warning(f"No significant recorded wins for {selected_uma} in {selected_league} yet.")
             else:
@@ -213,6 +213,7 @@ def show_view(config_item):
                 # --- C. WINNING SKILLS ---
                 st.markdown("#### ⚡ Top Skills on Winning Runs")
                 if 'Skill_List' in winners_df.columns:
+                    
                     all_skills = []
                     for skills in winners_df['Skill_List']:
                         if isinstance(skills, list): all_skills.extend(skills)

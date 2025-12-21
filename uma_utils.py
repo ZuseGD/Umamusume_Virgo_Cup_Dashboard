@@ -1133,14 +1133,10 @@ def load_finals_data(config_item: dict):
                 select_parts.append("0 as Is_Winner")
 
             # -- IS_USER LOGIC (STRICT PODIUM TRUST) --
-            # 1. Look ONLY at Podium's 'is_user' column.
-            # 2. If Podium is missing/null, fallback to Heuristic (Presence of Stats/Deck = User).
-            
             p_is_user_col = None
             for c in cols_pod:
                 if c.lower() == 'is_user': p_is_user_col = c; break
             
-            # Safe Check Expression
             p_check = "NULL"
             if p_is_user_col:
                 p_check = f"TRY_CAST(p.\"{p_is_user_col}\" AS INTEGER)"
@@ -1255,39 +1251,45 @@ def load_finals_data(config_item: dict):
     if csv_path and os.path.exists(csv_path):
         try:
             raw_csv = pd.read_csv(csv_path)
+            
             if 'A or B Finals?' in raw_csv.columns:
                  raw_csv = raw_csv.dropna(subset=['A or B Finals?'])
             
-            league_col = None
-            for col in raw_csv.columns:
-                if 'league' in col.lower() or 'selection' in col.lower():
-                    league_col = col; break
-            
-            winner_col = None
-            for col in raw_csv.columns:
-                if 'winner' in col.lower() or 'winning' in col.lower():
-                    if 'team comp' not in col.lower():
-                        winner_col = col; break
+            # Identify columns
+            league_col = find_column(raw_csv, ['league', 'selection'])
+            winner_type_col = find_column(raw_csv, ["Own uma or Opponent", "Winner - Own", "Own or Opponent"])
+            winner_style_col = find_column(raw_csv, ["Winner - Running Style", "Winner Style"])
+            winner_name_col = find_column(raw_csv, ["Winner - Name", "Winner Name"])
             
             processed_rows = []
             auto_ign_set = set(df_auto['Clean_IGN'].astype(str).str.lower().str.strip().unique()) if not df_auto.empty and 'Clean_IGN' in df_auto.columns else set()
 
             for _, row in raw_csv.iterrows():
                 ign_raw = str(row.get('Player IGN', 'Unknown'))
+                
+                # Check duplication against Auto Data
                 if ign_raw.lower().strip() in auto_ign_set: continue
                 
                 group = row.get('A or B Finals?', 'Unknown')
+                league = "Graded"
                 if league_col:
                     raw_league = str(row.get(league_col, 'Graded'))
                     league = "Open" if "open" in raw_league.lower() else "Graded"
-                else:
-                    league = "Graded"
                 
-                row_winner_name = "Unknown"
-                if winner_col:
-                    w_raw = row.get(winner_col)
-                    if pd.notna(w_raw): row_winner_name = smart_match_name(str(w_raw), ORIGINAL_UMAS)
+                # --- Extract Winner Info ---
+                w_type = str(row.get(winner_type_col, '')).lower()
+                w_name_raw = row.get(winner_name_col)
+                w_style_raw = row.get(winner_style_col)
+                
+                w_clean_name = "Unknown"
+                if pd.notna(w_name_raw):
+                    w_clean_name = smart_match_name(str(w_name_raw), ORIGINAL_UMAS)
+                
+                w_clean_style = "Unknown"
+                if pd.notna(w_style_raw):
+                    w_clean_style = _normalize_style(w_style_raw)
 
+                # --- PROCESS TEAM UMAS (1-3) ---
                 for i in range(1, 4):
                     uma_col = f"Finals - Team Comp - Uma {i} - Name"
                     style_col = f"Finals - Team Comp - Uma {i} - Running Style"
@@ -1298,17 +1300,46 @@ def load_finals_data(config_item: dict):
                             clean_name = smart_match_name(str(uma_name), ORIGINAL_UMAS)
                             clean_style = _normalize_style(raw_style)
                             
+                            # Determine Winner Status for User Horse
                             is_win = 0
                             result = np.nan
-                            if row_winner_name != "Unknown" and clean_name == row_winner_name:
-                                is_win = 1; result = 1
+                            
+                            # Only mark as winner if the CSV says "Own uma" won, or if it's unspecified but matches name
+                            is_own_win = 'own' in w_type or ('opponent' not in w_type and w_clean_name != "Unknown")
+                            
+                            if is_own_win and clean_name == w_clean_name:
+                                is_win = 1
+                                result = 1
                             
                             processed_rows.append({
-                                'Clean_Uma': clean_name, 'Clean_Style': clean_style, 'Clean_IGN': ign_raw,
-                                'Finals_Group': group, 'League': league, 'Source': 'Manual',
-                                'Is_Winner': is_win, 'Result': result, 'Skill_Count': 0,
-                                'is_user': 1 # Manual Entry = User
+                                'Clean_Uma': clean_name, 
+                                'Clean_Style': clean_style, 
+                                'Clean_IGN': ign_raw,
+                                'Finals_Group': group, 
+                                'League': league, 
+                                'Source': 'Manual',
+                                'Is_Winner': is_win, 
+                                'Result': result, 
+                                'Skill_Count': 0,
+                                'is_user': 1 # User Team = 1
                             })
+
+                # --- PROCESS OPPONENT WINNER (Extra Row) ---
+                # If an opponent won, we add them to the dataset to fill OCR gaps.
+                if 'opponent' in w_type and w_clean_name != "Unknown":
+                    processed_rows.append({
+                        'Clean_Uma': w_clean_name,
+                        'Clean_Style': w_clean_style,
+                        'Clean_IGN': f"{ign_raw} (Opponent)", # Modify IGN to prevent merging with User's horse in mirror matches
+                        'Finals_Group': group,
+                        'League': league,
+                        'Source': 'Manual_Opponent',
+                        'Is_Winner': 1,
+                        'Result': 1,
+                        'Skill_Count': 0,
+                        'is_user': 0 # Explicitly Opponent
+                    })
+
             if processed_rows: df_csv_exploded = pd.DataFrame(processed_rows)
         except Exception as e: st.error(f"Error loading CSV: {e}")
 
