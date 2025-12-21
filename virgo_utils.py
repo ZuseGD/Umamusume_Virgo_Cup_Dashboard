@@ -7,6 +7,8 @@ import re
 import html
 import ast
 from typing import Tuple, List, Optional
+import duckdb
+import difflib
 
 # --- CONFIGURATION ---
 
@@ -126,29 +128,82 @@ DESCRIPTIONS = {
     """
 }
 
-# 1. LIST OF ORIGINAL UMAS (Base Names)
+# 1. CANONICAL LIST (The "Clean" Names you want to see in the Dashboard)
 ORIGINAL_UMAS = [
-    "Maruzensky", "Taiki Shuttle", "Oguri Cap", "El Condor Pasa", "Grass Wonder",
-    "Silence Suzuka", "Gold Ship", "Vodka", "Daiwa Scarlet", "Mejiro Ryan",
-    "Rice Shower", "Winning Ticket", "Haru Urara", "Matikanefukukitaru",
-    "Nice Nature", "King Halo", "Agnes Tachyon", "Super Creek", "Mayaano Top Gun",
-    "Mihono Bourbon", "Tokai Teio", "Symboli Rudolf", "Air Groove", "Seiun Sky",
-    "Biwa Hayahide", "Narita Brian", "Hishi Amazon", "Fuji Kiseki", "Curren Chan",
-    "Smart Falcon", "Narita Taishin", "Kawakami Princess", "Gold City", "Sakura Bakushin O", "T.M. Opera O"
+    # Originals
+    "Symboli Rudolf", "Maruzensky", "Oguri Cap", "El Condor Pasa", "Grass Wonder",
+    "Mejiro McQueen", "Vodka", "Daiwa Scarlet", "Taiki Shuttle", "Gold Ship",
+    
+    # Variants (Costumes / Alts)
+    "Symboli Rudolf (Festival)",  # The "Archer/Monk" version
+    "Maruzensky (Summer)",
+    "Oguri Cap (Christmas)",
+    "El Condor Pasa (Fantasy)",   # Often called Monk, distinct from Rudolf
+    "Grass Wonder (Fantasy)",
+    "Mejiro McQueen (Anime)",
+    "Gold Ship (Summer)",
+    
+    # ... (Add other canonicals as needed)
+    "Special Week", "Special Week (Summer)", "Silence Suzuka", "Tokai Teio",
+    "Fuji Kiseki", "Fuji Kiseki (Dance)", "Hishi Amazon", "Hishi Amazon (Wedding)",
+    "T.M. Opera O", "T.M. Opera O (New Year)", "Narita Brian", "Narita Brian (Blaze)", 
+    "Curren Chan", "Curren Chan (Wedding)", "Agnes Digital", "Agnes Digital (Halloween)", "Seiun Sky", "Seiun Sky (Dance)",
+    "Tamamo Cross", "Tamamo Cross (Festival)", "Fine Motion", "Fine Motion (Wedding)", "Biwa Hayahide", "Biwa Hayahide (Xmas)",
+    "Mayano Top Gun", "Mayano Top Gun (Wedding)", "Manhattan Cafe", "Mihono Bourbon", "Mihono Bourbon (Valentine)",
+    "Mejiro Ryan", "Mejiro Ryan (Valentine)", "Hishi Akebono", "Yukino Bijin", "Rice Shower", "Rice Shower (Halloween)",
+    "Ines Fujin", "Ines Fujin (Valentine)", "Agnes Tachyon", "Agnes Tachyon (Summer)", "Admire Vega", "Inari One", "Inari One (Summer)",
+    "Winning Ticket", "Winning Ticket (Steam)", "Air Groove", "Air Groove (Wedding)",
+    "Matikanefukukitaru", "Matikanefukukitaru (Full Armor)", "Meisho Doto", "Meisho Doto (Halloween)", "Mejiro Dober", "Mejiro Dober (Camp)",
+    "Nice Nature", "Nice Nature (Cheer)", "King Halo", "King Halo (Cheer)", "Machikane Tannhauser", "Ikuno Dictus",
+    "Mejiro Palmer", "Daitaku Helios", "Twin Turbo", "Satono Diamond", "Kitasan Black", "Kitasan Black (New Year)",
+    "Sakura Chiyono O", "Sakura Chiyono O (Dance)", "Sirius Symboli", "Mejiro Ardan", "Yaeno Muteki", "Tsurumaru Tsuyoshi",
+    "Mejiro Bright", "Sakura Bakushin O", "Sakura Bakushin O (New Year)", "Shinko Windy", "Agnes Pearl", "Sweep Tosho",
+    "Nishino Flower", "Nishino Flower (Wedding)", "Super Creek", "Super Creek (Halloween)", "Bamboo Memory", "Bamboo Memory (Summer)",
+    "Biko Pegasus", "Marvelous Sunday", "Tosen Jordan", "Tosen Jordan (Summer)", "Nakayama Festa", "Narita Taishin", "Narita Taishin (Steam)",
+    "Hishi Miracle", "Neo Universe", "Tap Dance City", "Jungle Pocket", "Copano Rickey",
+    "Hokko Tarumae", "Wonder Acosta", "Symboli Kris S", "Tanino Gimlet", "Daiichi Ruby", "K.S. Miracle", "Aston Machan",
+    "Satono Crown", "Cheval Grand", "Vivilos", "Dantsu Flame", "Air Shakur", "Gold City", "Gold City (New Year)",
+    "Eishin Flash", "Eishin Flash (Valentine)", "Karen Chan", "Smart Falcon", "Smart Falcon (Yellow)", "Zenno Rob Roy"
 ]
 
-# 2. VARIANT KEYWORDS
+# 2. VARIANT MAP (The "Detectors")
+# Maps unique keywords (lowercase) to the Canonical Name.
+# Keys should be specific enough not to match the Original accidentally.
 VARIANT_MAP = {
-    "Summer": "Summer", "Hot Summer": "Summer",
-    "Valentine": "Valentine", "Christmas": "Christmas", "Holiday": "Christmas",
-    "Hopp'n Happy Heart": "Summer", "Carnival": "Festival",
-    "Wedding": "Wedding", "Bouquet": "Wedding",
-    "Saintly Jade Cleric": "Fantasy", "Kukulkan": "Fantasy",
-    "Chiffon-Wrapped Mummy": "Halloween", "New Year": "New Year",
-    "Vampire Makeover!": "Halloween", "Festival": "Festival",
-    "Quercus Civilis": "Wedding", "End of the Skies": "Anime", "Beyond the Horizon": "Anime",
-    "Anime Collab": "Anime", "Cyberpunk": "Cyberpunk",
-    "Lucky Tidings": "Full Armor", "Princess": "Princess"
+    # Symboli Rudolf
+    "archer": "Symboli Rudolf (Festival)",
+    "moonlight": "Symboli Rudolf (Festival)",
+    "festival rudolf": "Symboli Rudolf (Festival)",
+    "monk rudolf": "Symboli Rudolf (Festival)",
+    
+    # Maruzensky
+    "swimsuit maru": "Maruzensky (Summer)",
+    "summer maru": "Maruzensky (Summer)",
+    "supersonic": "Maruzensky (Summer)", # Title: [Supersonic]
+    
+    # Oguri Cap
+    "christmas oguri": "Oguri Cap (Christmas)",
+    "xmas oguri": "Oguri Cap (Christmas)",
+    "claus": "Oguri Cap (Christmas)", # Title: [Miracle of the White Star Claus]
+    
+    # Gold Ship
+    "summer golshi": "Gold Ship (Summer)",
+    "run! run!": "Gold Ship (Summer)", # Title keyword
+    
+    # Mejiro McQueen
+    "endless": "Mejiro McQueen (Endless)",
+    "summer mcqueen": "Mejiro McQueen (Summer)",
+    "ripple": "Mejiro McQueen (Summer)", # Title: [Ripple in the Blue]
+    
+    # El Condor Pasa
+    "fantasy": "El Condor Pasa (Fantasy)", 
+    "monk el": "El Condor Pasa (Fantasy)",
+
+    "[beyond the horizon] tokai teio": "Tokai Teio (Anime)",
+    "[Hopp'n♪Happy Heart] Special Week (Summer)": "Special Week (Summer)",
+    
+    # Add any other specific titles from your CSVs here
+    # Format: "unique keyword found in csv": "Target Canonical Name"
 }
 
 # --- NEW: ALIAS MAP FOR KNOWN ERRORS ---
@@ -336,69 +391,36 @@ def analyze_significant_roles(df, role_col='Clean_Role', score_col='Calculated_W
         
     return sig_roles, global_avg
 
-def smart_match_name(raw_name, valid_csv_names):
-    if pd.isna(raw_name): return "Unknown"
-    raw_name = str(raw_name).strip()
+def smart_match_name(name, known_names=ORIGINAL_UMAS):
+    """
+    Matches a raw name to the known list with Priority Logic.
+    1. Check VARIANT_MAP for specific keywords (Archer, Summer, etc.)
+    2. Exact Match
+    3. Fuzzy Match
+    """
+    if pd.isna(name) or name == "": return "Unknown"
     
-    # 1. FAST ALIAS CHECK (Pre-parsing)
-    # catches "TM Opera" directly if listed
-    if raw_name in NAME_ALIASES:
-        return NAME_ALIASES[raw_name]
-
-    # 2. PARSE BRACKETS (Existing Logic)
-    base_match = re.search(r'\]\s*(.*)', raw_name)
-    title_match = re.search(r'\[(.*?)\]', raw_name)
+    raw_input = str(name).strip()
+    norm_input = raw_input.lower()
     
-    base_name = base_match.group(1).strip() if base_match else raw_name.strip()
-    title_text = title_match.group(1) if title_match else ""
+    # --- PRIORITY 1: VARIANT MAPPING ---
+    # Check if any variant keyword exists in the input string
+    # e.g. Input: "[Archer by Moonlight] Symboli Rudolf" -> matches "archer" -> Returns "Symboli Rudolf (Festival)"
+    for keyword, canonical in VARIANT_MAP.items():
+        if keyword in norm_input:
+            return canonical
 
-    # 3. ALIAS CHECK (On Base Name)
-    # catches "[New Year] TM Opera" -> "TM Opera" -> "T.M. Opera O"
-    if base_name in NAME_ALIASES:
-        base_name = NAME_ALIASES[base_name]
-
-    # 4. VARIANT DETECTION (Existing Logic)
-    variant_suffix = None
-    for keyword, suffix in VARIANT_MAP.items():
-        if keyword.lower() in title_text.lower():
-            variant_suffix = suffix
-            break
+    # --- PRIORITY 2: EXACT MATCH ---
+    if raw_input in known_names:
+        return raw_input
     
-    candidates = []
-    if variant_suffix:
-        # Reconstruct canonical variant name: "T.M. Opera O (New Year)"
-        candidates.append(f"{base_name} ({variant_suffix})")
-        # Handle "New Year T.M. Opera O" style
-        candidates.append(f"{variant_suffix} {base_name}")
+    # --- PRIORITY 3: FUZZY MATCH ---
+    # We use a stricter cutoff (0.2) to avoid bad guesses
+    matches = difflib.get_close_matches(raw_input, known_names, n=1, cutoff=0.3)
+    if matches:
+        return matches[0]
         
-    candidates.append(base_name)
-    
-    # 5. VALIDATION MATCHING
-    # Try exact match first
-    for cand in candidates:
-        match = next((valid for valid in valid_csv_names if valid.lower() == cand.lower()), None)
-        if match: return match
-            
-    # 6. FUZZY NORMALIZATION MATCH (The Scalable Logic)
-    # This catches "T.M. Opera O" vs "TM Opera O" without an alias
-    norm_base = _normalize_name_string(base_name)
-    
-    for valid in valid_csv_names:
-        # We assume valid_csv_names contains the canonical "T.M. Opera O"
-        if _normalize_name_string(valid) == norm_base:
-            # If we found a base match, re-apply suffix if needed
-            if variant_suffix:
-                # Check if the variant exists in valid list
-                canon_variant = f"{valid} ({variant_suffix})"
-                if canon_variant in valid_csv_names:
-                    return canon_variant
-                return valid # Fallback to base if variant not found
-            return valid
-
-    # Fallback to Original List if valid_csv_names didn't help
-    if base_name in ORIGINAL_UMAS: return base_name
-    
-    return base_name
+    return "Unknown"
 
 def sanitize_text(text):
     if pd.isna(text): return text
@@ -865,13 +887,10 @@ def load_finals_data(config_item: dict):
     raw_dfs = {} 
     
     # -------------------------------------------------------------
-    # 1. BUILD LOOKUP MAPS FROM MANUAL CSV (Source of Truth)
+    # 1. BUILD LOOKUP MAPS (Same as before)
     # -------------------------------------------------------------
-    # Maps for Group (A/B)
     ign_group_map = {}
     team_group_map = {}
-    
-    # Maps for League (Graded/Open)
     ign_league_map = {}
     team_league_map = {}
     
@@ -879,10 +898,7 @@ def load_finals_data(config_item: dict):
     if csv_path and os.path.exists(csv_path):
         try:
             temp_csv = pd.read_csv(csv_path)
-            
-            # Identify columns
             group_col = 'A or B Finals?'
-            # Look for the new League Selection column
             league_col = None
             for col in temp_csv.columns:
                 if 'league' in col.lower() or 'selection' in col.lower():
@@ -890,47 +906,35 @@ def load_finals_data(config_item: dict):
                     break
             
             if group_col in temp_csv.columns:
-                # We iterate even if Group is empty, as long as we have the row
-                # But typically we want valid entries.
                 temp_csv = temp_csv.dropna(subset=[group_col])
-                
                 for _, row in temp_csv.iterrows():
-                    # 1. Parse Key Info
                     ign = str(row.get('Player IGN', '')).strip()
                     norm_ign = ign.lower()
-                    
-                    # 2. Extract Values
                     group_val = str(row.get(group_col, 'B Finals')).strip()
-                    
-                    league_val = "Graded" # Default
+                    league_val = "Graded"
                     if league_col:
                         raw_l = str(row.get(league_col, '')).lower()
-                        if "open" in raw_l: league_val = "Open"
-                        else: league_val = "Graded"
+                        league_val = "Open" if "open" in raw_l else "Graded"
 
-                    # 3. Fill IGN Maps
                     if norm_ign:
                         ign_group_map[norm_ign] = group_val
                         ign_league_map[norm_ign] = league_val
                     
-                    # 4. Fill Team Maps
                     umas = []
                     for i in range(1, 4):
                         u = row.get(f"Finals - Team Comp - Uma {i} - Name")
                         if pd.notna(u) and str(u).strip():
                             clean_u = smart_match_name(str(u), ORIGINAL_UMAS)
                             umas.append(clean_u)
-                    
                     if umas:
                         team_key = frozenset(umas)
                         team_group_map[team_key] = group_val
                         team_league_map[team_key] = league_val
-                        
         except Exception as e:
             print(f"Error building lookup maps: {e}")
 
     # -------------------------------------------------------------
-    # 2. LOAD AUTOMATED PARQUETS
+    # 2. LOAD AUTOMATED PARQUETS (Robust DuckDB)
     # -------------------------------------------------------------
     if config_item.get('is_multipart_parquet', False):
         parts = config_item.get('finals_parts', {})
@@ -938,116 +942,229 @@ def load_finals_data(config_item: dict):
             p_stat = parts.get("statsheet")
             p_pod = parts.get("podium")
             p_deck = parts.get("deck")
+
             
-            df_stat = pd.read_parquet(p_stat) if p_stat and os.path.exists(p_stat) else pd.DataFrame()
-            df_pod = pd.read_parquet(p_pod) if p_pod and os.path.exists(p_pod) else pd.DataFrame()
-            df_deck = pd.read_parquet(p_deck) if p_deck and os.path.exists(p_deck) else pd.DataFrame()
+            # --- HELPER 1: Standardize ID Column in CTE ---
+            def get_cte_select(path):
+                """Returns '*, row as row_id' or '*' depending on schema."""
+                try:
+                    df_schema = duckdb.sql(f"DESCRIBE SELECT * FROM read_parquet('{path}') LIMIT 0").df()
+                    cols = df_schema['column_name'].tolist()
+                    if 'row' in cols and 'row_id' not in cols:
+                        return "*, row AS row_id", cols
+                    return "*", cols
+                except:
+                    return "*", []
+
+            # --- HELPER 2: Safe Column Selector ---
+            def safe_col(table_alias, col_name, target_alias, available_cols):
+                """Returns 't.col as target' if exists, else 'NULL as target'."""
+                if col_name in available_cols:
+                    return f"{table_alias}.{col_name} as {target_alias}"
+                return f"NULL as {target_alias}"
             
-            if 'row' in df_stat.columns and 'row_id' not in df_stat.columns:
-                df_stat = df_stat.rename(columns={'row': 'row_id'})
+            # --- HELPER: Case-Insensitive Column Finder ---
+            def find_col(target, cols):
+                """Returns the actual column name if found (case-insensitive), else None."""
+                target_lower = target.lower()
+                for c in cols:
+                    if str(c).lower() == target_lower:
+                        return c
+                return None
 
-            # Deduplicate
-            if not df_stat.empty: df_stat = df_stat.drop_duplicates(subset=['row_id'])
-            if not df_pod.empty: df_pod = df_pod.drop_duplicates(subset=['row_id'])
-            if not df_deck.empty: df_deck = df_deck.drop_duplicates(subset=['row_id'])
+            # 1. Inspect Files & Build CTE Selects
+            sel_stat, cols_stat = get_cte_select(p_stat)
+            sel_pod, cols_pod = get_cte_select(p_pod)
+            sel_deck, cols_deck = get_cte_select(p_deck)
 
-            raw_dfs['statsheet'] = df_stat
-            raw_dfs['podium'] = df_pod
-            raw_dfs['deck'] = df_deck
+            # 2. Build Main SELECT List Dynamically
+            select_parts = []
             
-            if not df_pod.empty:
-                df_auto = df_pod
-                if not df_stat.empty:
-                    if 'row_id' in df_auto.columns and 'row_id' in df_stat.columns:
-                        df_auto = pd.merge(df_auto, df_stat, on='row_id', how='inner', suffixes=('', '_stat'))
-                    else:
-                        df_auto = pd.concat([df_auto.reset_index(drop=True), df_stat.reset_index(drop=True)], axis=1)
+            # -- PODIUM COLUMNS --
+            select_parts.append(safe_col('p', 'trainee_name', 'Clean_Uma', cols_pod))
+            select_parts.append(safe_col('p', 'trainer_name', 'Clean_IGN', cols_pod))
+            select_parts.append(safe_col('p', 'placement', 'Result', cols_pod))
+            select_parts.append(safe_col('p', 'post', 'Post', cols_pod))
+            select_parts.append(safe_col('p', 'time', 'Run_Time_Str', cols_pod))
+            select_parts.append(safe_col('p', 'style', 'Clean_Style', cols_pod))
+            
+            # -- STATSHEET COLUMNS --
+            # Skills might be in 'skills' or 'skill_list'
+            select_parts.append(safe_col('s', 'skills', 'Skill_List', cols_stat))
+            select_parts.append(safe_col('s', 'skill_count', 'Skill_Count', cols_stat))
+            
+            for stat in ['Speed', 'Stamina', 'Power', 'Guts', 'Wit', 'score', 'rank']:
+                tgt = stat.capitalize() if stat not in ['score', 'rank'] else stat.capitalize()
+                select_parts.append(safe_col('s', stat, tgt, cols_stat))
+            
 
-                if not df_deck.empty:
-                    if 'row_id' in df_deck.columns and 'row_id' in df_auto.columns:
-                        df_deck_clean = df_deck.drop(columns=['id'], errors='ignore')
-                        df_auto = pd.merge(df_auto, df_deck_clean, on='row_id', how='left')
-                
-                df_auto = df_auto.loc[:, ~df_auto.columns.duplicated()]
-                df_auto = _normalize_libra_columns(df_auto)
-                df_auto['Source'] = 'Automated'
-
-                # ---------------------------------------------------------
-                # RESOLVE METADATA (Group & League) via CSV MATCH
-                # ---------------------------------------------------------
-                # Prepare Team Matches from Parquet Data
-                if 'Clean_IGN' in df_auto.columns:
-                    ign_to_team_auto = df_auto.groupby('Clean_IGN')['Clean_Uma'].apply(frozenset).to_dict()
+            # -- DECK COLUMNS (Dynamic 1-6) --
+            for i in range(1, 7):
+                cname = f"card{i}_name"
+                if cname in cols_deck:
+                    select_parts.append(f"d.{cname}")
                 else:
-                    ign_to_team_auto = {}
+                    select_parts.append(f"NULL as {cname}")
+            
+            # -- IS_USER (FIX: Check Podium First, then Deck) --
+            is_user_pod = find_col('is_user', cols_pod)
+            is_user_deck = find_col('is_user', cols_deck)
 
-                def resolve_metadata(row):
-                    ign = str(row.get('Clean_IGN', '')).strip()
-                    norm_ign = ign.lower()
-                    
-                    # Defaults
-                    res_group = "B Finals"
-                    res_league = "Graded"
-                    
-                    # 1. Direct Name Match
-                    if norm_ign in ign_group_map:
-                        res_group = ign_group_map[norm_ign]
-                        res_league = ign_league_map.get(norm_ign, "Graded")
-                        return pd.Series([res_group, res_league])
-                    
-                    # 2. Team Composition Match
-                    if ign in ign_to_team_auto:
-                        team_set = ign_to_team_auto[ign]
-                        if team_set in team_group_map:
-                            res_group = team_group_map[team_set]
-                            res_league = team_league_map.get(team_set, "Graded")
-                            return pd.Series([res_group, res_league])
+            # -- APTITUDE COLUMNS (DYNAMIC) --
+            # Get targets from config, defaulting to Libra standard if missing
+            target_dist = config_item.get('aptitude_dist', 'Long') 
+            target_surf = config_item.get('aptitude_surf', 'Turf')
 
-                    # 3. No Match -> Use Defaults
+            # Dynamically select the configured columns
+            # Maps generic 'Aptitude_Dist' to whatever specific column (e.g. 'Medium') is needed
+            select_parts.append(safe_col('s', target_dist, 'Aptitude_Dist', cols_stat))
+            select_parts.append(safe_col('s', target_surf, 'Aptitude_Surface', cols_stat))
+            
+            # -- STYLE APTITUDE (Conditional Logic needs columns to exist) --
+            # We wrap the CASE WHEN in a check. If columns don't exist, we just output NULL.
+            needed_apts = ['Front', 'Pace', 'Late', 'End']
+            if all(c in cols_stat for c in needed_apts) and 'style' in cols_pod:
+                style_logic = """
+                CASE 
+                    WHEN lower(p.style) LIKE '%front%' OR lower(p.style) LIKE '%runaway%' THEN s.Front
+                    WHEN lower(p.style) LIKE '%pace%' THEN s.Pace
+                    WHEN lower(p.style) LIKE '%late%' THEN s.Late
+                    WHEN lower(p.style) LIKE '%end%' THEN s.End
+                    ELSE NULL
+                END as Aptitude_Style
+                """
+                select_parts.append(style_logic)
+            else:
+                select_parts.append("NULL as Aptitude_Style")
+
+            # -- WINNER & LEAGUE LOGIC --
+            # FIXED: Robust Winner Check (Handles 1, '1', '1st')
+            place_col = find_col('placement', cols_pod)
+            if place_col:
+                select_parts.append(f"""
+                CASE 
+                    WHEN try_cast(p.\"{place_col}\" as INTEGER) = 1 THEN 1 
+                    WHEN starts_with(lower(cast(p.\"{place_col}\" as VARCHAR)), '1') THEN 1
+                    ELSE 0 
+                END as Is_Winner
+                """)
+            else:
+                select_parts.append("0 as Is_Winner")
+            
+            # FIXED: Cast is_user to integer for consistent 1/0/NULL handling
+            # (Previously handled in 'DECK COLUMNS' block - update it there)
+            # Find the line: select_parts.append(safe_col('d', 'is_user', 'is_user', cols_deck))
+            # Replace with:
+            if 'is_user' in cols_deck:
+                select_parts.append("try_cast(s.is_user as INTEGER) as is_user")
+            else:
+                select_parts.append("NULL as is_user")
+
+            # League
+            if 'rank' in cols_stat:
+                league_logic = """
+                CASE 
+                    WHEN s.rank IS NOT NULL AND (
+                        starts_with(upper(s.rank), 'U') OR 
+                        starts_with(upper(s.rank), 'S') OR 
+                        starts_with(upper(s.rank), 'A')
+                    ) THEN 'Graded'
+                    ELSE 'Open' 
+                END as League_Inferred
+                """
+                select_parts.append(league_logic)
+            else:
+                select_parts.append("'Graded' as League_Inferred")
+
+            # Construct Final Query
+            select_string = ",\n                ".join(select_parts)
+            
+            query = f"""
+            WITH stat_data AS ( SELECT {sel_stat} FROM read_parquet('{p_stat}') ),
+                 pod_data AS ( SELECT {sel_pod} FROM read_parquet('{p_pod}') ),
+                 deck_data AS ( SELECT {sel_deck} FROM read_parquet('{p_deck}') )
+            SELECT 
+                {select_string},
+                'Automated' as Source
+            FROM pod_data p
+            LEFT JOIN stat_data s ON p.row_id = s.row_id
+            LEFT JOIN deck_data d ON p.row_id = d.row_id
+            """
+            
+            df_auto = duckdb.query(query).to_df()
+            
+            # --- POST-PROCESSING ---
+            
+            if 'Run_Time_Str' in df_auto.columns:
+                df_auto['Run_Time'] = df_auto['Run_Time_Str'].apply(_parse_run_time_to_seconds)
+            
+            if 'Clean_Style' in df_auto.columns:
+                df_auto['Clean_Style'] = df_auto['Clean_Style'].apply(lambda x: _normalize_style(x) if pd.notna(x) else "Unknown")
+            else:
+                df_auto['Clean_Style'] = "Unknown" # Fallback if SQL failed to create it
+            
+            if 'Clean_Uma' in df_auto.columns:
+                unique_names = df_auto['Clean_Uma'].dropna().unique()
+                name_map = {name: smart_match_name(name, ORIGINAL_UMAS) for name in unique_names}
+                df_auto['Clean_Uma'] = df_auto['Clean_Uma'].map(name_map)
+            
+            def safe_parse_skills(x):
+                if isinstance(x, (np.ndarray, list)): return list(x)
+                if isinstance(x, str):
+                    try:
+                        if x.startswith('['): return ast.literal_eval(x)
+                        return [x] 
+                    except: return []
+                return []
+            
+            if 'Skill_List' in df_auto.columns:
+                df_auto['Skill_List'] = df_auto['Skill_List'].apply(safe_parse_skills)
+            else:
+                df_auto['Skill_List'] = np.empty((len(df_auto), 0)).tolist()
+
+            # Metadata Matching (Group/League)
+            if 'Clean_IGN' in df_auto.columns:
+                ign_to_team_auto = df_auto.groupby('Clean_IGN')['Clean_Uma'].apply(lambda x: frozenset([i for i in x if pd.notna(i)])).to_dict()
+            else:
+                ign_to_team_auto = {}
+
+            def resolve_metadata(row):
+                ign = str(row.get('Clean_IGN', '')).strip()
+                norm_ign = ign.lower()
+                
+                res_group = "B Finals"
+                res_league = row.get('League_Inferred', 'Graded')
+                
+                if norm_ign in ign_group_map:
+                    res_group = ign_group_map[norm_ign]
+                    res_league = ign_league_map.get(norm_ign, res_league)
                     return pd.Series([res_group, res_league])
-
-                # Apply Logic
-                meta_cols = df_auto.apply(resolve_metadata, axis=1)
-                df_auto['Finals_Group'] = meta_cols[0]
-                df_auto['League'] = meta_cols[1]
                 
+                if ign in ign_to_team_auto:
+                    team_set = ign_to_team_auto[ign]
+                    if team_set in team_group_map:
+                        res_group = team_group_map[team_set]
+                        res_league = team_league_map.get(team_set, res_league)
+                        return pd.Series([res_group, res_league])
+
+                return pd.Series([res_group, res_league])
+
+            meta_cols = df_auto.apply(resolve_metadata, axis=1)
+            df_auto['Finals_Group'] = meta_cols[0]
+            df_auto['League'] = meta_cols[1]
+
         except Exception as e:
-            st.error(f"Error merging Libra Parquets: {e}")
+            st.error(f"Error loading DuckDB Parquets: {e}")
     else:
-        # Legacy
-        pq_path = config_item.get('finals_parquet')
-        if pq_path and os.path.exists(pq_path):
-            try:
-                df_auto = pd.read_parquet(pq_path)
-                df_auto['Source'] = 'Automated'
-                rename_map = {'name': 'Clean_Uma', 'rank': 'Result', 'time': 'Run_Time_Str'}
-                df_auto.rename(columns=rename_map, inplace=True)
-                
-                if 'Clean_Uma' in df_auto.columns:
-                    df_auto['Clean_Uma'] = df_auto['Clean_Uma'].apply(lambda x: smart_match_name(x, ORIGINAL_UMAS))
-                if 'Result' in df_auto.columns:
-                     df_auto['Is_Winner'] = df_auto['Result'].apply(lambda x: 1 if str(x) in ['1', '1st'] else 0)
-                if 'Clean_Style' in df_auto.columns:
-                    df_auto['Clean_Style'] = df_auto['Clean_Style'].apply(_normalize_style)
-                
-                df_auto['Finals_Group'] = "A Finals"
-                df_auto['League'] = "Graded" 
-                raw_dfs['legacy_parquet'] = df_auto
-            except Exception as e:
-                st.error(f"Error loading Legacy Parquet: {e}")
+        pass
 
-    # -------------------------------------------------------------
-    # 3. LOAD MANUAL CSV (ROWS)
-    # -------------------------------------------------------------
-    auto_ign_set = set(df_auto['Clean_IGN'].astype(str).str.lower().str.strip().unique()) if not df_auto.empty and 'Clean_IGN' in df_auto.columns else set()
-    
+    # 3. COMBINE WITH CSV
     if csv_path and os.path.exists(csv_path):
         try:
             raw_csv = pd.read_csv(csv_path)
-            raw_dfs['manual_csv'] = raw_csv 
             
             if 'A or B Finals?' in raw_csv.columns:
-                raw_csv = raw_csv.dropna(subset=['A or B Finals?'])
+                 raw_csv = raw_csv.dropna(subset=['A or B Finals?'])
             
             league_col = None
             for col in raw_csv.columns:
@@ -1056,13 +1173,13 @@ def load_finals_data(config_item: dict):
                     break
             
             processed_rows = []
+            auto_ign_set = set(df_auto['Clean_IGN'].astype(str).str.lower().str.strip().unique()) if not df_auto.empty and 'Clean_IGN' in df_auto.columns else set()
+
             for _, row in raw_csv.iterrows():
                 ign_raw = str(row.get('Player IGN', 'Unknown'))
                 if ign_raw.lower().strip() in auto_ign_set: continue
                 
                 group = row.get('A or B Finals?', 'Unknown')
-                
-                # League Logic (Manual)
                 if league_col:
                     raw_league = str(row.get(league_col, 'Graded'))
                     league = "Open" if "open" in raw_league.lower() else "Graded"

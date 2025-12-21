@@ -21,7 +21,7 @@ def style_fig(fig, title=None):
 
 def show_view(config_item):
     from virgo_utils import load_finals_data
-    
+    st.warning("this page is under construction and may not function as intended.")
     st.header(f"📊 {config_item['id']} - Championship Analysis")
     
     # Load Data
@@ -267,15 +267,21 @@ def show_view(config_item):
             # Columns for the 3 metrics
             c_apt1, c_apt2, c_apt3 = st.columns(3)
             
-            # Plot if columns exist (mapped in utils)
+            # Get Labels from Config
+            dist_label = config_item.get('aptitude_dist', 'Distance')
+            surf_label = config_item.get('aptitude_surf', 'Surface')
+
+            # Plot if columns exist
             if 'Aptitude_Dist' in winners_df.columns:
-                plot_aptitude('Aptitude_Dist', "Distance (Long)", c_apt1)
+                # e.g. "Distance (Long) S-Rank"
+                plot_aptitude('Aptitude_Dist', f"Distance ({dist_label})", c_apt1)
                 
             if 'Aptitude_Surface' in winners_df.columns:
-                plot_aptitude('Aptitude_Surface', "Surface (Turf)", c_apt2)
+                # e.g. "Surface (Turf) S-Rank"
+                plot_aptitude('Aptitude_Surface', f"Surface ({surf_label})", c_apt2)
                 
             if 'Aptitude_Style' in winners_df.columns:
-                plot_aptitude('Aptitude_Style', "Style", c_apt3)
+                plot_aptitude('Aptitude_Style', "Strategy", c_apt3)
             
             st.markdown("---")
             # --- 1. BOX PLOTS (Stat Spread) ---
@@ -351,17 +357,25 @@ def show_view(config_item):
                 st.info("Insufficient data for Time analysis.")
 
     with tab_records:
-        title_scope = f" {selected_uma}" if selected_uma != "All Umas" else "Global"
-        st.subheader(f"🥛 Hall of Milk ({title_scope})")
-        st.info("Showcasing unique and niche records from championship winners.")
+        title_scope = f" {selected_uma}" if selected_uma != "All Umas" else " Global"
+        st.subheader(f"💎 Hall of Records ({title_scope})")
         
-        # Use filtered data (Specific Uma if selected, else All)
+        # 1. Base copy
         rec_df = winners_df.copy()
         
         if rec_df.empty:
             st.warning(f"No winners found for {selected_uma}. Cannot determine records.")
         else:
-            rec_df['Total_Stats'] = rec_df[['Speed','Stamina','Power','Guts','Wit']].sum(axis=1)
+            # 2. Calculate Totals
+            # Fill NaNs with 0 to prevent crashes, but we will filter them out next
+            stat_cols = ['Speed','Stamina','Power','Guts','Wit']
+            rec_df[stat_cols] = rec_df[stat_cols].fillna(0)
+            rec_df['Total_Stats'] = rec_df[stat_cols].sum(axis=1)
+            
+            # 3. Create a "Valid Stats" Subset for Records
+            # This filters out Manual CSV entries that have no stats (Total = 0)
+            # so they don't incorrectly show up as "Underdog" or "Lowest Speed"
+            valid_stats_df = rec_df[rec_df['Total_Stats'] > 1000].copy()
             
             # --- CUSTOM HTML CARD FUNCTION ---
             def record_card(label, value, row, color="#FFD700"):
@@ -375,10 +389,24 @@ def show_view(config_item):
                 else:
                     skills_str = "No skills recorded (Manual Data?)"
 
-                # NEW: Disclaimer Logic
+                # FIXED: Disclaimer Logic
+                # Check for explicit 0 (Opponent) or explicit False
+                val = row.get('is_user')
+                is_opponent = False
+                
+                # Check numeric/boolean False
+                if val is not None:
+                     try:
+                         if int(val) == 0: is_opponent = True
+                     except:
+                         pass
+                
+                # Optional: Treat missing is_user as opponent? 
+                # Uncomment next line if you want to flag NULLs as opponents too
+                #if pd.isna(val): is_opponent = True 
+
                 disclaimer = ""
-                # Check if explicitly False (0/False). Assume True or NaN is a valid user.
-                if row.get('is_user') is False or row.get('is_user') == 0:
+                if is_opponent:
                     disclaimer = "<br><span style='color:#EF553B; font-size:0.8em; font-style:italic;'>⚠️ Opponent Data (Not User)</span>"
                 
                 # 3. HTML Structure
@@ -429,14 +457,12 @@ def show_view(config_item):
             with c3:
                 # NICHE PICK LOGIC
                 # --- UPDATED: RAREST CHAMPION LOGIC (Least Wins -> Least Entries) ---
+                # Rarest Champion (Logic remains the same, uses full rec_df)
                 if selected_uma == "All Umas":
-                    # 1. Count Wins in CURRENT FILTERED VIEW
                     win_counts = winners_df['Clean_Uma'].value_counts()
-                    # 2. Count Entries in CURRENT FILTERED VIEW
                     entry_counts = df_filtered['Clean_Uma'].value_counts()
-                    
-                    # 3. Find unique winners and sort
                     unique_winners = winners_df['Clean_Uma'].unique()
+                    
                     if len(unique_winners) > 0:
                         data = [{'Uma': u, 'Wins': win_counts.get(u,0), 'Entries': entry_counts.get(u,0)} for u in unique_winners]
                         cand_df = pd.DataFrame(data).sort_values(by=['Wins', 'Entries'], ascending=[True, True])
@@ -444,8 +470,8 @@ def show_view(config_item):
                         rarest_uma = cand_df.iloc[0]['Uma']
                         rarest_wins = cand_df.iloc[0]['Wins']
                         rarest_entries = cand_df.iloc[0]['Entries']
-                        
                         rarest_row = winners_df[winners_df['Clean_Uma'] == rarest_uma].iloc[0]
+                        
                         record_card("🦄 Rarest Champion (Least Wins/Entries)", f"{rarest_wins} Wins / {rarest_entries} Runs", rarest_row, "#FFD700")
                 else:
                     style_counts = df_filtered['Clean_Style'].value_counts()
@@ -455,36 +481,41 @@ def show_view(config_item):
             
             # --- ROW 2: STATS ---
             c4, c5, c6 = st.columns(3)
-            with c4:
-                underdog = rec_df.loc[rec_df['Total_Stats'].idxmin()]
-                record_card("🐕 Underdog (Lowest Total Stats)", underdog['Total_Stats'], underdog, "#EF553B")
-            with c5:
-                min_spd = rec_df.loc[rec_df['Speed'].idxmin()]
-                record_card("🐌 Lowest Speed", min_spd['Speed'], min_spd, "#FFA15A")
-            with c6:
-                min_pwr = rec_df.loc[rec_df['Power'].idxmin()]
-                record_card("💪 Lowest Power", min_pwr['Power'], min_pwr, "#19D3F3")
+            # Only show these if we actually have valid stat data
+            if not valid_stats_df.empty:
+                with c4:
+                    underdog = valid_stats_df.loc[valid_stats_df['Total_Stats'].idxmin()]
+                    record_card("🐕 Underdog (Lowest Total Stats)", underdog['Total_Stats'], underdog, "#EF553B")
+                with c5:
+                    min_spd = valid_stats_df.loc[valid_stats_df['Speed'].idxmin()]
+                    record_card("🐌 Lowest Speed", min_spd['Speed'], min_spd, "#FFA15A")
+                with c6:
+                    min_pwr = valid_stats_df.loc[valid_stats_df['Power'].idxmin()]
+                    record_card("💪 Lowest Power", min_pwr['Power'], min_pwr, "#19D3F3")
 
             c7, c8, c9 = st.columns(3)
-            with c7:
-                min_sta = rec_df.loc[rec_df['Stamina'].idxmin()]
-                record_card("😴 Lowest Stamina", min_sta['Stamina'], min_sta, "#FF6692")
-            with c8:
-                max_guts = rec_df.loc[rec_df['Guts'].idxmax()]
-                record_card("🏃 Highest Guts", max_guts['Guts'], max_guts, "#B6E880")
-            with c9:
-                min_wit = rec_df.loc[rec_df['Wit'].idxmin()]
-                record_card("🧠 Lowest Wit", min_wit['Wit'], min_wit, "#FF97FF")
+            # Only show these if we actually have valid stat data
+            if not valid_stats_df.empty:
+                with c7:
+                    min_sta = valid_stats_df.loc[valid_stats_df['Stamina'].idxmin()]
+                    record_card("😴 Lowest Stamina", min_sta['Stamina'], min_sta, "#FF6692")
+                with c8:
+                    max_guts = valid_stats_df.loc[valid_stats_df['Guts'].idxmax()]
+                    record_card("🏃 Highest Guts", max_guts['Guts'], max_guts, "#B6E880")
+                with c9:
+                    min_wit = valid_stats_df.loc[valid_stats_df['Wit'].idxmin()]
+                    record_card("🧠 Lowest Wit", min_wit['Wit'], min_wit, "#FF97FF")
 
             # --- NICHE GALLERY ---
             st.markdown("### 📜 Niche Hall of Fame")
+            # 1. Identify Niche Winners
             if selected_uma == "All Umas":
-                st.caption("Winners with < 10 Umas in the Finals.")
-                global_counts = df_group['Clean_Uma'].value_counts()
-                niche_winners = rec_df[rec_df['Clean_Uma'].map(global_counts) < 10].copy()
+                st.caption("Winners with < 10 Total Entries in this Group.")
+                entry_counts = df_filtered['Clean_Uma'].value_counts()
+                niche_winners = rec_df[rec_df['Clean_Uma'].map(entry_counts) < 10].copy()
             else:
                 st.caption(f"Winners using off-meta strategies for {selected_uma}.")
-                style_map = df_group.groupby('Clean_Uma')['Clean_Style'].value_counts(normalize=True)
+                style_map = df_filtered.groupby('Clean_Uma')['Clean_Style'].value_counts(normalize=True)
                 niche_indices = []
                 for idx, row in rec_df.iterrows():
                     try:
@@ -493,9 +524,21 @@ def show_view(config_item):
                     except: continue
                 niche_winners = rec_df.loc[niche_indices]
 
+            # 2. Clean & Deduplicate
             if not niche_winners.empty:
-                disp = niche_winners[['Clean_IGN', 'Clean_Uma', 'Clean_Style', 'Speed', 'Power', 'Wit', 'Skill_Count', 'Run_Time_Str']]
-                st.dataframe(disp, width='stretch', hide_index=True, column_config={"Clean_IGN": "IGN", "Clean_Uma": "Uma Name", "Clean_Style": "Running Style", "Speed": "Speed", "Power": "Power", "Wit": "Wit", "Skill_Count": "Skills", "Run_Time_Str": "Run Time"})
+                # Filter out rows with empty stats (optional, keeps list clean)
+                niche_winners = niche_winners[niche_winners['Total_Stats'] > 0]
+                
+                # Deduplicate based on IGN and Character Name
+                niche_winners = niche_winners.drop_duplicates(subset=['Clean_IGN', 'Clean_Uma'])
+                
+                disp = niche_winners[['Clean_IGN', 'Clean_Uma', 'Clean_Style', 'Speed', 'Stamina', 'Power', 'Guts', 'Wit', 'Skill_Count', 'Run_Time_Str']]
+                st.dataframe(disp, width='stretch', hide_index=True, column_config={
+                    "Clean_IGN": st.column_config.TextColumn("Player"),
+                    "Clean_Uma": st.column_config.TextColumn("Uma"),
+                    "Clean_Style": st.column_config.TextColumn("Running Style"),
+                    "Skill_Count": st.column_config.NumberColumn("Number of Skills"),
+                    "Run_Time_Str": st.column_config.TextColumn("Winning Time"),})
             else:
                 st.info("No niche winners found matching criteria.")
 

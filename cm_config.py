@@ -6,6 +6,8 @@ CM_LIST = {
     "Libra Cup (2025)": {
         "id": "Libra Cup (2025)",
         "icon": "⚖️",
+        "aptitude_dist": "Long",   # Options: Sprint, Mile, Medium, Long
+        "aptitude_surf": "Turf",   # Options: Turf, Dirt
         # Placeholder URL (You can update this when Libra data exists)
         "sheet_url": config('LIBRA_SHEET_URL', default=''),
         "parquet_file": "libra.parquet" ,
@@ -29,6 +31,8 @@ CM_LIST = {
     "Virgo Cup (2025)": {
         "id": "Virgo Cup (2025)",
         "icon": "🏆",
+        "aptitude_dist": "Mile",   # Options: Sprint, Mile, Medium, Long
+        "aptitude_surf": "Turf",   # Options: Turf, Dirt
         "sheet_url": config('VIRGO_SHEET_URL', default=''),
         "parquet_file": "data/1_virgo_prelims.parquet",
 
@@ -46,6 +50,8 @@ CM_LIST = {
     "Scorpio Cup (2025)": {
         "id": "Scorpio Cup (2025)",
         "icon": "⚖️",
+        "aptitude_dist": "Medium",   # Options: Sprint, Mile, Medium, Long
+        "aptitude_surf": "Turf",   # Options: Turf, Dirt
         "sheet_url": config('', default=''),
         "is_multipart_parquet": False,
         "parquet_file": "libra.parquet" ,
