@@ -47,7 +47,7 @@ def show_view(config_item):
             selected_league = st.radio("League", available_leagues, index=default_ix)
             
             # Filter the DataFrame immediately
-            df_league = df[df['League'] == selected_league]
+            df_league = df[df['League'] == selected_league].copy()
         else:
             # Fallback for legacy data
             selected_league = "Graded"
@@ -64,7 +64,7 @@ def show_view(config_item):
         if available_groups:
             default_idx = available_groups.index("A Finals") if "A Finals" in available_groups else 0
             selected_group = st.radio("Finals Group", available_groups, index=default_idx)
-            df_group = df_league[df_league['Finals_Group'] == selected_group]
+            df_group = df_league[df_league['Finals_Group'] == selected_group].copy()
         else:
             st.warning("No groups found for this league.")
             df_group = pd.DataFrame()
@@ -84,9 +84,9 @@ def show_view(config_item):
     # --- APPLY FILTERS ---
     df_filtered = df_group.copy()
     if selected_uma != "All Umas":
-        df_filtered = df_filtered[df_filtered['Clean_Uma'] == selected_uma]
+        df_filtered = df_filtered[df_filtered['Clean_Uma'] == selected_uma].copy()
     if selected_style != "All Styles":
-        df_filtered = df_filtered[df_filtered['Clean_Style'] == selected_style]
+        df_filtered = df_filtered[df_filtered['Clean_Style'] == selected_style].copy()
 
     # Baseline DF (Respects Style ONLY - for Comparisons)
     df_baseline = df_group.copy()
