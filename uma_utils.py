@@ -246,6 +246,78 @@ NAME_ALIASES = {
     "Ramona": "Mejiro Ramona",
 }
 
+def hybrid_merge_entries(df_ocr, df_manual):
+    """
+    Merges OCR data (rich stats) with Manual data (verified results/groups)
+    to create a single 'Golden Record' per entry.
+    """
+    # 1. Handle Empty inputs
+    if df_ocr.empty and df_manual.empty: return pd.DataFrame()
+    if df_ocr.empty: return df_manual
+    if df_manual.empty: return df_ocr
+    
+    # 2. Normalize Join Keys (Case-insensitive Player Name)
+    if 'Clean_IGN' in df_ocr.columns:
+        df_ocr['join_ign'] = df_ocr['Clean_IGN'].astype(str).str.lower().str.strip()
+    else:
+        df_ocr['join_ign'] = "unknown"
+
+    if 'Clean_IGN' in df_manual.columns:
+        df_manual['join_ign'] = df_manual['Clean_IGN'].astype(str).str.lower().str.strip()
+    else:
+        df_manual['join_ign'] = "unknown"
+    
+    # 3. Outer Merge
+    merged = pd.merge(
+        df_ocr, 
+        df_manual, 
+        on=['join_ign', 'Clean_Uma'], 
+        how='outer', 
+        suffixes=('_ocr', '_manual')
+    )
+    
+    # 4. Coalesce Columns (Priority Logic)
+    def resolve_col(df, base_name, primary_suffix, secondary_suffix):
+        col_primary = f"{base_name}{primary_suffix}"
+        col_secondary = f"{base_name}{secondary_suffix}"
+        if col_primary in df.columns and col_secondary in df.columns:
+            return df[col_primary].combine_first(df[col_secondary])
+        if col_primary in df.columns: return df[col_primary]
+        if col_secondary in df.columns: return df[col_secondary]
+        if base_name in df.columns: return df[base_name]
+        return pd.Series([np.nan] * len(df), index=df.index)
+
+    # A. METADATA: Trust Manual (CSV) > OCR
+    # Added 'is_user' here so it defaults to Manual (1) if available, else OCR
+    meta_cols = ['Finals_Group', 'League', 'Post', 'Result', 'is_user']
+    for col in meta_cols:
+        merged[col] = resolve_col(merged, col, '_manual', '_ocr')
+
+    # B. WINNER FLAG: Trust Manual explicitly
+    merged['Is_Winner'] = resolve_col(merged, 'Is_Winner', '_manual', '_ocr').fillna(0)
+
+    # C. STATS: Trust OCR > Manual
+    stat_cols = ['Speed', 'Stamina', 'Power', 'Guts', 'Wit', 'Score', 'Rank', 
+                 'Skill_List', 'Skill_Count', 'Aptitude_Dist', 'Aptitude_Surface', 'Aptitude_Style',
+                 'Run_Time', 'Run_Time_Str']
+    
+    for col in stat_cols:
+        merged[col] = resolve_col(merged, col, '_ocr', '_manual')
+
+    # D. SHARED ATTRIBUTES
+    merged['Clean_Style'] = resolve_col(merged, 'Clean_Style', '_ocr', '_manual')
+    merged['Clean_IGN'] = resolve_col(merged, 'Clean_IGN', '_manual', '_ocr')
+
+    # 5. Cleanup
+    cols_to_drop = ['join_ign']
+    for col in merged.columns:
+        if col.endswith('_ocr') or col.endswith('_manual'):
+            cols_to_drop.append(col)
+            
+    merged.drop(columns=cols_to_drop, inplace=True, errors='ignore')
+    
+    return merged
+
 #--- NEW: HELPER FOR NORMALIZATION ---
 def _normalize_name_string(text):
     """
@@ -887,7 +959,7 @@ def load_finals_data(config_item: dict):
     raw_dfs = {} 
     
     # -------------------------------------------------------------
-    # 1. BUILD LOOKUP MAPS (Same as before)
+    # 1. BUILD LOOKUP MAPS
     # -------------------------------------------------------------
     ign_group_map = {}
     team_group_map = {}
@@ -934,7 +1006,7 @@ def load_finals_data(config_item: dict):
             print(f"Error building lookup maps: {e}")
 
     # -------------------------------------------------------------
-    # 2. LOAD AUTOMATED PARQUETS (Robust DuckDB)
+    # 2. LOAD AUTOMATED PARQUETS (Robust Full Join + Type Safety)
     # -------------------------------------------------------------
     if config_item.get('is_multipart_parquet', False):
         parts = config_item.get('finals_parts', {})
@@ -942,88 +1014,84 @@ def load_finals_data(config_item: dict):
             p_stat = parts.get("statsheet")
             p_pod = parts.get("podium")
             p_deck = parts.get("deck")
-
             
-            # --- HELPER 1: Standardize ID Column in CTE ---
-            def get_cte_select(path):
-                """Returns '*, row as row_id' or '*' depending on schema."""
+            # --- HELPER 1: Inspect Columns ---
+            def get_cte_info(path):
+                """Returns '*, row as row_id' or similar, plus list of columns."""
                 try:
                     df_schema = duckdb.sql(f"DESCRIBE SELECT * FROM read_parquet('{path}') LIMIT 0").df()
                     cols = df_schema['column_name'].tolist()
-                    if 'row' in cols and 'row_id' not in cols:
-                        return "*, row AS row_id", cols
-                    return "*", cols
+                    lower_cols = [c.lower() for c in cols]
+                    sel_stmt = "*"
+                    if 'row' in lower_cols and 'row_id' not in lower_cols:
+                        sel_stmt = "*, row AS row_id"
+                    return sel_stmt, cols, lower_cols
                 except:
-                    return "*", []
+                    return "*", [], []
 
-            # --- HELPER 2: Safe Column Selector ---
+            # --- HELPER 2: Coalesce Columns ---
+            def coalesce_col(target_alias, candidates, available_maps):
+                valid_sources = []
+                for alias, pattern in candidates:
+                    cols = available_maps.get(alias, [])
+                    found = None
+                    for c in cols:
+                        if c.lower() == pattern.lower(): found = c; break
+                    if found: valid_sources.append(f"{alias}.\"{found}\"")
+                
+                if not valid_sources: return f"NULL as {target_alias}"
+                if len(valid_sources) == 1: return f"{valid_sources[0]} as {target_alias}"
+                return f"COALESCE({', '.join(valid_sources)}) as {target_alias}"
+
+            # --- HELPER 3: Safe Select ---
             def safe_col(table_alias, col_name, target_alias, available_cols):
-                """Returns 't.col as target' if exists, else 'NULL as target'."""
-                if col_name in available_cols:
-                    return f"{table_alias}.{col_name} as {target_alias}"
+                for c in available_cols:
+                    if c.lower() == col_name.lower():
+                        return f"{table_alias}.\"{c}\" as {target_alias}"
                 return f"NULL as {target_alias}"
-            
-            # --- HELPER: Case-Insensitive Column Finder ---
-            def find_col(target, cols):
-                """Returns the actual column name if found (case-insensitive), else None."""
-                target_lower = target.lower()
-                for c in cols:
-                    if str(c).lower() == target_lower:
-                        return c
-                return None
 
-            # 1. Inspect Files & Build CTE Selects
-            sel_stat, cols_stat = get_cte_select(p_stat)
-            sel_pod, cols_pod = get_cte_select(p_pod)
-            sel_deck, cols_deck = get_cte_select(p_deck)
+            # 1. Inspect Files
+            sel_stat, cols_stat, _ = get_cte_info(p_stat)
+            sel_pod, cols_pod, _ = get_cte_info(p_pod)
+            sel_deck, cols_deck, _ = get_cte_info(p_deck)
+            col_map = {'p': cols_pod, 's': cols_stat, 'd': cols_deck}
 
-            # 2. Build Main SELECT List Dynamically
+            # 2. Build Select List
             select_parts = []
             
-            # -- PODIUM COLUMNS --
-            select_parts.append(safe_col('p', 'trainee_name', 'Clean_Uma', cols_pod))
-            select_parts.append(safe_col('p', 'trainer_name', 'Clean_IGN', cols_pod))
+            # Keys
+            select_parts.append(coalesce_col('Clean_Uma', [('p', 'trainee_name'), ('s', 'name'), ('d', 'name')], col_map))
+            select_parts.append(coalesce_col('Clean_IGN', [('p', 'trainer_name'), ('s', 'trainer_name')], col_map))
+            select_parts.append("COALESCE(p.row_id, s.row_id, d.row_id) as row_id")
+
+            # Podium
             select_parts.append(safe_col('p', 'placement', 'Result', cols_pod))
             select_parts.append(safe_col('p', 'post', 'Post', cols_pod))
             select_parts.append(safe_col('p', 'time', 'Run_Time_Str', cols_pod))
             select_parts.append(safe_col('p', 'style', 'Clean_Style', cols_pod))
-            
-            # -- STATSHEET COLUMNS --
-            # Skills might be in 'skills' or 'skill_list'
+
+            # Statsheet
             select_parts.append(safe_col('s', 'skills', 'Skill_List', cols_stat))
             select_parts.append(safe_col('s', 'skill_count', 'Skill_Count', cols_stat))
-            
             for stat in ['Speed', 'Stamina', 'Power', 'Guts', 'Wit', 'score', 'rank']:
-                tgt = stat.capitalize() if stat not in ['score', 'rank'] else stat.capitalize()
-                select_parts.append(safe_col('s', stat, tgt, cols_stat))
+                select_parts.append(safe_col('s', stat, stat.capitalize(), cols_stat))
             
-
-            # -- DECK COLUMNS (Dynamic 1-6) --
+            # Deck
             for i in range(1, 7):
                 cname = f"card{i}_name"
-                if cname in cols_deck:
-                    select_parts.append(f"d.{cname}")
-                else:
-                    select_parts.append(f"NULL as {cname}")
-            
-            # -- IS_USER (FIX: Check Podium First, then Deck) --
-            is_user_pod = find_col('is_user', cols_pod)
-            is_user_deck = find_col('is_user', cols_deck)
+                select_parts.append(safe_col('d', cname, cname, cols_deck))
 
-            # -- APTITUDE COLUMNS (DYNAMIC) --
-            # Get targets from config, defaulting to Libra standard if missing
+            # Aptitude
             target_dist = config_item.get('aptitude_dist', 'Long') 
             target_surf = config_item.get('aptitude_surf', 'Turf')
-
-            # Dynamically select the configured columns
-            # Maps generic 'Aptitude_Dist' to whatever specific column (e.g. 'Medium') is needed
             select_parts.append(safe_col('s', target_dist, 'Aptitude_Dist', cols_stat))
             select_parts.append(safe_col('s', target_surf, 'Aptitude_Surface', cols_stat))
-            
-            # -- STYLE APTITUDE (Conditional Logic needs columns to exist) --
-            # We wrap the CASE WHEN in a check. If columns don't exist, we just output NULL.
+
+            # Style Aptitude
             needed_apts = ['Front', 'Pace', 'Late', 'End']
-            if all(c in cols_stat for c in needed_apts) and 'style' in cols_pod:
+            lower_stat_cols = [c.lower() for c in cols_stat]
+            has_apts = all(n.lower() in lower_stat_cols for n in needed_apts)
+            if has_apts and 'style' in [c.lower() for c in cols_pod]:
                 style_logic = """
                 CASE 
                     WHEN lower(p.style) LIKE '%front%' OR lower(p.style) LIKE '%runaway%' THEN s.Front
@@ -1037,9 +1105,10 @@ def load_finals_data(config_item: dict):
             else:
                 select_parts.append("NULL as Aptitude_Style")
 
-            # -- WINNER & LEAGUE LOGIC --
-            # FIXED: Robust Winner Check (Handles 1, '1', '1st')
-            place_col = find_col('placement', cols_pod)
+            # Is_Winner
+            place_col = None
+            for c in cols_pod:
+                if c.lower() == 'placement': place_col = c; break
             if place_col:
                 select_parts.append(f"""
                 CASE 
@@ -1050,18 +1119,31 @@ def load_finals_data(config_item: dict):
                 """)
             else:
                 select_parts.append("0 as Is_Winner")
+
+            # -- IS_USER LOGIC (STRICT PODIUM TRUST) --
+            # 1. Look ONLY at Podium's 'is_user' column.
+            # 2. If Podium is missing/null, fallback to Heuristic (Presence of Stats/Deck = User).
             
-            # FIXED: Cast is_user to integer for consistent 1/0/NULL handling
-            # (Previously handled in 'DECK COLUMNS' block - update it there)
-            # Find the line: select_parts.append(safe_col('d', 'is_user', 'is_user', cols_deck))
-            # Replace with:
-            if 'is_user' in cols_deck:
-                select_parts.append("try_cast(s.is_user as INTEGER) as is_user")
-            else:
-                select_parts.append("NULL as is_user")
+            p_is_user_col = None
+            for c in cols_pod:
+                if c.lower() == 'is_user': p_is_user_col = c; break
+            
+            p_check = "NULL"
+            if p_is_user_col:
+                p_check = f"TRY_CAST(p.\"{p_is_user_col}\" AS INTEGER)"
+
+            is_user_logic = f"""
+            CASE 
+                WHEN {p_check} IS NOT NULL THEN {p_check}
+                WHEN s.row_id IS NOT NULL THEN 1
+                WHEN d.row_id IS NOT NULL THEN 1
+                ELSE 0
+            END as is_user
+            """
+            select_parts.append(is_user_logic)
 
             # League
-            if 'rank' in cols_stat:
+            if any(c.lower() == 'rank' for c in cols_stat):
                 league_logic = """
                 CASE 
                     WHEN s.rank IS NOT NULL AND (
@@ -1076,9 +1158,9 @@ def load_finals_data(config_item: dict):
             else:
                 select_parts.append("'Graded' as League_Inferred")
 
-            # Construct Final Query
             select_string = ",\n                ".join(select_parts)
             
+            # 3. RUN FULL JOIN QUERY
             query = f"""
             WITH stat_data AS ( SELECT {sel_stat} FROM read_parquet('{p_stat}') ),
                  pod_data AS ( SELECT {sel_pod} FROM read_parquet('{p_pod}') ),
@@ -1087,21 +1169,18 @@ def load_finals_data(config_item: dict):
                 {select_string},
                 'Automated' as Source
             FROM pod_data p
-            LEFT JOIN stat_data s ON p.row_id = s.row_id
-            LEFT JOIN deck_data d ON p.row_id = d.row_id
+            FULL JOIN stat_data s ON p.row_id = s.row_id
+            FULL JOIN deck_data d ON COALESCE(p.row_id, s.row_id) = d.row_id
             """
             
             df_auto = duckdb.query(query).to_df()
             
             # --- POST-PROCESSING ---
-            
             if 'Run_Time_Str' in df_auto.columns:
                 df_auto['Run_Time'] = df_auto['Run_Time_Str'].apply(_parse_run_time_to_seconds)
             
             if 'Clean_Style' in df_auto.columns:
                 df_auto['Clean_Style'] = df_auto['Clean_Style'].apply(lambda x: _normalize_style(x) if pd.notna(x) else "Unknown")
-            else:
-                df_auto['Clean_Style'] = "Unknown" # Fallback if SQL failed to create it
             
             if 'Clean_Uma' in df_auto.columns:
                 unique_names = df_auto['Clean_Uma'].dropna().unique()
@@ -1121,8 +1200,12 @@ def load_finals_data(config_item: dict):
                 df_auto['Skill_List'] = df_auto['Skill_List'].apply(safe_parse_skills)
             else:
                 df_auto['Skill_List'] = np.empty((len(df_auto), 0)).tolist()
+            
+            # -- IS_USER CLEANUP --
+            if 'is_user' in df_auto.columns:
+                 df_auto['is_user'] = pd.to_numeric(df_auto['is_user'], errors='coerce').fillna(0).astype(int)
 
-            # Metadata Matching (Group/League)
+            # Metadata Matching
             if 'Clean_IGN' in df_auto.columns:
                 ign_to_team_auto = df_auto.groupby('Clean_IGN')['Clean_Uma'].apply(lambda x: frozenset([i for i in x if pd.notna(i)])).to_dict()
             else:
@@ -1131,7 +1214,6 @@ def load_finals_data(config_item: dict):
             def resolve_metadata(row):
                 ign = str(row.get('Clean_IGN', '')).strip()
                 norm_ign = ign.lower()
-                
                 res_group = "B Finals"
                 res_league = row.get('League_Inferred', 'Graded')
                 
@@ -1139,14 +1221,12 @@ def load_finals_data(config_item: dict):
                     res_group = ign_group_map[norm_ign]
                     res_league = ign_league_map.get(norm_ign, res_league)
                     return pd.Series([res_group, res_league])
-                
                 if ign in ign_to_team_auto:
                     team_set = ign_to_team_auto[ign]
                     if team_set in team_group_map:
                         res_group = team_group_map[team_set]
                         res_league = team_league_map.get(team_set, res_league)
                         return pd.Series([res_group, res_league])
-
                 return pd.Series([res_group, res_league])
 
             meta_cols = df_auto.apply(resolve_metadata, axis=1)
@@ -1162,15 +1242,19 @@ def load_finals_data(config_item: dict):
     if csv_path and os.path.exists(csv_path):
         try:
             raw_csv = pd.read_csv(csv_path)
-            
             if 'A or B Finals?' in raw_csv.columns:
                  raw_csv = raw_csv.dropna(subset=['A or B Finals?'])
             
             league_col = None
             for col in raw_csv.columns:
                 if 'league' in col.lower() or 'selection' in col.lower():
-                    league_col = col
-                    break
+                    league_col = col; break
+            
+            winner_col = None
+            for col in raw_csv.columns:
+                if 'winner' in col.lower() or 'winning' in col.lower():
+                    if 'team comp' not in col.lower():
+                        winner_col = col; break
             
             processed_rows = []
             auto_ign_set = set(df_auto['Clean_IGN'].astype(str).str.lower().str.strip().unique()) if not df_auto.empty and 'Clean_IGN' in df_auto.columns else set()
@@ -1186,6 +1270,11 @@ def load_finals_data(config_item: dict):
                 else:
                     league = "Graded"
                 
+                row_winner_name = "Unknown"
+                if winner_col:
+                    w_raw = row.get(winner_col)
+                    if pd.notna(w_raw): row_winner_name = smart_match_name(str(w_raw), ORIGINAL_UMAS)
+
                 for i in range(1, 4):
                     uma_col = f"Finals - Team Comp - Uma {i} - Name"
                     style_col = f"Finals - Team Comp - Uma {i} - Running Style"
@@ -1195,15 +1284,24 @@ def load_finals_data(config_item: dict):
                         if pd.notna(uma_name) and str(uma_name).strip() != "":
                             clean_name = smart_match_name(str(uma_name), ORIGINAL_UMAS)
                             clean_style = _normalize_style(raw_style)
+                            
+                            is_win = 0
+                            result = np.nan
+                            if row_winner_name != "Unknown" and clean_name == row_winner_name:
+                                is_win = 1; result = 1
+                            
                             processed_rows.append({
                                 'Clean_Uma': clean_name, 'Clean_Style': clean_style, 'Clean_IGN': ign_raw,
                                 'Finals_Group': group, 'League': league, 'Source': 'Manual',
-                                'Is_Winner': 0, 'Result': np.nan, 'Skill_Count': 0
+                                'Is_Winner': is_win, 'Result': result, 'Skill_Count': 0,
+                                'is_user': 1 # Manual Entry = User
                             })
             if processed_rows: df_csv_exploded = pd.DataFrame(processed_rows)
         except Exception as e: st.error(f"Error loading CSV: {e}")
 
-    combined_df = pd.concat([df_auto, df_csv_exploded], ignore_index=True)
+    # --- HYBRID MERGE (Manual + OCR) ---
+    combined_df = hybrid_merge_entries(df_auto, df_csv_exploded)
+    
     return combined_df, raw_dfs
 footer_html = """
 <style>
