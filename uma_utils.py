@@ -256,7 +256,7 @@ def hybrid_merge_entries(df_ocr, df_manual):
     if df_ocr.empty: return df_manual
     if df_manual.empty: return df_ocr
     
-    # 2. Normalize Join Keys (Case-insensitive Player Name)
+    # 2. Normalize Join Keys
     if 'Clean_IGN' in df_ocr.columns:
         df_ocr['join_ign'] = df_ocr['Clean_IGN'].astype(str).str.lower().str.strip()
     else:
@@ -276,27 +276,40 @@ def hybrid_merge_entries(df_ocr, df_manual):
         suffixes=('_ocr', '_manual')
     )
     
-    # 4. Coalesce Columns (Priority Logic)
+    # 4. Coalesce Columns
     def resolve_col(df, base_name, primary_suffix, secondary_suffix):
         col_primary = f"{base_name}{primary_suffix}"
         col_secondary = f"{base_name}{secondary_suffix}"
+        
+        # If both exist, combine (Primary > Secondary)
         if col_primary in df.columns and col_secondary in df.columns:
-            return df[col_primary].combine_first(df[col_secondary])
+            # FIX: Use fillna() instead of combine_first() to avoid FutureWarning
+            # Since columns share the same index (same DataFrame), fillna is safer and equivalent.
+            return df[col_primary].fillna(df[col_secondary])
+        
+        # If only one exists
         if col_primary in df.columns: return df[col_primary]
         if col_secondary in df.columns: return df[col_secondary]
+        
+        # If neither exists but base name does (fallback)
         if base_name in df.columns: return df[base_name]
+        
         return pd.Series([np.nan] * len(df), index=df.index)
 
     # A. METADATA: Trust Manual (CSV) > OCR
-    # Added 'is_user' here so it defaults to Manual (1) if available, else OCR
-    meta_cols = ['Finals_Group', 'League', 'Post', 'Result', 'is_user']
+    meta_cols = ['Finals_Group', 'League', 'Post', 'Result']
     for col in meta_cols:
         merged[col] = resolve_col(merged, col, '_manual', '_ocr')
 
-    # B. WINNER FLAG: Trust Manual explicitly
+    # B. IS_USER: Trust Manual (1) > OCR
+    # Manual entries are always users. OCR entries use the heuristic calculated in load_finals_data.
+    # We cast to int at the end to ensure clean 1/0 flags.
+    merged['is_user'] = resolve_col(merged, 'is_user', '_manual', '_ocr').fillna(0).astype(int)
+
+    # C. WINNER FLAG: Trust Manual explicitly
     merged['Is_Winner'] = resolve_col(merged, 'Is_Winner', '_manual', '_ocr').fillna(0)
 
-    # C. STATS: Trust OCR > Manual
+    # D. STATS: Trust OCR > Manual
     stat_cols = ['Speed', 'Stamina', 'Power', 'Guts', 'Wit', 'Score', 'Rank', 
                  'Skill_List', 'Skill_Count', 'Aptitude_Dist', 'Aptitude_Surface', 'Aptitude_Style',
                  'Run_Time', 'Run_Time_Str']
@@ -304,7 +317,7 @@ def hybrid_merge_entries(df_ocr, df_manual):
     for col in stat_cols:
         merged[col] = resolve_col(merged, col, '_ocr', '_manual')
 
-    # D. SHARED ATTRIBUTES
+    # E. SHARED ATTRIBUTES
     merged['Clean_Style'] = resolve_col(merged, 'Clean_Style', '_ocr', '_manual')
     merged['Clean_IGN'] = resolve_col(merged, 'Clean_IGN', '_manual', '_ocr')
 
@@ -1017,7 +1030,6 @@ def load_finals_data(config_item: dict):
             
             # --- HELPER 1: Inspect Columns ---
             def get_cte_info(path):
-                """Returns '*, row as row_id' or similar, plus list of columns."""
                 try:
                     df_schema = duckdb.sql(f"DESCRIBE SELECT * FROM read_parquet('{path}') LIMIT 0").df()
                     cols = df_schema['column_name'].tolist()
@@ -1128,6 +1140,7 @@ def load_finals_data(config_item: dict):
             for c in cols_pod:
                 if c.lower() == 'is_user': p_is_user_col = c; break
             
+            # Safe Check Expression
             p_check = "NULL"
             if p_is_user_col:
                 p_check = f"TRY_CAST(p.\"{p_is_user_col}\" AS INTEGER)"
