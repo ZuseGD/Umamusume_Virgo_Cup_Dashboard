@@ -281,18 +281,19 @@ def hybrid_merge_entries(df_ocr, df_manual):
         col_primary = f"{base_name}{primary_suffix}"
         col_secondary = f"{base_name}{secondary_suffix}"
         
-        # If both exist, combine (Primary > Secondary)
-        if col_primary in df.columns and col_secondary in df.columns:
-            # FIX: Use fillna() instead of combine_first() to avoid FutureWarning
-            # Since columns share the same index (same DataFrame), fillna is safer and equivalent.
+        # Check existence
+        has_prim = col_primary in df.columns
+        has_sec = col_secondary in df.columns
+        
+        if has_prim and has_sec:
+            # Use fillna to prioritize Primary, falling back to Secondary
             return df[col_primary].fillna(df[col_secondary])
-        
-        # If only one exists
-        if col_primary in df.columns: return df[col_primary]
-        if col_secondary in df.columns: return df[col_secondary]
-        
-        # If neither exists but base name does (fallback)
-        if base_name in df.columns: return df[base_name]
+        elif has_prim:
+            return df[col_primary]
+        elif has_sec:
+            return df[col_secondary]
+        elif base_name in df.columns:
+            return df[base_name]
         
         return pd.Series([np.nan] * len(df), index=df.index)
 
@@ -302,14 +303,15 @@ def hybrid_merge_entries(df_ocr, df_manual):
         merged[col] = resolve_col(merged, col, '_manual', '_ocr')
 
     # B. IS_USER: Trust Manual (1) > OCR
-    # Manual entries are always users. OCR entries use the heuristic calculated in load_finals_data.
-    # We cast to int at the end to ensure clean 1/0 flags.
+    # Manual entries are explicit user submissions.
     merged['is_user'] = resolve_col(merged, 'is_user', '_manual', '_ocr').fillna(0).astype(int)
 
-    # C. WINNER FLAG: Trust Manual explicitly
-    merged['Is_Winner'] = resolve_col(merged, 'Is_Winner', '_manual', '_ocr').fillna(0)
+    # C. WINNER FLAG: Trust OCR Podium > Manual CSV
+    # If OCR has data (0 or 1), use it. If OCR is NaN (missing podium), use Manual.
+    merged['Is_Winner'] = resolve_col(merged, 'Is_Winner', '_ocr', '_manual').fillna(0)
 
     # D. STATS: Trust OCR > Manual
+    # This ensures Deck/Stats are always used if available
     stat_cols = ['Speed', 'Stamina', 'Power', 'Guts', 'Wit', 'Score', 'Rank', 
                  'Skill_List', 'Skill_Count', 'Aptitude_Dist', 'Aptitude_Surface', 'Aptitude_Style',
                  'Run_Time', 'Run_Time_Str']
@@ -1117,20 +1119,21 @@ def load_finals_data(config_item: dict):
             else:
                 select_parts.append("NULL as Aptitude_Style")
 
-            # Is_Winner
+            # Is_Winner (UPDATED: Returns NULL if missing, so CSV can override)
             place_col = None
             for c in cols_pod:
                 if c.lower() == 'placement': place_col = c; break
             if place_col:
                 select_parts.append(f"""
                 CASE 
-                    WHEN try_cast(p.\"{place_col}\" as INTEGER) = 1 THEN 1 
-                    WHEN starts_with(lower(cast(p.\"{place_col}\" as VARCHAR)), '1') THEN 1
+                    WHEN p."{place_col}" IS NULL THEN NULL
+                    WHEN try_cast(p."{place_col}" as INTEGER) = 1 THEN 1 
+                    WHEN starts_with(lower(cast(p."{place_col}" as VARCHAR)), '1') THEN 1
                     ELSE 0 
                 END as Is_Winner
                 """)
             else:
-                select_parts.append("0 as Is_Winner")
+                select_parts.append("NULL as Is_Winner")
 
             # -- IS_USER LOGIC (STRICT PODIUM TRUST) --
             p_is_user_col = None
@@ -1255,20 +1258,19 @@ def load_finals_data(config_item: dict):
             if 'A or B Finals?' in raw_csv.columns:
                  raw_csv = raw_csv.dropna(subset=['A or B Finals?'])
             
-            # Identify columns
+            # Identify columns with simplified keywords to catch "Pace Chaser" and others
             league_col = find_column(raw_csv, ['league', 'selection'])
-            winner_type_col = find_column(raw_csv, ["Own uma or Opponent", "Winner - Own", "Own or Opponent"])
-            winner_style_col = find_column(raw_csv, ["Winner - Running Style", "Winner Style"])
-            winner_name_col = find_column(raw_csv, ["Winner - Name", "Winner Name"])
+            winner_type_col = find_column(raw_csv, ["ownumaoropponent", "winnerown"]) 
+            winner_style_col = find_column(raw_csv, ["winnerrunningstyle", "winnerstyle"])
+            winner_name_col = find_column(raw_csv, ["winnername"])
             
             processed_rows = []
-            auto_ign_set = set(df_auto['Clean_IGN'].astype(str).str.lower().str.strip().unique()) if not df_auto.empty and 'Clean_IGN' in df_auto.columns else set()
+            
+            # REMOVED: Duplication check. All CSV rows are processed to allow merging/correction of OCR data.
+            # auto_ign_set = ...
 
             for _, row in raw_csv.iterrows():
                 ign_raw = str(row.get('Player IGN', 'Unknown'))
-                
-                # Check duplication against Auto Data
-                if ign_raw.lower().strip() in auto_ign_set: continue
                 
                 group = row.get('A or B Finals?', 'Unknown')
                 league = "Graded"
@@ -1304,12 +1306,16 @@ def load_finals_data(config_item: dict):
                             is_win = 0
                             result = np.nan
                             
-                            # Only mark as winner if the CSV says "Own uma" won, or if it's unspecified but matches name
                             is_own_win = 'own' in w_type or ('opponent' not in w_type and w_clean_name != "Unknown")
                             
-                            if is_own_win and clean_name == w_clean_name:
-                                is_win = 1
-                                result = 1
+                            if is_own_win:
+                                if clean_name == w_clean_name:
+                                    is_win = 1
+                                    result = 1
+                                # Fallback check by Style if name is unknown/mismatched but 'Own' is claimed
+                                elif w_clean_name == "Unknown" and 'own' in w_type and clean_style == w_clean_style:
+                                    is_win = 1
+                                    result = 1
                             
                             processed_rows.append({
                                 'Clean_Uma': clean_name, 
@@ -1321,23 +1327,22 @@ def load_finals_data(config_item: dict):
                                 'Is_Winner': is_win, 
                                 'Result': result, 
                                 'Skill_Count': 0,
-                                'is_user': 1 # User Team = 1
+                                'is_user': 1 
                             })
 
                 # --- PROCESS OPPONENT WINNER (Extra Row) ---
-                # If an opponent won, we add them to the dataset to fill OCR gaps.
                 if 'opponent' in w_type and w_clean_name != "Unknown":
                     processed_rows.append({
                         'Clean_Uma': w_clean_name,
                         'Clean_Style': w_clean_style,
-                        'Clean_IGN': f"{ign_raw} (Opponent)", # Modify IGN to prevent merging with User's horse in mirror matches
+                        'Clean_IGN': f"{ign_raw} (Opponent)", 
                         'Finals_Group': group,
                         'League': league,
                         'Source': 'Manual_Opponent',
                         'Is_Winner': 1,
                         'Result': 1,
                         'Skill_Count': 0,
-                        'is_user': 0 # Explicitly Opponent
+                        'is_user': 0 
                     })
 
             if processed_rows: df_csv_exploded = pd.DataFrame(processed_rows)
@@ -1347,7 +1352,6 @@ def load_finals_data(config_item: dict):
     combined_df = hybrid_merge_entries(df_auto, df_csv_exploded)
     
     return combined_df, raw_dfs
-
 footer_html = """
 <style>
 .footer {
