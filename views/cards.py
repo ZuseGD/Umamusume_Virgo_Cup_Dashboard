@@ -1,7 +1,7 @@
 import streamlit as st
 import plotly.express as px
 import pandas as pd
-from virgo_utils import style_fig, PLOT_CONFIG, calculate_score
+from uma_utils import style_fig, PLOT_CONFIG, calculate_score
 
 def show_view(team_df):
     st.header("🎴 Support Card Analysis")

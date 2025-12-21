@@ -1,6 +1,6 @@
 import streamlit as st
 import plotly.express as px
-from virgo_utils import style_fig, PLOT_CONFIG, dynamic_height, show_description
+from uma_utils import style_fig, PLOT_CONFIG, dynamic_height, show_description
 
 def show_view(df, team_df):
     st.set_page_config(page_title="⚔️ Team & Strategy Dashboard", layout="wide")

@@ -1,6 +1,6 @@
 import streamlit as st
 import plotly.express as px
-from virgo_utils import style_fig, PLOT_CONFIG, dynamic_height, show_description, analyze_significant_roles
+from uma_utils import style_fig, PLOT_CONFIG, dynamic_height, show_description, analyze_significant_roles
 
 def show_view(df, team_df):
     st.set_page_config(page_title="Uma Performance Dashboard", layout="wide")

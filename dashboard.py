@@ -1,7 +1,7 @@
 import streamlit as st
 import os
 import pandas as pd
-from virgo_utils import load_data, footer_html, load_ocr_data
+from uma_utils import load_data, footer_html, load_ocr_data
 from PIL import Image
 from cm_config import CM_LIST
 from views.timeline import render_timeline_tab

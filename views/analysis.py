@@ -20,7 +20,7 @@ def style_fig(fig, title=None):
     return fig
 
 def show_view(config_item):
-    from virgo_utils import load_finals_data
+    from uma_utils import load_finals_data
     st.warning("this page is under construction and may not function as intended.")
     st.header(f"📊 {config_item['id']} - Championship Analysis")
     
