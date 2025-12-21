@@ -34,7 +34,7 @@ def show_view():
         st.markdown("#### 🎨 Posters & Visuals")
         st.markdown("- Ramen\n- Ricetea\n- Mad0990")
         st.markdown("#### 🖼️ Canva Slides")
-        st.markdown("- Ramen")
+        st.markdown("- Ramen\n- NicoNii\n- Chloe")
         st.markdown("#### 🔍 OCR & Testing")
         st.markdown("- Vali\n- Chloe\n - JohnnyZB")
 

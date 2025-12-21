@@ -1316,6 +1316,7 @@ def load_finals_data(config_item: dict):
     combined_df = hybrid_merge_entries(df_auto, df_csv_exploded)
     
     return combined_df, raw_dfs
+
 footer_html = """
 <style>
 .footer {
