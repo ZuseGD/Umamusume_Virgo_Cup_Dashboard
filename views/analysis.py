@@ -376,7 +376,7 @@ def show_view(config_item):
             # 3. Create a "Valid Stats" Subset for Records
             # This filters out Manual CSV entries that have no stats (Total = 0)
             # so they don't incorrectly show up as "Underdog" or "Lowest Speed"
-            valid_stats_df = rec_df[rec_df['Total_Stats'] > 1000].copy()
+            valid_stats_df = rec_df[rec_df['Total_Stats'] > 1].copy()
             
             # --- CUSTOM HTML CARD FUNCTION ---
             def record_card(label, value, row, color="#FFD700"):
@@ -388,7 +388,7 @@ def show_view(config_item):
                 if isinstance(skills, list) and skills:
                     skills_str = ", ".join(skills)
                 else:
-                    skills_str = "No skills recorded (Manual Data?)"
+                    skills_str = "No skills recorded (No OCR submission)"
 
                 # FIXED: Disclaimer Logic
                 # Check for explicit 0 (Opponent) or explicit False
