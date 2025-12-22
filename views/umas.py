@@ -130,6 +130,8 @@ def show_view(df, team_df):
     
     fig_scatter.add_hline(y=avg_wr, line_dash="dot", annotation_text="Avg WR", annotation_position="bottom left")
     fig_scatter.add_vline(x=avg_pick, line_dash="dot", annotation_text="Avg Pick Rate", annotation_position="top right")
+
+    fig_scatter.update_layout(coloraxis_colorbar=dict(title=None, orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     
     st.plotly_chart(style_fig(fig_scatter, height=600), width="stretch", config=PLOT_CONFIG)
     show_description("scatter_tier")
@@ -148,21 +150,22 @@ def show_view(df, team_df):
         text='Pick_Rate',          # <--- UPDATED: Text shows Pick Rate %
         template='plotly_dark', 
         # Pass extra data for tooltip
-        hover_data={'Clean_Uma': False, 'Short_Name': True, 'Clean_Races': False, 'Pick_Rate': ':.2f', 'Calculated_WinRate': ':.1f'},
+        hover_data={'Clean_Uma': False, 'Short_Name': False, 'Clean_Races': False, 'Pick_Rate': ':.2f', 'Calculated_WinRate': False},
         labels={'Calculated_WinRate': 'Win Rate (%)', 'Short_Name': 'Uma', 'Pick_Rate': 'Pick Rate (%)'},
         height=chart_height
     )
     
     fig_uma.update_layout(
         yaxis={'categoryorder':'total ascending'}, 
-        xaxis_title="Avg Win Rate (%)", 
-        yaxis_title="Character"
+        yaxis_title="Avg Win Rate (%)", 
+        xaxis_title="Character",
+        coloraxis_colorbar=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     
     # Customize Text and Tooltip
     fig_uma.update_traces(
-        texttemplate='WR: %{x:.1f}% | Pick: %{text:.1f}%', 
-        textposition='inside',
+        texttemplate='Pick: %{text:.1f}%', 
+        textposition='outside',
     )
     
     st.plotly_chart(style_fig(fig_uma, height=chart_height), width="stretch", config=PLOT_CONFIG)

@@ -293,6 +293,7 @@ def show_view(config_item):
             fig_box = px.box(melted_stats, x='Stat', y='Value', color='Stat', 
                              points="all", # Show individual dots
                              color_discrete_sequence=px.colors.qualitative.Bold)
+            fig_box.update_layout(legend=dict(title=None, orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
             st.plotly_chart(style_fig(fig_box, "Stat Spread of Winners"), width='stretch')
             
             st.markdown("---")
@@ -323,6 +324,7 @@ def show_view(config_item):
             if not style_stats.empty:
                 fig_style = px.bar(style_stats, x='Clean_Style', y='Win Rate %', text='Win Rate %', labels={'Clean_Style': 'Running Strategy', 'Win Rate %': 'Win Rate (%)'},
                                    color='Clean_Style', color_discrete_sequence=px.colors.qualitative.Pastel, orientation='v')
+                fig_style.update_layout(legend=dict(title=None, orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
                 st.plotly_chart(style_fig(fig_style, "Win Rate by Running Strategy"), width='stretch')
             else:
                 st.info("Insufficient data for Style analysis.")
@@ -584,6 +586,7 @@ def show_view(config_item):
             fig_scatter.add_hline(y=avg_wr, line_dash="dot", line_color="gray", annotation_text="Avg Win Rate")
             fig_scatter.add_vline(x=avg_pick, line_dash="dot", line_color="gray", annotation_text="Avg Pick Rate")
             
+            fig_scatter.update_layout(legend=dict(title=None, orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
             fig_scatter.update_traces(textposition='top center')
             st.plotly_chart(style_fig(fig_scatter), width='stretch')
             

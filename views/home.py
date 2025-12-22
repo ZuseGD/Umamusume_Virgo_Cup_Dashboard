@@ -218,6 +218,7 @@ We've completely reworked how you view Finals data! The old "OCR" and "Finals" t
             
         )
         
+        
         # Display the race count inside the bar
         fig_group.update_traces(texttemplate='%{text} Races', hovertemplate='%{text} Races', textposition='inside')
         
@@ -239,9 +240,14 @@ We've completely reworked how you view Finals data! The old "OCR" and "Finals" t
     fig_leader = px.bar(
         leaderboard, y='Score', x='Display_IGN', orientation='v', 
         color='Global_WinRate', text='Clean_Wins', color_continuous_scale='Turbo',
-        hover_data={'Team_Comp': True},
+        hover_data={'Team_Comp': True, 
+                    'Score': ':.1f',
+                    'Global_WinRate': False,
+                    'Display_IGN': False,
+                    'Clean_Wins': False},
         labels={'Score': 'Performance Score', 'Display_IGN': 'Trainer', 'Global_WinRate': 'Win Rate %', 'Clean_Wins': 'Wins', 'Team_Comp': 'Main Team Composition'},
     )
+    fig_leader.update_layout(coloraxis_colorbar=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     fig_leader.update_traces(texttemplate='Wins: %{text} | WR: %{marker.color:.1f}%', textposition='outside')
     st.plotly_chart(style_fig(fig_leader, height=600), width="stretch", config=PLOT_CONFIG)
 

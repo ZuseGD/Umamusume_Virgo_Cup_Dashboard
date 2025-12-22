@@ -3,7 +3,7 @@ import plotly.express as px
 from uma_utils import style_fig, PLOT_CONFIG, dynamic_height, show_description
 
 def show_view(df, team_df):
-    st.set_page_config(page_title="⚔️ Team & Strategy Dashboard", layout="wide")
+    st.set_page_config(page_title="Team & Strategy Dashboard", layout="wide")
     st.header("Team & Strategy")
     
     # Calculate Totals for Percentages
@@ -53,7 +53,8 @@ def show_view(df, team_df):
             avg_wr = comp_stats['Calculated_WinRate'].mean()
             fig_bubble.add_vline(x=avg_pick, line_dash="dot", annotation_text="Avg Pick Rate")
             fig_bubble.add_hline(y=avg_wr, line_dash="dot", annotation_text="Avg Win Rate")
-            
+
+            fig_bubble.update_layout(coloraxis_colorbar=dict(title=None, orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
             st.plotly_chart(style_fig(fig_bubble, height=500), width="stretch", config=PLOT_CONFIG)
             show_description("teams_bubble")
             
@@ -244,7 +245,7 @@ def show_view(df, team_df):
                 template='plotly_dark',
                 labels={'Pick_Rate': 'Pick Rate (%)', 'Team_Comp': 'Team Composition'}
             )
-            fig_evo.update_layout(hovermode="x unified", yaxis_title="Pick Rate (%)")
+            fig_evo.update_layout(hovermode="x unified", yaxis_title="Pick Rate (%)", coloraxis_colorbar=dict(orientation="h", yanchor="bottom", y=1.4, xanchor="right", x=1))
             st.plotly_chart(style_fig(fig_evo, height=500), width="stretch", config=PLOT_CONFIG)
             show_description("evolution")
         else:

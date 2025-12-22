@@ -1120,7 +1120,7 @@ def load_finals_data(config_item: dict):
             else:
                 select_parts.append("NULL as Aptitude_Style")
 
-            # Is_Winner (UPDATED: Returns NULL if missing, so CSV can override)
+            # Is_Winner
             place_col = None
             for c in cols_pod:
                 if c.lower() == 'placement': place_col = c; break
@@ -1155,16 +1155,19 @@ def load_finals_data(config_item: dict):
             """
             select_parts.append(is_user_logic)
 
-            # League
+            # League (FIXED: Default to 'Graded' unless Rank is explicitly B/C/D...)
             if any(c.lower() == 'rank' for c in cols_stat):
                 league_logic = """
                 CASE 
                     WHEN s.rank IS NOT NULL AND (
-                        starts_with(upper(s.rank), 'U') OR 
-                        starts_with(upper(s.rank), 'S') OR 
-                        starts_with(upper(s.rank), 'A')
-                    ) THEN 'Graded'
-                    ELSE 'Open' 
+                        starts_with(upper(s.rank), 'B') OR 
+                        starts_with(upper(s.rank), 'C') OR 
+                        starts_with(upper(s.rank), 'D') OR
+                        starts_with(upper(s.rank), 'E') OR
+                        starts_with(upper(s.rank), 'F') OR
+                        starts_with(upper(s.rank), 'G')
+                    ) THEN 'Open'
+                    ELSE 'Graded' 
                 END as League_Inferred
                 """
                 select_parts.append(league_logic)
@@ -1259,7 +1262,7 @@ def load_finals_data(config_item: dict):
             if 'A or B Finals?' in raw_csv.columns:
                  raw_csv = raw_csv.dropna(subset=['A or B Finals?'])
             
-            # Identify columns with simplified keywords to catch "Pace Chaser" and others
+            # Identify columns with simplified, whitespace-stripped keywords
             league_col = find_column(raw_csv, ['league', 'selection'])
             winner_type_col = find_column(raw_csv, ["ownumaoropponent", "winnerown"]) 
             winner_style_col = find_column(raw_csv, ["winnerrunningstyle", "winnerstyle"])
@@ -1267,7 +1270,7 @@ def load_finals_data(config_item: dict):
             
             processed_rows = []
             
-            # REMOVED: Duplication check. All CSV rows are processed to allow merging/correction of OCR data.
+            # REMOVED: Duplication check to allow CSV data to correct/augment OCR data
             # auto_ign_set = ...
 
             for _, row in raw_csv.iterrows():
@@ -1307,13 +1310,16 @@ def load_finals_data(config_item: dict):
                             is_win = 0
                             result = np.nan
                             
+                            # Logic: If 'Own' win is declared OR name matches
                             is_own_win = 'own' in w_type or ('opponent' not in w_type and w_clean_name != "Unknown")
                             
                             if is_own_win:
+                                # Primary check: Name Match
                                 if clean_name == w_clean_name:
                                     is_win = 1
                                     result = 1
-                                # Fallback check by Style if name is unknown/mismatched but 'Own' is claimed
+                                # Fallback check: If Name is unknown, check if Style matches
+                                # (Only if the user explicitly said "Own uma" won)
                                 elif w_clean_name == "Unknown" and 'own' in w_type and clean_style == w_clean_style:
                                     is_win = 1
                                     result = 1
@@ -1328,22 +1334,23 @@ def load_finals_data(config_item: dict):
                                 'Is_Winner': is_win, 
                                 'Result': result, 
                                 'Skill_Count': 0,
-                                'is_user': 1 
+                                'is_user': 1 # User Team = 1
                             })
 
                 # --- PROCESS OPPONENT WINNER (Extra Row) ---
+                # If an opponent won, we add them to the dataset to fill OCR gaps.
                 if 'opponent' in w_type and w_clean_name != "Unknown":
                     processed_rows.append({
                         'Clean_Uma': w_clean_name,
                         'Clean_Style': w_clean_style,
-                        'Clean_IGN': f"{ign_raw} (Opponent)", 
+                        'Clean_IGN': f"{ign_raw} (Opponent)", # Modify IGN to prevent merging with User's horse in mirror matches
                         'Finals_Group': group,
                         'League': league,
                         'Source': 'Manual_Opponent',
                         'Is_Winner': 1,
                         'Result': 1,
                         'Skill_Count': 0,
-                        'is_user': 0 
+                        'is_user': 0 # Explicitly Opponent
                     })
 
             if processed_rows: df_csv_exploded = pd.DataFrame(processed_rows)
