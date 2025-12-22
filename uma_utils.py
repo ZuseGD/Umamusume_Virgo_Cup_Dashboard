@@ -16,7 +16,8 @@ PLOT_CONFIG = {
     'scrollZoom': False, 
     'displayModeBar': True,
     'displaylogo': False,
-    'modeBarButtonsToRemove': ['sendDataToCloud', 'lasso2d', 'select2d', 'zoom2d', 'pan2d']
+    'modeBarButtonsToRemove': ['sendDataToCloud', 'lasso2d', 'select2d', 'zoom2d', 'pan2d'],
+    'responsive': True
 }
 
 DESCRIPTIONS = {

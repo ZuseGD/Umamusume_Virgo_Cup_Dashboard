@@ -237,12 +237,12 @@ We've completely reworked how you view Finals data! The old "OCR" and "Finals" t
     leaderboard = pd.merge(leaderboard, main_teams, on='Display_IGN', how='left').sort_values('Score', ascending=False).head(10).sort_values('Score', ascending=True)
     
     fig_leader = px.bar(
-        leaderboard, x='Score', y='Display_IGN', orientation='h', 
+        leaderboard, y='Score', x='Display_IGN', orientation='v', 
         color='Global_WinRate', text='Clean_Wins', color_continuous_scale='Turbo',
         hover_data={'Team_Comp': True},
-        labels={'Score': 'Performance Score', 'Display_IGN': 'Trainer', 'Global_WinRate': 'Win Rate %', 'Clean_Wins': 'Wins'},
+        labels={'Score': 'Performance Score', 'Display_IGN': 'Trainer', 'Global_WinRate': 'Win Rate %', 'Clean_Wins': 'Wins', 'Team_Comp': 'Main Team Composition'},
     )
-    fig_leader.update_traces(texttemplate='Wins: %{text} | WR: %{marker.color:.1f}%', textposition='inside')
+    fig_leader.update_traces(texttemplate='Wins: %{text} | WR: %{marker.color:.1f}%', textposition='outside')
     st.plotly_chart(style_fig(fig_leader, height=600), width="stretch", config=PLOT_CONFIG)
 
     # --- MONEY ---

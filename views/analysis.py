@@ -206,7 +206,7 @@ def show_view(config_item):
                         card_counts = pd.DataFrame(Counter(all_cards).items(), columns=['Card', 'Count'])
                         card_counts = card_counts.sort_values('Count', ascending=True).tail(10)
                         
-                        fig_cards = px.bar(card_counts, x='Count', y='Card', orientation='h', text='Count',
+                        fig_cards = px.bar(card_counts, x='Count', y='Card', orientation='v', text='Count',
                                            color_discrete_sequence=['#AB63FA'])
                         st.plotly_chart(style_fig(fig_cards, "Most Used Support Cards (Winners)"), width='stretch')
 
@@ -222,7 +222,7 @@ def show_view(config_item):
                         skill_counts = pd.DataFrame(Counter(all_skills).items(), columns=['Skill', 'Count'])
                         skill_counts = skill_counts.sort_values('Count', ascending=True).tail(15)
                         
-                        fig_skills = px.bar(skill_counts, x='Count', y='Skill', orientation='h', text='Count',
+                        fig_skills = px.bar(skill_counts, x='Count', y='Skill', orientation='v', text='Count',
                                             color='Count', color_continuous_scale='Viridis')
                         st.plotly_chart(style_fig(fig_skills, f"Top Skills For {selected_uma} Winners"), width='stretch')
 
@@ -322,7 +322,7 @@ def show_view(config_item):
             
             if not style_stats.empty:
                 fig_style = px.bar(style_stats, x='Clean_Style', y='Win Rate %', text='Win Rate %', labels={'Clean_Style': 'Running Strategy', 'Win Rate %': 'Win Rate (%)'},
-                                   color='Clean_Style', color_discrete_sequence=px.colors.qualitative.Pastel)
+                                   color='Clean_Style', color_discrete_sequence=px.colors.qualitative.Pastel, orientation='v')
                 st.plotly_chart(style_fig(fig_style, "Win Rate by Running Strategy"), width='stretch')
             else:
                 st.info("Insufficient data for Style analysis.")
@@ -337,7 +337,7 @@ def show_view(config_item):
             if not post_counts.empty:
                 fig_post = px.bar(x=post_counts.index, y=post_counts.values, 
                                   color_discrete_sequence=['#00CC96'],
-                                  labels={'x': 'Gate Number', 'y': 'Number of Wins'})
+                                  labels={'x': 'Gate Number', 'y': 'Number of Wins'}, orientation='v')
                 fig_post.update_xaxes(dtick=1)
                 st.plotly_chart(style_fig(fig_post, "Gate Bias (Post Position)"), width='stretch')
             else:

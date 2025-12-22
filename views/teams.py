@@ -108,7 +108,8 @@ def show_view(df, team_df):
                 title="Winning Style Combinations",
                 template='plotly_dark',
                 labels={'Pick_Rate': 'Pick Rate (%)', 'Calculated_WinRate': 'Win Rate %'},
-                height=500
+                height=500,
+                size_max=80
             )
             
             avg_wr = valid_comps['Calculated_WinRate'].mean()

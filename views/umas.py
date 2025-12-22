@@ -140,9 +140,9 @@ def show_view(df, team_df):
 
     fig_uma = px.bar(
         top_umas,
-        x='Calculated_WinRate', 
-        y='Short_Name',            
-        orientation='h', 
+        x='Short_Name', 
+        y='Calculated_WinRate',            
+        orientation='v', 
         color='Calculated_WinRate', 
         color_continuous_scale='Viridis', 
         text='Pick_Rate',          # <--- UPDATED: Text shows Pick Rate %
