@@ -206,7 +206,7 @@ def show_view(config_item):
                         card_counts = pd.DataFrame(Counter(all_cards).items(), columns=['Card', 'Count'])
                         card_counts = card_counts.sort_values('Count', ascending=True).tail(10)
                         
-                        fig_cards = px.bar(card_counts, x='Count', y='Card', orientation='v', text='Count',
+                        fig_cards = px.bar(card_counts, x='Count', y='Card', orientation='h', text='Count',
                                            color_discrete_sequence=['#AB63FA'])
                         st.plotly_chart(style_fig(fig_cards, "Most Used Support Cards (Winners)"), width='stretch')
 
@@ -222,7 +222,7 @@ def show_view(config_item):
                         skill_counts = pd.DataFrame(Counter(all_skills).items(), columns=['Skill', 'Count'])
                         skill_counts = skill_counts.sort_values('Count', ascending=True).tail(15)
                         
-                        fig_skills = px.bar(skill_counts, x='Count', y='Skill', orientation='v', text='Count',
+                        fig_skills = px.bar(skill_counts, x='Count', y='Skill', orientation='h', text='Count',
                                             color='Count', color_continuous_scale='Viridis')
                         st.plotly_chart(style_fig(fig_skills, f"Top Skills For {selected_uma} Winners"), width='stretch')
 
