@@ -163,37 +163,39 @@ def show_view(config_item):
                 with c_radar:
                     stats = ['Speed', 'Stamina', 'Power', 'Guts', 'Wit']
                     if all(s in winners_df.columns for s in stats):
-                        uma_stats = winners_df[stats].mean().values.tolist()
-                        
-                        # FIX: Baseline uses df_baseline (All Winners matching Strategy)
-                        # This ensures "Runaway Oguri" is compared to "Avg Runaway Winner", not "Avg Any Winner"
-                        baseline_winners = df_baseline[df_baseline['Is_Winner'] == 1]
-                        if not baseline_winners.empty:
-                            all_winner_stats = baseline_winners[stats].mean().values.tolist()
-                            baseline_name = f"Global Avg ({selected_style})" if selected_style != "All Styles" else "Global Avg Winner"
-                        else:
-                            all_winner_stats = [0]*5
-                            baseline_name = "Global Avg (No Data)"
+                        uma_stats = winners_df[stats].mean().fillna(0).tolist()
+                        if uma_stats is not None and sum(uma_stats) > 0:
+                            # FIX: Baseline uses df_baseline (All Winners matching Strategy)
+                            # This ensures "Runaway Oguri" is compared to "Avg Runaway Winner", not "Avg Any Winner"
+                            baseline_winners = df_baseline[df_baseline['Is_Winner'] == 1]
+                            if not baseline_winners.empty:
+                                all_winner_stats = baseline_winners[stats].mean().values.tolist()
+                                baseline_name = f"Global Avg ({selected_style})" if selected_style != "All Styles" else "Global Avg Winner"
+                            else:
+                                all_winner_stats = [0]*5
+                                baseline_name = "Global Avg (No Data)"
 
-                        fig = go.Figure()
-                        
-                        fig.add_trace(go.Scatterpolar(
-                            r=all_winner_stats, theta=stats, fill='toself', 
-                            name=baseline_name, line_color='rgba(128, 128, 128, 0.5)'
-                        ))
-                        fig.add_trace(go.Scatterpolar(
-                            r=uma_stats, theta=stats, fill='toself', 
-                            name=f'{selected_uma} Avg', line_color='#00CC96'
-                        ))
-                        
-                        fig.update_layout(
-                            polar=dict(
-                                radialaxis=dict(visible=True, range=[0, 1200]),
-                                angularaxis=dict(rotation=90, direction="clockwise")
-                            ), 
-                            showlegend=True
-                        )
-                        st.plotly_chart(style_fig(fig, f"Stat Comparison: {selected_uma}"), width='stretch')
+                            fig = go.Figure()
+                            
+                            fig.add_trace(go.Scatterpolar(
+                                r=all_winner_stats, theta=stats, fill='toself', 
+                                name=baseline_name, line_color='rgba(128, 128, 128, 0.5)'
+                            ))
+                            fig.add_trace(go.Scatterpolar(
+                                r=uma_stats, theta=stats, fill='toself', 
+                                name=f'{selected_uma} Avg', line_color='#00CC96'
+                            ))
+                            
+                            fig.update_layout(
+                                polar=dict(
+                                    radialaxis=dict(visible=True, range=[0, 1200]),
+                                    angularaxis=dict(rotation=90, direction="clockwise")
+                                ), 
+                                showlegend=True
+                            )
+                            st.plotly_chart(style_fig(fig, f"Stat Comparison: {selected_uma}"), width='stretch')
+                        else:
+                            st.info("Insufficient stat data for radar chart.")
 
                 # --- B. TOP SUPPORT CARDS ---
                 with c_cards:
@@ -209,6 +211,8 @@ def show_view(config_item):
                         fig_cards = px.bar(card_counts, x='Count', y='Card', orientation='h', text='Count',
                                            color_discrete_sequence=['#AB63FA'])
                         st.plotly_chart(style_fig(fig_cards, "Most Used Support Cards (Winners)"), width='stretch')
+                    else:
+                        st.info("No support card data available for winners.")
 
                 # --- C. WINNING SKILLS ---
                 st.markdown("#### ⚡ Top Skills on Winning Runs")
@@ -225,6 +229,8 @@ def show_view(config_item):
                         fig_skills = px.bar(skill_counts, x='Count', y='Skill', orientation='h', text='Count',
                                             color='Count', color_continuous_scale='Viridis')
                         st.plotly_chart(style_fig(fig_skills, f"Top Skills For {selected_uma} Winners"), width='stretch')
+                else:
+                    st.info("No skill data available for winners.")
 
     # =========================================================
     # TAB 2: STATS & BUILD (Aggregate)
@@ -299,8 +305,9 @@ def show_view(config_item):
             st.markdown("---")
             
             # --- 2. SKILL COUNT HISTOGRAM ---
+            valid_counts = winners_df[winners_df['Skill_Count'] > 0]
             if 'Skill_Count' in winners_df.columns:
-                fig_hist = px.histogram(winners_df, x='Skill_Count', nbins=15, 
+                fig_hist = px.histogram(valid_counts, x='Skill_Count', nbins=15, 
                                         color_discrete_sequence=['#EF553B'], opacity=0.8, labels={'Skill_Count': 'Number of Skills', 'count': 'Number of Winners'})
                 fig_hist.update_layout(bargap=0.1)
                 st.plotly_chart(style_fig(fig_hist, "Number of Skills per Winner"), width='stretch')
@@ -360,7 +367,7 @@ def show_view(config_item):
                 st.info("Insufficient data for Time analysis.")
 
     with tab_records:
-        title_scope = f" {selected_uma}" if selected_uma != "All Umas" else " Global"
+        title_scope = f" {selected_uma}" if selected_uma != "All Umas" else "All Umas"
         st.subheader(f"💎 Hall of Records ({title_scope})")
         
         # 1. Base copy
@@ -445,9 +452,12 @@ def show_view(config_item):
             # --- ROW 1: PERFORMANCE ---
             c1, c2, c3 = st.columns(3)
             with c1:
-                if 'Run_Time' in rec_df.columns:
-                    fastest = rec_df.loc[rec_df['Run_Time'].idxmin()]
+                if 'Run_Time' in winners_df.columns and winners_df['Run_Time'].notna().any():
+                    fastest_idx = winners_df['Run_Time'].idxmin()
+                    fastest = winners_df.loc[fastest_idx]
                     record_card("⚡ Fastest Time", fastest['Run_Time_Str'], fastest, "#00CC96")
+                else:
+                    st.info("Insufficient data to determine Run Time record.")
             
             with c2:
                 if 'Skill_Count' in rec_df.columns:
@@ -469,13 +479,19 @@ def show_view(config_item):
                     if len(unique_winners) > 0:
                         data = [{'Uma': u, 'Wins': win_counts.get(u,0), 'Entries': entry_counts.get(u,0)} for u in unique_winners]
                         cand_df = pd.DataFrame(data).sort_values(by=['Wins', 'Entries'], ascending=[True, True])
+                        cand_df = cand_df[cand_df['Entries'] > 0]  # Ensure at least 1 entry to avoid division by zero
+                        cand_df = cand_df.dropna(subset=['Uma'])
                         
                         rarest_uma = cand_df.iloc[0]['Uma']
                         rarest_wins = cand_df.iloc[0]['Wins']
                         rarest_entries = cand_df.iloc[0]['Entries']
-                        rarest_row = winners_df[winners_df['Clean_Uma'] == rarest_uma].iloc[0]
+                        rarest_matches = winners_df[winners_df['Clean_Uma'] == rarest_uma]
                         
-                        record_card("🦄 Rarest Champion (Least Wins/Entries)", f"{rarest_wins} Wins / {rarest_entries} Runs", rarest_row, "#FFD700")
+                        if not rarest_matches.empty:
+                            rarest_row = rarest_matches.iloc[0]
+                            record_card("🦄 Rarest Champion (Least Wins/Entries)", f"{rarest_wins} Wins / {rarest_entries} Runs", rarest_row, "#FFD700")
+                        else:
+                            st.info("Insufficient data to determine Rarest Champion.")
                 else:
                     style_counts = df_filtered['Clean_Style'].value_counts()
                     rec_df['Style_Pop'] = rec_df['Clean_Style'].map(style_counts)
