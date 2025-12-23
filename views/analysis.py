@@ -479,8 +479,11 @@ def show_view(config_item):
                 else:
                     style_counts = df_filtered['Clean_Style'].value_counts()
                     rec_df['Style_Pop'] = rec_df['Clean_Style'].map(style_counts)
-                    rarest = rec_df.loc[rec_df['Style_Pop'].idxmin()]
-                    record_card("🦄 Rare Strategy", f"{rarest['Clean_Style']}", rarest, "#FFD700")
+                    if not rec_df['Style_Pop'].isnull().all():
+                        rarest = rec_df.loc[rec_df['Style_Pop'].idxmin()]
+                        record_card("🦄 Rare Strategy", f"{rarest['Clean_Style']}", rarest, "#FFD700")
+                    else:
+                        st.info("Insufficient data to determine Rare Strategy.")
             
             # --- ROW 2: STATS ---
             c4, c5, c6 = st.columns(3)

@@ -134,54 +134,51 @@ ORIGINAL_UMAS = [
     # Originals
     "Symboli Rudolf", "Maruzensky", "Oguri Cap", "El Condor Pasa", "Grass Wonder",
     "Mejiro McQueen", "Vodka", "Daiwa Scarlet", "Taiki Shuttle", "Gold Ship",
-    
-    # Variants (Costumes / Alts)
-    "Symboli Rudolf (Festival)",  # The "Archer/Monk" version
-    "Maruzensky (Summer)",
-    "Oguri Cap (Christmas)",
-    "El Condor Pasa (Fantasy)",   # Often called Monk, distinct from Rudolf
-    "Grass Wonder (Fantasy)",
-    "Mejiro McQueen (Anime)",
-    "Gold Ship (Summer)",
-    
     # ... (Add other canonicals as needed)
-    "Special Week", "Special Week (Summer)", "Silence Suzuka", "Tokai Teio",
-    "Fuji Kiseki", "Fuji Kiseki (Dance)", "Hishi Amazon", "Hishi Amazon (Wedding)",
-    "T.M. Opera O", "T.M. Opera O (New Year)", "Narita Brian", "Narita Brian (Blaze)", 
-    "Curren Chan", "Curren Chan (Wedding)", "Agnes Digital", "Agnes Digital (Halloween)", "Seiun Sky", "Seiun Sky (Dance)",
-    "Tamamo Cross", "Tamamo Cross (Festival)", "Fine Motion", "Fine Motion (Wedding)", "Biwa Hayahide", "Biwa Hayahide (Xmas)",
-    "Mayano Top Gun", "Mayano Top Gun (Wedding)", "Manhattan Cafe", "Mihono Bourbon", "Mihono Bourbon (Valentine)",
-    "Mejiro Ryan", "Mejiro Ryan (Valentine)", "Hishi Akebono", "Yukino Bijin", "Rice Shower", "Rice Shower (Halloween)",
-    "Ines Fujin", "Ines Fujin (Valentine)", "Agnes Tachyon", "Agnes Tachyon (Summer)", "Admire Vega", "Inari One", "Inari One (Summer)",
-    "Winning Ticket", "Winning Ticket (Steam)", "Air Groove", "Air Groove (Wedding)",
-    "Matikanefukukitaru", "Matikanefukukitaru (Full Armor)", "Meisho Doto", "Meisho Doto (Halloween)", "Mejiro Dober", "Mejiro Dober (Camp)",
-    "Nice Nature", "Nice Nature (Cheer)", "King Halo", "King Halo (Cheer)", "Machikane Tannhauser", "Ikuno Dictus",
-    "Mejiro Palmer", "Daitaku Helios", "Twin Turbo", "Satono Diamond", "Kitasan Black", "Kitasan Black (New Year)",
-    "Sakura Chiyono O", "Sakura Chiyono O (Dance)", "Sirius Symboli", "Mejiro Ardan", "Yaeno Muteki", "Tsurumaru Tsuyoshi",
-    "Mejiro Bright", "Sakura Bakushin O", "Sakura Bakushin O (New Year)", "Shinko Windy", "Agnes Pearl", "Sweep Tosho",
-    "Nishino Flower", "Nishino Flower (Wedding)", "Super Creek", "Super Creek (Halloween)", "Bamboo Memory", "Bamboo Memory (Summer)",
-    "Biko Pegasus", "Marvelous Sunday", "Tosen Jordan", "Tosen Jordan (Summer)", "Nakayama Festa", "Narita Taishin", "Narita Taishin (Steam)",
+    "Special Week",  "Silence Suzuka", "Tokai Teio",
+    "Fuji Kiseki",  "Hishi Amazon",
+    "T.M. Opera O", "Narita Brian", 
+    "Curren Chan",  "Agnes Digital",  "Seiun Sky", 
+    "Tamamo Cross",  "Fine Motion",  "Biwa Hayahide", 
+    "Mayano Top Gun", "Manhattan Cafe", "Mihono Bourbon", 
+    "Mejiro Ryan",  "Hishi Akebono", "Yukino Bijin", "Rice Shower", 
+    "Ines Fujin",  "Agnes Tachyon",  "Admire Vega", "Inari One", 
+    "Winning Ticket", "Air Groove", 
+    "Matikanefukukitaru",  "Meisho Doto",  "Mejiro Dober", 
+    "Nice Nature",  "King Halo",  "Machikane Tannhauser", "Ikuno Dictus",
+    "Mejiro Palmer", "Daitaku Helios", "Twin Turbo", "Satono Diamond", "Kitasan Black", 
+    "Sakura Chiyono O", "Sirius Symboli", "Mejiro Ardan", "Yaeno Muteki", "Tsurumaru Tsuyoshi",
+    "Mejiro Bright", "Sakura Bakushin O",  "Shinko Windy", "Agnes Pearl", "Sweep Tosho",
+    "Nishino Flower", "Super Creek",  "Bamboo Memory", 
+    "Biko Pegasus", "Marvelous Sunday", "Tosen Jordan",  "Nakayama Festa", "Narita Taishin", 
     "Hishi Miracle", "Neo Universe", "Tap Dance City", "Jungle Pocket", "Copano Rickey",
     "Hokko Tarumae", "Wonder Acosta", "Symboli Kris S", "Tanino Gimlet", "Daiichi Ruby", "K.S. Miracle", "Aston Machan",
-    "Satono Crown", "Cheval Grand", "Vivilos", "Dantsu Flame", "Air Shakur", "Gold City", "Gold City (New Year)",
-    "Eishin Flash", "Eishin Flash (Valentine)", "Karen Chan", "Smart Falcon", "Smart Falcon (Yellow)", "Zenno Rob Roy"
+    "Satono Crown", "Cheval Grand", "Vivilos", "Dantsu Flame", "Air Shakur", "Gold City", 
+    "Eishin Flash", "Smart Falcon", "Zenno Rob Roy"
 ]
 
 # 2. VARIANT MAP (The "Detectors")
 # Maps unique keywords (lowercase) to the Canonical Name.
 # Keys should be specific enough not to match the Original accidentally.
 VARIANT_MAP = {
-    # Symboli Rudolf
+    # Festival Alts
     "archer": "Symboli Rudolf (Festival)",
     "moonlight": "Symboli Rudolf (Festival)",
     "festival rudolf": "Symboli Rudolf (Festival)",
-    "monk rudolf": "Symboli Rudolf (Festival)",
+    "autumn cosmos": "Gold City (Festival)",
+    "cosmos": "Gold City (Festival)",
     
-    # Maruzensky
+    # Summer
     "swimsuit maru": "Maruzensky (Summer)",
-    "summer maru": "Maruzensky (Summer)",
-    "supersonic": "Maruzensky (Summer)", # Title: [Supersonic]
-    
+    "summer night": "Maruzensky (Summer)",
+    "hot☆summer": "Maruzensky (Summer)", 
+    "happy heart": "Special Week (Summer)",
+    "hopp'n": "Special Week (Summer)",
+
+    # Matikane Fukukitaru
+    "lucky tidings": "Matikanefukukitaru (Full Armor)",
+    "lucky": "Matikanefukukitaru (Full Armor)",
+
     # Oguri Cap
     "christmas oguri": "Oguri Cap (Christmas)",
     "xmas oguri": "Oguri Cap (Christmas)",
@@ -191,17 +188,27 @@ VARIANT_MAP = {
     "summer golshi": "Gold Ship (Summer)",
     "run! run!": "Gold Ship (Summer)", # Title keyword
     
-    # Mejiro McQueen
-    "endless": "Mejiro McQueen (Endless)",
-    "summer mcqueen": "Mejiro McQueen (Summer)",
-    "ripple": "Mejiro McQueen (Summer)", # Title: [Ripple in the Blue]
-    
-    # El Condor Pasa
-    "fantasy": "El Condor Pasa (Fantasy)", 
-    "monk el": "El Condor Pasa (Fantasy)",
+    # Anime Versions
+    "end of the skies": "Mejiro McQueen (Anime)",
+    "beyond the horizon": "Tokai Teio (Anime)",
 
-    "[beyond the horizon] tokai teio": "Tokai Teio (Anime)",
-    "[Hopp'n♪Happy Heart] Special Week (Summer)": "Special Week (Summer)",
+    # Fantasy Versions
+    "kukulkan": "El Condor Pasa (Fantasy)", 
+    "monk el": "El Condor Pasa (Fantasy)",
+    "saintly jade": "Grass Wonder (Fantasy)",
+
+    # Hallloween Variants
+    "halloween digital": "Agnes Digital (Halloween)",
+    "vampire": "Rice Shower (Halloween)",
+    "chiffon-wrapped": "Super Creek (Halloween)",
+    "mummy": "Super Creek (Halloween)",
+
+    # Wedding Variants
+    "sunlight bouquet": "Mayano Top Gun (Wedding)",
+    "sunlight": "Mayano Top Gun (Wedding)",
+    "quercus civilis": "Air Groove (Wedding)",
+    "quercus": "Air Groove (Wedding)",
+
     
     # Add any other specific titles from your CSVs here
     # Format: "unique keyword found in csv": "Target Canonical Name"
@@ -251,6 +258,11 @@ def hybrid_merge_entries(df_ocr, df_manual):
     """
     Merges OCR data (rich stats) with Manual data (verified results/groups)
     to create a single 'Golden Record' per entry.
+    Priority Logic:
+    1. IGN Match: Matches rows where Player Name is identical (Priority)
+    2. Row ID Match: Matches remaining rows by ID (Fallback for OCR errors)
+    3. Metadata: Manual > OCR
+    4. Stats: OCR > Manual (with smart fallback for 'Unknown')
     """
     # 1. Handle Empty inputs
     if df_ocr.empty and df_manual.empty: return pd.DataFrame()
@@ -267,62 +279,108 @@ def hybrid_merge_entries(df_ocr, df_manual):
         df_manual['join_ign'] = df_manual['Clean_IGN'].astype(str).str.lower().str.strip()
     else:
         df_manual['join_ign'] = "unknown"
-    
-    # 3. Outer Merge
-    merged = pd.merge(
-        df_ocr, 
-        df_manual, 
-        on=['join_ign', 'Clean_Uma'], 
-        how='outer', 
-        suffixes=('_ocr', '_manual')
-    )
-    
-    # 4. Coalesce Columns
-    def resolve_col(df, base_name, primary_suffix, secondary_suffix):
-        col_primary = f"{base_name}{primary_suffix}"
-        col_secondary = f"{base_name}{secondary_suffix}"
         
-        # Check existence
-        has_prim = col_primary in df.columns
-        has_sec = col_secondary in df.columns
-        
-        if has_prim and has_sec:
-            # Use fillna to prioritize Primary, falling back to Secondary
-            return df[col_primary].fillna(df[col_secondary])
-        elif has_prim:
-            return df[col_primary]
-        elif has_sec:
-            return df[col_secondary]
-        elif base_name in df.columns:
-            return df[base_name]
-        
-        return pd.Series([np.nan] * len(df), index=df.index)
+    # Ensure types for merging
+    if 'row_id' in df_manual.columns: df_manual['row_id'] = pd.to_numeric(df_manual['row_id'], errors='coerce')
+    if 'row_id' in df_ocr.columns: df_ocr['row_id'] = pd.to_numeric(df_ocr['row_id'], errors='coerce')
 
-    # A. METADATA: Trust Manual (CSV) > OCR
+    # --- TWO-PASS MERGE STRATEGY ---
+    keys_ign = ['join_ign', 'Clean_Uma']
+    keys_rid = ['row_id', 'Clean_Uma']
+    all_keys = list(set(keys_ign + keys_rid))
+    
+    def suffix_df(df, suffix):
+        rename_map = {c: f"{c}{suffix}" for c in df.columns if c not in all_keys}
+        return df.rename(columns=rename_map)
+        
+    man_s = suffix_df(df_manual.copy(), '_manual')
+    ocr_s = suffix_df(df_ocr.copy(), '_ocr')
+    
+    man_s['_m_idx'] = man_s.index
+    ocr_s['_o_idx'] = ocr_s.index
+    
+    # PASS 1: IGN Match (Priority)
+    m1 = pd.merge(man_s, ocr_s, on=keys_ign, how='inner')
+    
+    # PASS 2: Row ID Match (Leftovers)
+    used_m = m1['_m_idx'].unique()
+    used_o = m1['_o_idx'].unique()
+    
+    man_left = man_s[~man_s['_m_idx'].isin(used_m)]
+    ocr_left = ocr_s[~ocr_s['_o_idx'].isin(used_o)]
+    
+    m2 = pd.merge(man_left, ocr_left, on=keys_rid, how='inner')
+    
+    # PASS 3: Orphans
+    used_m_final = np.concatenate([used_m, m2['_m_idx'].unique()]) if not m2.empty else used_m
+    used_o_final = np.concatenate([used_o, m2['_o_idx'].unique()]) if not m2.empty else used_o
+    
+    man_orphans = man_s[~man_s['_m_idx'].isin(used_m_final)]
+    ocr_orphans = ocr_s[~ocr_s['_o_idx'].isin(used_o_final)]
+    
+    merged = pd.concat([m1, m2, man_orphans, ocr_orphans], ignore_index=True)
+    merged.drop(columns=['_m_idx', '_o_idx'], inplace=True, errors='ignore')
+    
+    # --- HELPER FUNCTION START ---
+    def smart_fill_column(df, base_col, primary_suffix, secondary_suffix, invalid_values=None):
+        """
+        Helper to fill gaps in a column using the preferred source first, then the fallback.
+        Critically, it treats 'Unknown' strings as gaps (NaN) so they get overwritten.
+        """
+        if invalid_values is None:
+            invalid_values = ['Unknown', 'unknown', 'nan', '', 'None']
+            
+        col_prim = f"{base_col}{primary_suffix}"
+        col_sec = f"{base_col}{secondary_suffix}"
+        
+        # 1. Get Primary Series (if exists)
+        if col_prim in df.columns:
+            s_prim = df[col_prim].replace(invalid_values, np.nan)
+        else:
+            s_prim = pd.Series(np.nan, index=df.index)
+            
+        # 2. Get Secondary Series (if exists)
+        if col_sec in df.columns:
+            s_sec = df[col_sec].replace(invalid_values, np.nan)
+        else:
+            s_sec = pd.Series(np.nan, index=df.index)
+            
+        # 3. Coalesce: Fill Primary gaps with Secondary values
+        filled = s_prim.fillna(s_sec)
+        
+        # 4. Fallback: If original base column exists (from merge keys), use it for remaining holes
+        if base_col in df.columns:
+             filled = filled.fillna(df[base_col])
+             
+        return filled
+    # --- HELPER FUNCTION END ---
+
+    # A. METADATA: Trust OCR Podium > Manual CSV
     meta_cols = ['Finals_Group', 'League', 'Post', 'Result']
     for col in meta_cols:
-        merged[col] = resolve_col(merged, col, '_manual', '_ocr')
+        merged[col] = smart_fill_column(merged, col, '_ocr', '_manual')
 
-    # B. IS_USER: Trust Manual (1) > OCR
-    # Manual entries are explicit user submissions.
-    merged['is_user'] = resolve_col(merged, 'is_user', '_manual', '_ocr').fillna(0).astype(int)
+    # B. IS_USER: Trust Manual CSV > OCR
+    merged['is_user'] = smart_fill_column(merged, 'is_user', '_manual', '_ocr').fillna(0).astype(int)
 
     # C. WINNER FLAG: Trust OCR Podium > Manual CSV
-    # If OCR has data (0 or 1), use it. If OCR is NaN (missing podium), use Manual.
-    merged['Is_Winner'] = resolve_col(merged, 'Is_Winner', '_ocr', '_manual').fillna(0)
+    merged['Is_Winner'] = smart_fill_column(merged, 'Is_Winner', '_ocr', '_manual').fillna(0)
 
-    # D. STATS: Trust OCR > Manual
-    # This ensures Deck/Stats are always used if available
+    # D. STATS & ATTRIBUTES: Trust OCR > Manual
+    # This now correctly fills "Unknown" OCR styles with Manual styles
     stat_cols = ['Speed', 'Stamina', 'Power', 'Guts', 'Wit', 'Score', 'Rank', 
                  'Skill_List', 'Skill_Count', 'Aptitude_Dist', 'Aptitude_Surface', 'Aptitude_Style',
-                 'Run_Time', 'Run_Time_Str']
+                 'Run_Time', 'Run_Time_Str', 'Clean_Style', 'Clean_IGN']
     
     for col in stat_cols:
-        merged[col] = resolve_col(merged, col, '_ocr', '_manual')
+        merged[col] = smart_fill_column(merged, col, '_ocr', '_manual')
 
-    # E. SHARED ATTRIBUTES
-    merged['Clean_Style'] = resolve_col(merged, 'Clean_Style', '_ocr', '_manual')
-    merged['Clean_IGN'] = resolve_col(merged, 'Clean_IGN', '_manual', '_ocr')
+    # --- PRESERVE DECK DATA ---
+    for col in merged.columns:
+        if col.endswith('_ocr'):
+            base_name = col[:-4] # Remove '_ocr'
+            if base_name not in merged.columns:
+                merged[base_name] = merged[col]
 
     # 5. Cleanup
     cols_to_drop = ['join_ign']
@@ -374,75 +432,6 @@ def _parse_run_time_to_seconds(time_str):
     except:
         return None
     
-def _normalize_libra_columns(df):
-    col_map = {
-        'trainee_name': 'Clean_Uma', 'trainer_name': 'Clean_IGN', 'placement': 'Result',
-        'post': 'Post', 'time': 'Run_Time_Str', 'style': 'Clean_Style', 'skills': 'Skill_List',
-        'skill_count': 'Skill_Count', 'Speed': 'Speed', 'Stamina': 'Stamina', 'Power': 'Power', 
-        'Guts': 'Guts', 'Wit': 'Wit', 'wisdom': 'Wit', 
-        'score': 'Score', 'rank': 'Rank' 
-    }
-    df = df.rename(columns=col_map)
-    
-    
-    if 'Result' in df.columns:
-        df['Result'] = pd.to_numeric(df['Result'], errors='coerce')
-        df['Is_Winner'] = df['Result'].apply(lambda x: 1 if x == 1 else 0)
-    else: df['Is_Winner'] = 0
-
-    if 'Run_Time_Str' in df.columns:
-        df['Run_Time'] = df['Run_Time_Str'].apply(_parse_run_time_to_seconds)
-
-    if 'Clean_Style' in df.columns:
-        df['Clean_Style'] = df['Clean_Style'].apply(_normalize_style)
-
-    if 'Skill_List' not in df.columns: df['Skill_List'] = np.empty((len(df), 0)).tolist()
-    
-    def parse_skills(x):
-        if pd.isna(x): return []
-        if isinstance(x, (np.ndarray, list)): return list(x)
-        if isinstance(x, str):
-            try:
-                if x.startswith('['): return ast.literal_eval(x)
-                return [x] 
-            except: return []
-        return []
-    df['Skill_List'] = df['Skill_List'].apply(parse_skills)
-
-    if 'Skill_Count' not in df.columns:
-        df['Skill_Count'] = df['Skill_List'].apply(len)
-    else:
-        df['Skill_Count'] = df['Skill_Count'].fillna(df['Skill_List'].apply(len))
-
-    if 'Clean_Uma' in df.columns:
-        df['Clean_Uma'] = df['Clean_Uma'].apply(lambda x: smart_match_name(x, ORIGINAL_UMAS))
-    
-    # --- APTITUDE MAPPING (NEW) ---
-    # 1. Distance & Surface (Hardcoded for Libra Cup: Long / Turf)
-    if 'Long' in df.columns: 
-        df['Aptitude_Dist'] = df['Long']
-    if 'Turf' in df.columns: 
-        df['Aptitude_Surface'] = df['Turf']
-
-    # 2. Strategy (Dynamic based on the runner's chosen style)
-    def get_style_aptitude(row):
-        # Normalize style string to check against column names
-        style = str(row.get('Clean_Style', '')).lower()
-        
-        # Check specific strategy columns from schema
-        if 'runaway' in style or 'front' in style: return row.get('Front')
-        if 'pace' in style: return row.get('Pace')
-        if 'late' in style: return row.get('Late')
-        if 'end' in style: return row.get('End')
-        return None
-
-    # Apply if style columns exist
-    if all(col in df.columns for col in ['Front', 'Pace', 'Late', 'End']):
-        df['Aptitude_Style'] = df.apply(get_style_aptitude, axis=1)
-
-
-    return df
-
 
 def analyze_significant_roles(df, role_col='Clean_Role', score_col='Calculated_WinRate', threshold=5.0):
     """
@@ -486,7 +475,7 @@ def smart_match_name(name, known_names=ORIGINAL_UMAS):
     2. Exact Match
     3. Fuzzy Match
     """
-    if pd.isna(name) or name == "": return "Unknown"
+    if pd.isna(name) or name == "": return "Unknown Uma Name"
     
     raw_input = str(name).strip()
     norm_input = raw_input.lower()
@@ -1076,7 +1065,7 @@ def load_finals_data(config_item: dict):
             
             # Keys
             select_parts.append(coalesce_col('Clean_Uma', [('p', 'trainee_name'), ('s', 'name'), ('d', 'name')], col_map))
-            select_parts.append(coalesce_col('Clean_IGN', [('p', 'trainer_name'), ('s', 'trainer_name')], col_map))
+            select_parts.append(coalesce_col('Clean_IGN', [('p', 'trainer_name'), ('s', 'ign') ], col_map))
             select_parts.append("COALESCE(p.row_id, s.row_id, d.row_id) as row_id")
 
             # Podium
@@ -1084,11 +1073,15 @@ def load_finals_data(config_item: dict):
             select_parts.append(safe_col('p', 'post', 'Post', cols_pod))
             select_parts.append(safe_col('p', 'time', 'Run_Time_Str', cols_pod))
             select_parts.append(safe_col('p', 'style', 'Clean_Style', cols_pod))
+            select_parts.append(safe_col('p', 'favourite', 'Favorite_Pos', cols_pod))
+            select_parts.append(safe_col('p', 'distance_n', 'Distance_Behind', cols_pod))
 
             # Statsheet
             select_parts.append(safe_col('s', 'skills', 'Skill_List', cols_stat))
             select_parts.append(safe_col('s', 'skill_count', 'Skill_Count', cols_stat))
-            for stat in ['Speed', 'Stamina', 'Power', 'Guts', 'Wit', 'score', 'rank']:
+            select_parts.append(safe_col('s', 'score', 'Score', cols_stat))
+            select_parts.append(safe_col('s', 'rank', 'Rank', cols_stat))
+            for stat in ['Speed', 'Stamina', 'Power', 'Guts', 'Wit']:
                 select_parts.append(safe_col('s', stat, stat.capitalize(), cols_stat))
             
             # Deck
@@ -1248,6 +1241,7 @@ def load_finals_data(config_item: dict):
             meta_cols = df_auto.apply(resolve_metadata, axis=1)
             df_auto['Finals_Group'] = meta_cols[0]
             df_auto['League'] = meta_cols[1]
+            print(df_auto['Clean_Style'].unique())
 
         except Exception as e:
             st.error(f"Error loading DuckDB Parquets: {e}")
@@ -1266,7 +1260,10 @@ def load_finals_data(config_item: dict):
             league_col = find_column(raw_csv, ['league', 'selection'])
             winner_type_col = find_column(raw_csv, ["ownumaoropponent", "winnerown"]) 
             winner_style_col = find_column(raw_csv, ["winnerrunningstyle", "winnerstyle"])
-            winner_name_col = find_column(raw_csv, ["winnername"])
+            winner_uma_name_col = find_column(raw_csv, ["winnername"])
+            ign_col = find_column(raw_csv, ['playerign', 'ign', 'trainername'])
+            final_result_col = find_column(raw_csv, ['finalresult', 'result', 'placement'])
+
             
             processed_rows = []
             
@@ -1274,7 +1271,7 @@ def load_finals_data(config_item: dict):
             # auto_ign_set = ...
 
             for _, row in raw_csv.iterrows():
-                ign_raw = str(row.get('Player IGN', 'Unknown'))
+                ign_raw = str(row.get(ign_col))
                 
                 group = row.get('A or B Finals?', 'Unknown')
                 league = "Graded"
@@ -1284,7 +1281,7 @@ def load_finals_data(config_item: dict):
                 
                 # --- Extract Winner Info ---
                 w_type = str(row.get(winner_type_col, '')).lower()
-                w_name_raw = row.get(winner_name_col)
+                w_name_raw = row.get(winner_uma_name_col)
                 w_style_raw = row.get(winner_style_col)
                 
                 w_clean_name = "Unknown"
@@ -1325,6 +1322,7 @@ def load_finals_data(config_item: dict):
                                     result = 1
                             
                             processed_rows.append({
+                                'row_id': row.index, 
                                 'Clean_Uma': clean_name, 
                                 'Clean_Style': clean_style, 
                                 'Clean_IGN': ign_raw,
@@ -1355,6 +1353,7 @@ def load_finals_data(config_item: dict):
 
             if processed_rows: df_csv_exploded = pd.DataFrame(processed_rows)
         except Exception as e: st.error(f"Error loading CSV: {e}")
+        print(df_csv_exploded['Clean_Style'].unique())
 
     # --- HYBRID MERGE (Manual + OCR) ---
     combined_df = hybrid_merge_entries(df_auto, df_csv_exploded)
