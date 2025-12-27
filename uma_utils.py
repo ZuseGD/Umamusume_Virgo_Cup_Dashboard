@@ -172,8 +172,11 @@ VARIANT_MAP = {
     "swimsuit maru": "Maruzensky (Summer)",
     "summer night": "Maruzensky (Summer)",
     "hot☆summer": "Maruzensky (Summer)", 
+    "hopp'n♪happy": "Special Week (Summer)",
     "happy heart": "Special Week (Summer)",
     "hopp'n": "Special Week (Summer)",
+    "hopp": "Special Week (Summer)",
+    "hopp'n♪happy heart": "Special Week (Summer)",
 
     # Matikane Fukukitaru
     "lucky tidings": "Matikanefukukitaru (Full Armor)",
@@ -220,56 +223,24 @@ NAME_ALIASES = {
     "TM Opera": "T.M. Opera O",
     "T.M. Opera": "T.M. Opera O",
     "TM Opera O": "T.M. Opera O",
-    "El Condor": "El Condor Pasa",
-    "Curren": "Curren Chan",
-    "Cafe": "Manhattan Cafe",
-    "Rudolf": "Symboli Rudolf",
-    "Brian": "Narita Brian",
-    "Digitan": "Agnes Digital",
-    "Digital": "Agnes Digital",
-    "Ardan": "Mejiro Ardan",
-    "Rice": "Rice Shower",
-    "Chiyono": "Chiyono O",
-    "Bakushin": "Sakura Bakushin O",
-    "Urara": "Haru Urara",
-    "Ticket": "Winning Ticket",
-    "Ryan": "Mejiro Ryan",
-    "McQueen": "Mejiro McQueen",
-    "Spe": "Special Week",
-    "Suzuka": "Silence Suzuka",
-    "Tachyon": "Agnes Tachyon",
-    "Teio": "Tokai Teio",
-    "Top Gun": "Mayano Top Gun",
-    "Halo": "King Halo",
-    "Nature": "Nice Nature",
-    "Fuku": "Matikanefukukitaru",
-    "Fukukitaru": "Matikanefukukitaru",
-    "City": "Gold City",
-    "Bright": "Mejiro Bright",
-    "Dober": "Mejiro Dober",
-    "Palmer": "Mejiro Palmer",
-    "Helios": "Daitaku Helios",
-    "Strong": "Mr. C.B.",
-    "CB": "Mr. C.B.",
-    "Ramona": "Mejiro Ramona",
 }
 
 def hybrid_merge_entries(df_ocr, df_manual):
     """
-    Merges OCR data with Manual data using a Cascading 3-Pass Strategy + Smart Fill.
-    
-    1. Pass 1 (Name Match): Matches (IGN + Horse). High precision.
-    2. Pass 2 (ID Match): Matches (Row ID + Horse). Fixes OCR IGN errors.
-    3. Pass 3 (Winner Fallback): Matches (Row ID) of Manual WINNERS to OCR data.
-       - This links 'Unknown' OCR stats (like Aaaa's) to the Winner of the CSV row.
-       - CSV Losers are ignored for merging (stats blank) but kept as Orphans (count preserved).
+    Merges OCR data (rich stats) with Manual data (verified results/groups)
+    to create a single 'Golden Record' per entry.
+    Priority Logic:
+    1. IGN Match: Matches rows where Player Name is identical (Priority)
+    2. Row ID Match: Matches remaining rows by ID (Fallback for OCR errors)
+    3. Metadata: Manual > OCR
+    4. Stats: OCR > Manual (with smart fallback for 'Unknown')
     """
     # 1. Handle Empty inputs
     if df_ocr.empty and df_manual.empty: return pd.DataFrame()
     if df_ocr.empty: return df_manual
     if df_manual.empty: return df_ocr
     
-    # 2. Normalize Keys
+    # 2. Normalize Join Keys
     if 'Clean_IGN' in df_ocr.columns:
         df_ocr['join_ign'] = df_ocr['Clean_IGN'].astype(str).str.lower().str.strip()
     else:
@@ -280,123 +251,116 @@ def hybrid_merge_entries(df_ocr, df_manual):
     else:
         df_manual['join_ign'] = "unknown"
         
-    # Ensure types
+    # Ensure types for merging
     if 'row_id' in df_manual.columns: df_manual['row_id'] = pd.to_numeric(df_manual['row_id'], errors='coerce')
     if 'row_id' in df_ocr.columns: df_ocr['row_id'] = pd.to_numeric(df_ocr['row_id'], errors='coerce')
 
-    # --- CASCADING MERGE LOGIC ---
-    keys_p1 = ['join_ign', 'Clean_Uma']
-    keys_p2 = ['row_id', 'Clean_Uma']
-    # Pass 3 key is just row_id, but we apply special filtering logic below
-    
-    # Protected Keys (Prevent suffixing)
-    all_keys = list(set(keys_p1 + keys_p2 + ['row_id', '_m_idx', '_o_idx']))
+    # --- TWO-PASS MERGE STRATEGY ---
+    keys_ign = ['join_ign', 'Clean_Uma']
+    keys_rid = ['row_id', 'Clean_Uma']
+    all_keys = list(set(keys_ign + keys_rid))
     
     def suffix_df(df, suffix):
         rename_map = {c: f"{c}{suffix}" for c in df.columns if c not in all_keys}
         return df.rename(columns=rename_map)
+        
+    man_s = suffix_df(df_manual.copy(), '_manual')
+    ocr_s = suffix_df(df_ocr.copy(), '_ocr')
     
-    df_manual = df_manual.copy()
-    df_ocr = df_ocr.copy()
+    man_s['_m_idx'] = man_s.index
+    ocr_s['_o_idx'] = ocr_s.index
     
-    # Track indices explicitly
-    df_manual['_m_idx'] = df_manual.index
-    df_ocr['_o_idx'] = df_ocr.index
+    # PASS 1: IGN Match (Priority)
+    m1 = pd.merge(man_s, ocr_s, on=keys_ign, how='inner')
     
-    man_s = suffix_df(df_manual, '_manual')
-    ocr_s = suffix_df(df_ocr, '_ocr')
-    
-    # PASS 1: IGN + Horse Name
-    m1 = pd.merge(man_s, ocr_s, on=keys_p1, how='inner')
-    
-    # Leftovers 1
+    # PASS 2: Row ID Match (Leftovers)
     used_m = m1['_m_idx'].unique()
     used_o = m1['_o_idx'].unique()
-    man_rem1 = man_s[~man_s['_m_idx'].isin(used_m)]
-    ocr_rem1 = ocr_s[~ocr_s['_o_idx'].isin(used_o)]
     
-    # PASS 2: Row ID + Horse Name
-    m2 = pd.merge(man_rem1, ocr_rem1, on=keys_p2, how='inner')
+    man_left = man_s[~man_s['_m_idx'].isin(used_m)]
+    ocr_left = ocr_s[~ocr_s['_o_idx'].isin(used_o)]
     
-    # Leftovers 2
-    used_m2 = np.concatenate([used_m, m2['_m_idx'].unique()]) if not m2.empty else used_m
-    used_o2 = np.concatenate([used_o, m2['_o_idx'].unique()]) if not m2.empty else used_o
-    man_rem2 = man_s[~man_s['_m_idx'].isin(used_m2)]
-    ocr_rem2 = ocr_s[~ocr_s['_o_idx'].isin(used_o2)]
+    m2 = pd.merge(man_left, ocr_left, on=keys_rid, how='inner')
     
-    # PASS 3: Row ID -> MANUAL WINNER ONLY
-    # We filter the Manual leftovers to only include Winners. 
-    # This ensures we attach the OCR stats to the Winner, avoiding "Alice/Bob" collisions on loser rows.
-    # Non-winners are implicitly skipped here and fall through to Orphans (Count kept, Stats empty).
+    # PASS 3: Orphans
+    used_m_final = np.concatenate([used_m, m2['_m_idx'].unique()]) if not m2.empty else used_m
+    used_o_final = np.concatenate([used_o, m2['_o_idx'].unique()]) if not m2.empty else used_o
     
-    # Check for Is_Winner column existence
-    if 'Is_Winner_manual' in man_rem2.columns:
-        man_winners = man_rem2[man_rem2['Is_Winner_manual'] == 1]
-    else:
-        # Fallback if column missing (unlikely), treat all as candidates
-        man_winners = man_rem2
-        
-    m3 = pd.merge(man_winners, ocr_rem2, on=['row_id'], how='inner')
+    man_orphans = man_s[~man_s['_m_idx'].isin(used_m_final)]
+    ocr_orphans = ocr_s[~ocr_s['_o_idx'].isin(used_o_final)]
     
-    # Dedupe Pass 3 (If OCR has multiple rows for same ID, pick first match to be safe)
-    m3 = m3.drop_duplicates(subset=['_m_idx'])
-    m3 = m3.drop_duplicates(subset=['_o_idx'])
-    
-    # Orphans
-    used_m3 = np.concatenate([used_m2, m3['_m_idx'].unique()]) if not m3.empty else used_m2
-    used_o3 = np.concatenate([used_o2, m3['_o_idx'].unique()]) if not m3.empty else used_o2
-    
-    man_orphans = man_s[~man_s['_m_idx'].isin(used_m3)]
-    ocr_orphans = ocr_s[~ocr_s['_o_idx'].isin(used_o3)]
-    
-    # Combine
-    merged = pd.concat([m1, m2, m3, man_orphans, ocr_orphans], ignore_index=True)
+    merged = pd.concat([m1, m2, man_orphans, ocr_orphans], ignore_index=True)
     merged.drop(columns=['_m_idx', '_o_idx'], inplace=True, errors='ignore')
     
-    # --- SMART FILL ---
-    def smart_fill_column(df, base_col, primary_suffix, secondary_suffix):
-        col_p = f"{base_col}{primary_suffix}"
-        col_s = f"{base_col}{secondary_suffix}"
-        invalid = ['Unknown', 'unknown', 'nan', '', 'None']
+    # --- HELPER FUNCTION START ---
+    def smart_fill_column(df, base_col, primary_suffix, secondary_suffix, invalid_values=None):
+        """
+        Helper to fill gaps in a column using the preferred source first, then the fallback.
+        Critically, it treats 'Unknown' strings as gaps (NaN) so they get overwritten.
+        """
+        if invalid_values is None:
+            invalid_values = ['Unknown', 'unknown', 'nan', '', 'None']
+            
+        col_prim = f"{base_col}{primary_suffix}"
+        col_sec = f"{base_col}{secondary_suffix}"
         
-        if col_p in df.columns: s_p = df[col_p].replace(invalid, np.nan)
-        else: s_p = pd.Series(np.nan, index=df.index)
+        # 1. Get Primary Series (if exists)
+        if col_prim in df.columns:
+            s_prim = df[col_prim].replace(invalid_values, np.nan)
+        else:
+            s_prim = pd.Series(np.nan, index=df.index)
             
-        if col_s in df.columns: s_s = df[col_s].replace(invalid, np.nan)
-        else: s_s = pd.Series(np.nan, index=df.index)
+        # 2. Get Secondary Series (if exists)
+        if col_sec in df.columns:
+            s_sec = df[col_sec].replace(invalid_values, np.nan)
+        else:
+            s_sec = pd.Series(np.nan, index=df.index)
             
-        filled = s_p.fillna(s_s)
-        if base_col in df.columns: filled = filled.fillna(df[base_col])
+        # 3. Coalesce: Fill Primary gaps with Secondary values
+        filled = s_prim.fillna(s_sec)
+        
+        # 4. Fallback: If original base column exists (from merge keys), use it for remaining holes
+        if base_col in df.columns:
+             filled = filled.fillna(df[base_col])
+             
         return filled
+    # --- HELPER FUNCTION END ---
 
-    # Coalesce Columns (OCR Priority for Data)
-    all_cols = ['Finals_Group', 'League', 'Post', 'Result', 
-                'Clean_IGN', 'Clean_Uma', 'Clean_Style', 
-                'Speed', 'Stamina', 'Power', 'Guts', 'Wit', 'Score', 'Rank', 
-                'Skill_List', 'Skill_Count', 'Aptitude_Dist', 'Aptitude_Surface', 'Aptitude_Style',
-                'Run_Time', 'Run_Time_Str', 'is_user', 'Is_Winner']
-
-    for col in all_cols:
+    # A. METADATA: Trust OCR Podium > Manual CSV
+    meta_cols = ['Finals_Group', 'League', 'Post', 'Result']
+    for col in meta_cols:
         merged[col] = smart_fill_column(merged, col, '_ocr', '_manual')
 
-    # Fix Types
-    merged['is_user'] = merged['is_user'].fillna(0).astype(int)
-    merged['Is_Winner'] = merged['Is_Winner'].fillna(0)
+    # B. IS_USER: Trust Manual CSV > OCR
+    merged['is_user'] = smart_fill_column(merged, 'is_user', '_manual', '_ocr').fillna(0).astype(int)
 
-    # Recover Deck
+    # C. WINNER FLAG: Trust OCR Podium > Manual CSV
+    merged['Is_Winner'] = smart_fill_column(merged, 'Is_Winner', '_ocr', '_manual').fillna(0)
+
+    # D. STATS & ATTRIBUTES: Trust OCR > Manual
+    # This now correctly fills "Unknown" OCR styles with Manual styles
+    stat_cols = ['Speed', 'Stamina', 'Power', 'Guts', 'Wit', 'Score', 'Rank', 
+                 'Skill_List', 'Skill_Count', 'Aptitude_Dist', 'Aptitude_Surface', 'Aptitude_Style',
+                 'Run_Time', 'Run_Time_Str', 'Clean_Style', 'Clean_IGN']
+    
+    for col in stat_cols:
+        merged[col] = smart_fill_column(merged, col, '_ocr', '_manual')
+
+    # --- PRESERVE DECK DATA ---
     for col in merged.columns:
         if col.endswith('_ocr'):
-            base_name = col[:-4]
+            base_name = col[:-4] # Remove '_ocr'
             if base_name not in merged.columns:
                 merged[base_name] = merged[col]
 
-    drop_suffixes = [c for c in merged.columns if c.endswith('_ocr') or c.endswith('_manual')]
-    merged.drop(columns=drop_suffixes, inplace=True, errors='ignore')
+    # 5. Cleanup
+    cols_to_drop = ['join_ign']
+    for col in merged.columns:
+        if col.endswith('_ocr') or col.endswith('_manual'):
+            cols_to_drop.append(col)
+            
+    merged.drop(columns=cols_to_drop, inplace=True, errors='ignore')
     
-    # Safety Net for Metadata
-    for col in ['Finals_Group', 'League']:
-        if col not in merged.columns: merged[col] = "Unknown"
-
     return merged
 
 #--- NEW: HELPER FOR NORMALIZATION ---
@@ -478,34 +442,49 @@ def analyze_significant_roles(df, role_col='Clean_Role', score_col='Calculated_W
 def smart_match_name(name, known_names=ORIGINAL_UMAS):
     """
     Matches a raw name to the known list with Priority Logic.
-    1. Check VARIANT_MAP for specific keywords (Archer, Summer, etc.)
-    2. Exact Match
-    3. Fuzzy Match
+    1. Check VARIANT_MAP (Raw string to catch keywords like 'Archer')
+    2. Strip Titles ([...], (...))
+    3. Check NAME_ALIASES (Normalized comparison for 'TM Opera' == 'T.M. Opera')
+    4. Exact / Fuzzy Match
     """
-    if pd.isna(name) or name == "": return "Unknown Uma Name"
+    if pd.isna(name) or str(name).strip() == "": return "Unknown Uma Name"
     
     raw_input = str(name).strip()
     norm_input = raw_input.lower()
-    
-    # --- PRIORITY 1: VARIANT MAPPING ---
-    # Check if any variant keyword exists in the input string
-    # e.g. Input: "[Archer by Moonlight] Symboli Rudolf" -> matches "archer" -> Returns "Symboli Rudolf (Festival)"
+
+    # --- PRIORITY 1: VARIANT MAPPING (Raw Check) ---
+    # We check this FIRST before stripping brackets, because variants often have specific 
+    # titles or keywords we need to detect (e.g. "Archer", "Summer").
     for keyword, canonical in VARIANT_MAP.items():
         if keyword in norm_input:
             return canonical
 
-    # --- PRIORITY 2: EXACT MATCH ---
-    if raw_input in known_names:
-        return raw_input
+    # --- CLEANING PHASE ---
+    # Remove text in brackets [], parens (), and extra spaces.
+    # Example: "[Title] Kitasan Black" -> "Kitasan Black"
+    # Example: "TM Opera (Title)" -> "TM Opera"
+    clean_input = re.sub(r'\[.*?\]|\(.*?\)', '', raw_input).strip()
     
-    # --- PRIORITY 3: FUZZY MATCH ---
-    # We use a stricter cutoff (0.2) to avoid bad guesses
-    matches = difflib.get_close_matches(raw_input, known_names, n=1, cutoff=0.3)
+    # Create a normalized version (no punctuation/spaces) for Alias checking
+    # Uses your existing helper function _normalize_name_string
+    norm_clean = _normalize_name_string(clean_input)
+
+    # --- PRIORITY 2: ALIAS MAP (Normalized Check) ---
+    # Matches "tmopera" (Input) to "tmopera" (Alias Key) -> Returns "T.M. Opera O"
+    for alias, target in NAME_ALIASES.items():
+        if _normalize_name_string(alias) == norm_clean:
+            return target
+
+    # --- PRIORITY 3: EXACT MATCH (Cleaned Name) ---
+    if clean_input in known_names:
+        return clean_input
+    
+    # --- PRIORITY 4: FUZZY MATCH (Cleaned Name) ---
+    matches = difflib.get_close_matches(clean_input, known_names, n=1, cutoff=0.3)
     if matches:
         return matches[0]
         
     return "Unknown"
-
 def sanitize_text(text):
     if pd.isna(text): return text
     return html.escape(str(text))
@@ -733,6 +712,9 @@ def _clean_raw_data(df: pd.DataFrame) -> pd.DataFrame:
     else: df['Sort_Money'] = 0.0
 
     if col_map['uma']: df['Clean_Uma'] = parse_uma_details(df[col_map['uma']])
+    unique_names = df['Clean_Uma'].dropna().unique()
+    name_map = {name: smart_match_name(name) for name in unique_names}
+    df['Clean_Uma'] = df['Clean_Uma'].map(name_map).fillna("Unknown")
 
     if col_map['races']: df['Clean_Races'] = extract_races_count(df[col_map['races']])
     else: df['Clean_Races'] = 1
