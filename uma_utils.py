@@ -227,20 +227,22 @@ NAME_ALIASES = {
 
 def hybrid_merge_entries(df_ocr, df_manual):
     """
-    Merges OCR data (rich stats) with Manual data (verified results/groups)
-    to create a single 'Golden Record' per entry.
-    Priority Logic:
-    1. IGN Match: Matches rows where Player Name is identical (Priority)
-    2. Row ID Match: Matches remaining rows by ID (Fallback for OCR errors)
-    3. Metadata: Manual > OCR
-    4. Stats: OCR > Manual (with smart fallback for 'Unknown')
+    Merges OCR data with Manual data using a Winner-Prioritized Strategy.
+    
+    1. Pass 1 (Name Match): Matches (IGN + Horse). 
+       - REMOVED 'Is_Winner' key to fix filtering bug. If names match, it's a match.
+    2. Pass 2 (Style Match): Matches (Row ID + Style). 
+       - Restricts Manual side to WINNERS ONLY to prevent Losers from matching OCR data.
+    3. Pass 3 (Row ID Match): Matches (Row ID).
+       - Restricts Manual side to WINNERS ONLY. 
+       - Manual Losers correctly become orphans (preserved for count, but no stats).
     """
     # 1. Handle Empty inputs
     if df_ocr.empty and df_manual.empty: return pd.DataFrame()
     if df_ocr.empty: return df_manual
     if df_manual.empty: return df_ocr
     
-    # 2. Normalize Join Keys
+    # 2. Normalize Keys
     if 'Clean_IGN' in df_ocr.columns:
         df_ocr['join_ign'] = df_ocr['Clean_IGN'].astype(str).str.lower().str.strip()
     else:
@@ -251,118 +253,146 @@ def hybrid_merge_entries(df_ocr, df_manual):
     else:
         df_manual['join_ign'] = "unknown"
         
-    # Ensure types for merging
+    # Ensure types
     if 'row_id' in df_manual.columns: df_manual['row_id'] = pd.to_numeric(df_manual['row_id'], errors='coerce')
     if 'row_id' in df_ocr.columns: df_ocr['row_id'] = pd.to_numeric(df_ocr['row_id'], errors='coerce')
 
-    # --- TWO-PASS MERGE STRATEGY ---
-    keys_ign = ['join_ign', 'Clean_Uma']
-    keys_rid = ['row_id', 'Clean_Uma']
-    all_keys = list(set(keys_ign + keys_rid))
+    # --- PREPARE DATA ---
+    df_manual = df_manual.copy()
+    df_ocr = df_ocr.copy()
     
+    # Explicitly track indices to manage leftovers
+    df_manual['_m_idx'] = df_manual.index
+    df_ocr['_o_idx'] = df_ocr.index
+    
+    # SUFFIXING: Protect row_id, suffix everything else
     def suffix_df(df, suffix):
-        rename_map = {c: f"{c}{suffix}" for c in df.columns if c not in all_keys}
+        rename_map = {c: f"{c}{suffix}" for c in df.columns if c != 'row_id'}
         return df.rename(columns=rename_map)
+    
+    man_s = suffix_df(df_manual, '_manual')
+    ocr_s = suffix_df(df_ocr, '_ocr')
+    
+    # --- PASS 1: IGN + HORSE NAME ---
+    # We DO NOT use Is_Winner here. If names match, we trust it.
+    # This fixes the bug where OCR missing "1st" caused valid winners to be dropped.
+    m1 = pd.merge(
+        man_s, ocr_s, 
+        left_on=['join_ign_manual', 'Clean_Uma_manual'], 
+        right_on=['join_ign_ocr', 'Clean_Uma_ocr'], 
+        how='inner'
+    )
+    
+    # Leftovers 1
+    used_m = m1['_m_idx_manual'].unique()
+    used_o = m1['_o_idx_ocr'].unique()
+    man_rem1 = man_s[~man_s['_m_idx_manual'].isin(used_m)]
+    ocr_rem1 = ocr_s[~ocr_s['_o_idx_ocr'].isin(used_o)]
+    
+    # --- PASS 2: ROW ID + STYLE (Manual Winners Only) ---
+    # We filter manual leftovers to ONLY winners. 
+    # This prevents a "Runner Loser" from matching an OCR "Runner" entry.
+    
+    # Check for winner column existence (it should exist)
+    if 'Is_Winner_manual' in man_rem1.columns:
+        man_candidates_2 = man_rem1[man_rem1['Is_Winner_manual'] == 1]
+    else:
+        man_candidates_2 = man_rem1
+
+    m2 = pd.merge(
+        man_candidates_2, ocr_rem1, 
+        left_on=['row_id', 'Clean_Style_manual'], 
+        right_on=['row_id', 'Clean_Style_ocr'], 
+        how='inner'
+    )
+    
+    # Dedupe Pass 2
+    m2 = m2.drop_duplicates(subset=['_m_idx_manual'])
+    m2 = m2.drop_duplicates(subset=['_o_idx_ocr'])
+    
+    # Leftovers 2
+    used_m2 = np.concatenate([used_m, m2['_m_idx_manual'].unique()]) if not m2.empty else used_m
+    used_o2 = np.concatenate([used_o, m2['_o_idx_ocr'].unique()]) if not m2.empty else used_o
+    man_rem2 = man_s[~man_s['_m_idx_manual'].isin(used_m2)]
+    ocr_rem2 = ocr_s[~ocr_s['_o_idx_ocr'].isin(used_o2)]
+    
+    # --- PASS 3: ROW ID (Manual Winners Only) ---
+    # Matches "Aaaa's Winner" -> OCR Unknown.
+    # Manual Losers are excluded here, so they become Orphans (which is correct).
+    
+    if 'Is_Winner_manual' in man_rem2.columns:
+        man_candidates_3 = man_rem2[man_rem2['Is_Winner_manual'] == 1]
+    else:
+        man_candidates_3 = man_rem2
         
-    man_s = suffix_df(df_manual.copy(), '_manual')
-    ocr_s = suffix_df(df_ocr.copy(), '_ocr')
+    m3 = pd.merge(
+        man_candidates_3, ocr_rem2, 
+        on=['row_id'], 
+        how='inner'
+    )
+    # Dedupe Pass 3
+    m3 = m3.drop_duplicates(subset=['_m_idx_manual'])
+    m3 = m3.drop_duplicates(subset=['_o_idx_ocr'])
     
-    man_s['_m_idx'] = man_s.index
-    ocr_s['_o_idx'] = ocr_s.index
+    # --- ORPHANS ---
+    used_m3 = np.concatenate([used_m2, m3['_m_idx_manual'].unique()]) if not m3.empty else used_m2
+    used_o3 = np.concatenate([used_o2, m3['_o_idx_ocr'].unique()]) if not m3.empty else used_o2
     
-    # PASS 1: IGN Match (Priority)
-    m1 = pd.merge(man_s, ocr_s, on=keys_ign, how='inner')
+    # This includes the Manual Losers that were skipped in Pass 2/3
+    man_orphans = man_s[~man_s['_m_idx_manual'].isin(used_m3)]
+    ocr_orphans = ocr_s[~ocr_s['_o_idx_ocr'].isin(used_o3)]
     
-    # PASS 2: Row ID Match (Leftovers)
-    used_m = m1['_m_idx'].unique()
-    used_o = m1['_o_idx'].unique()
+    # Combine
+    merged = pd.concat([m1, m2, m3, man_orphans, ocr_orphans], ignore_index=True)
     
-    man_left = man_s[~man_s['_m_idx'].isin(used_m)]
-    ocr_left = ocr_s[~ocr_s['_o_idx'].isin(used_o)]
+    # Cleanup tracking indices
+    drop_indices = [c for c in merged.columns if '_idx_' in c]
+    merged.drop(columns=drop_indices, inplace=True, errors='ignore')
     
-    m2 = pd.merge(man_left, ocr_left, on=keys_rid, how='inner')
-    
-    # PASS 3: Orphans
-    used_m_final = np.concatenate([used_m, m2['_m_idx'].unique()]) if not m2.empty else used_m
-    used_o_final = np.concatenate([used_o, m2['_o_idx'].unique()]) if not m2.empty else used_o
-    
-    man_orphans = man_s[~man_s['_m_idx'].isin(used_m_final)]
-    ocr_orphans = ocr_s[~ocr_s['_o_idx'].isin(used_o_final)]
-    
-    merged = pd.concat([m1, m2, man_orphans, ocr_orphans], ignore_index=True)
-    merged.drop(columns=['_m_idx', '_o_idx'], inplace=True, errors='ignore')
-    
-    # --- HELPER FUNCTION START ---
-    def smart_fill_column(df, base_col, primary_suffix, secondary_suffix, invalid_values=None):
-        """
-        Helper to fill gaps in a column using the preferred source first, then the fallback.
-        Critically, it treats 'Unknown' strings as gaps (NaN) so they get overwritten.
-        """
-        if invalid_values is None:
-            invalid_values = ['Unknown', 'unknown', 'nan', '', 'None']
-            
-        col_prim = f"{base_col}{primary_suffix}"
-        col_sec = f"{base_col}{secondary_suffix}"
+    # --- SMART FILL ---
+    def smart_fill_column(df, base_col, primary_suffix, secondary_suffix):
+        col_p = f"{base_col}{primary_suffix}"
+        col_s = f"{base_col}{secondary_suffix}"
+        invalid = ['Unknown', 'unknown', 'nan', '', 'None']
         
-        # 1. Get Primary Series (if exists)
-        if col_prim in df.columns:
-            s_prim = df[col_prim].replace(invalid_values, np.nan)
-        else:
-            s_prim = pd.Series(np.nan, index=df.index)
+        if col_p in df.columns: s_p = df[col_p].replace(invalid, np.nan)
+        else: s_p = pd.Series(np.nan, index=df.index)
             
-        # 2. Get Secondary Series (if exists)
-        if col_sec in df.columns:
-            s_sec = df[col_sec].replace(invalid_values, np.nan)
-        else:
-            s_sec = pd.Series(np.nan, index=df.index)
+        if col_s in df.columns: s_s = df[col_s].replace(invalid, np.nan)
+        else: s_s = pd.Series(np.nan, index=df.index)
             
-        # 3. Coalesce: Fill Primary gaps with Secondary values
-        filled = s_prim.fillna(s_sec)
-        
-        # 4. Fallback: If original base column exists (from merge keys), use it for remaining holes
-        if base_col in df.columns:
-             filled = filled.fillna(df[base_col])
-             
+        filled = s_p.fillna(s_s)
         return filled
-    # --- HELPER FUNCTION END ---
 
-    # A. METADATA: Trust OCR Podium > Manual CSV
-    meta_cols = ['Finals_Group', 'League', 'Post', 'Result']
-    for col in meta_cols:
+    # Coalesce Columns
+    all_cols = ['Finals_Group', 'League', 'Post', 'Result', 
+                'Clean_IGN', 'Clean_Uma', 'Clean_Style', 
+                'Speed', 'Stamina', 'Power', 'Guts', 'Wit', 'Score', 'Rank', 
+                'Skill_List', 'Skill_Count', 'Aptitude_Dist', 'Aptitude_Surface', 'Aptitude_Style',
+                'Run_Time', 'Run_Time_Str', 'is_user', 'Is_Winner']
+
+    for col in all_cols:
         merged[col] = smart_fill_column(merged, col, '_ocr', '_manual')
 
-    # B. IS_USER: Trust Manual CSV > OCR
-    merged['is_user'] = smart_fill_column(merged, 'is_user', '_manual', '_ocr').fillna(0).astype(int)
+    # Fix Types
+    merged['is_user'] = merged['is_user'].fillna(0).astype(int)
+    merged['Is_Winner'] = merged['Is_Winner'].fillna(0)
 
-    # C. WINNER FLAG: Trust OCR Podium > Manual CSV
-    merged['Is_Winner'] = smart_fill_column(merged, 'Is_Winner', '_ocr', '_manual').fillna(0)
-
-    # D. STATS & ATTRIBUTES: Trust OCR > Manual
-    # This now correctly fills "Unknown" OCR styles with Manual styles
-    stat_cols = ['Speed', 'Stamina', 'Power', 'Guts', 'Wit', 'Score', 'Rank', 
-                 'Skill_List', 'Skill_Count', 'Aptitude_Dist', 'Aptitude_Surface', 'Aptitude_Style',
-                 'Run_Time', 'Run_Time_Str', 'Clean_Style', 'Clean_IGN']
-    
-    for col in stat_cols:
-        merged[col] = smart_fill_column(merged, col, '_ocr', '_manual')
-
-    # --- PRESERVE DECK DATA ---
+    # Recover Deck (OCR Only)
     for col in merged.columns:
         if col.endswith('_ocr'):
-            base_name = col[:-4] # Remove '_ocr'
+            base_name = col[:-4]
             if base_name not in merged.columns:
                 merged[base_name] = merged[col]
 
-    # 5. Cleanup
-    cols_to_drop = ['join_ign']
-    for col in merged.columns:
-        if col.endswith('_ocr') or col.endswith('_manual'):
-            cols_to_drop.append(col)
-            
-    merged.drop(columns=cols_to_drop, inplace=True, errors='ignore')
+    drop_suffixes = [c for c in merged.columns if c.endswith('_ocr') or c.endswith('_manual')]
+    merged.drop(columns=drop_suffixes, inplace=True, errors='ignore')
     
-    return merged
+    # Safety Net for Metadata
+    for col in ['Finals_Group', 'League']:
+        if col not in merged.columns: merged[col] = "Unknown"
 
+    return merged
 #--- NEW: HELPER FOR NORMALIZATION ---
 def _normalize_name_string(text):
     """
@@ -1103,10 +1133,8 @@ def load_finals_data(config_item: dict):
             
             # --- FIX: ROBUST METADATA & ERROR HANDLING ---
             if df_auto.empty:
-                # Initialize columns to prevent KeyErrors downstream
                 df_auto['Finals_Group'] = pd.Series(dtype='object')
                 df_auto['League'] = pd.Series(dtype='object')
-                df_auto['uma_slot'] = pd.Series(dtype='int')
             else:
                 if 'Run_Time_Str' in df_auto.columns:
                     df_auto['Run_Time'] = df_auto['Run_Time_Str'].apply(_parse_run_time_to_seconds)
@@ -1136,14 +1164,7 @@ def load_finals_data(config_item: dict):
                 if 'is_user' in df_auto.columns:
                      df_auto['is_user'] = pd.to_numeric(df_auto['is_user'], errors='coerce').fillna(0).astype(int)
 
-                # Metadata Resolution
-                if 'Clean_IGN' in df_auto.columns:
-                    ign_to_team_auto = df_auto.groupby('Clean_IGN')['Clean_Uma'].apply(lambda x: frozenset([i for i in x if pd.notna(i)])).to_dict()
-                else:
-                    ign_to_team_auto = {}
-
                 def resolve_metadata(row):
-                    # Default logic placeholder (requires external map context, using Unknown for safety)
                     res_group = "Unknown"
                     res_league = row.get('League_Inferred', 'Unknown')
                     return pd.Series([res_group, res_league])
@@ -1151,9 +1172,6 @@ def load_finals_data(config_item: dict):
                 meta_cols = df_auto.apply(resolve_metadata, axis=1)
                 df_auto['Finals_Group'] = meta_cols[0]
                 df_auto['League'] = meta_cols[1]
-                
-                if 'row_id' in df_auto.columns:
-                    df_auto['uma_slot'] = df_auto.groupby('row_id').cumcount()
 
         except Exception as e:
             st.error(f"Error loading DuckDB Parquets: {e}")
@@ -1179,7 +1197,7 @@ def load_finals_data(config_item: dict):
             processed_rows = []
             
             for i, (_, row) in enumerate(raw_csv.iterrows()):
-                row_id = i + 2
+                row_id = i + 3
                 ign_raw = str(row.get('Player IGN', 'Unknown'))
                 
                 group = row.get('A or B Finals?', 'Unknown')
@@ -1221,9 +1239,7 @@ def load_finals_data(config_item: dict):
                 # Determine Winner Index
                 winner_idx = -1
                 
-                # 1. Explicit "Own" win flag check
                 is_explicit_own = 'own' in w_type
-                
                 if is_explicit_own:
                     for k, u in enumerate(team_data):
                         if u and u['clean_name'] == w_clean_name and w_clean_name != "Unknown":
@@ -1235,8 +1251,6 @@ def load_finals_data(config_item: dict):
                     if winner_idx == -1:
                         for k, u in enumerate(team_data):
                             if u: winner_idx = k; break
-
-                # 2. Implied "1st" check
                 elif 'opponent' not in w_type and is_result_1st:
                     for k, u in enumerate(team_data):
                         if u and u['clean_name'] == w_clean_name and w_clean_name != "Unknown":
@@ -1290,11 +1304,12 @@ def load_finals_data(config_item: dict):
     # --- HYBRID MERGE (Manual + OCR) ---
     combined_df = hybrid_merge_entries(df_auto, df_csv_exploded)
     raw_dfs = {
-        'automated': df_auto,
+        'automated_parquet': df_auto,
         'manual_csv': df_csv_exploded
     }
     
     return combined_df, raw_dfs
+
 footer_html = """
 <style>
 .footer {
