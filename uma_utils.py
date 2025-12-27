@@ -1079,18 +1079,23 @@ def load_finals_data(config_item: dict):
             else:
                 select_parts.append("NULL as Is_Winner")
 
+            # --- UPDATED IS_USER LOGIC (OR SOURCE) ---
+            # 1. Check Podium (IGN Match)
             p_is_user_col = None
             for c in cols_pod:
                 if c.lower() == 'is_user': p_is_user_col = c; break
-            
-            p_check = "NULL"
-            if p_is_user_col: p_check = f"TRY_CAST(p.\"{p_is_user_col}\" AS INTEGER)"
+            p_check = f"TRY_CAST(p.\"{p_is_user_col}\" AS INTEGER)" if p_is_user_col else "NULL"
 
+            # 2. Check Statsheet (Spreadsheet Own Match)
+            s_is_user_col = None
+            for c in cols_stat:
+                if c.lower() == 'is_user': s_is_user_col = c; break
+            s_check = f"TRY_CAST(s.\"{s_is_user_col}\" AS INTEGER)" if s_is_user_col else "NULL"
+
+            # 3. Combine with OR Logic
             is_user_logic = f"""
             CASE 
-                WHEN {p_check} IS NOT NULL THEN {p_check}
-                WHEN s.row_id IS NOT NULL THEN 1
-                WHEN d.row_id IS NOT NULL THEN 1
+                WHEN (COALESCE({p_check}, 0) = 1 OR COALESCE({s_check}, 0) = 1) THEN 1
                 ELSE 0
             END as is_user
             """
@@ -1131,10 +1136,10 @@ def load_finals_data(config_item: dict):
             
             df_auto = duckdb.query(query).to_df()
             
-            # --- FIX: ROBUST METADATA & ERROR HANDLING ---
             if df_auto.empty:
                 df_auto['Finals_Group'] = pd.Series(dtype='object')
                 df_auto['League'] = pd.Series(dtype='object')
+                df_auto['uma_slot'] = pd.Series(dtype='int')
             else:
                 if 'Run_Time_Str' in df_auto.columns:
                     df_auto['Run_Time'] = df_auto['Run_Time_Str'].apply(_parse_run_time_to_seconds)
@@ -1172,15 +1177,17 @@ def load_finals_data(config_item: dict):
                 meta_cols = df_auto.apply(resolve_metadata, axis=1)
                 df_auto['Finals_Group'] = meta_cols[0]
                 df_auto['League'] = meta_cols[1]
+                
+                if 'row_id' in df_auto.columns:
+                    df_auto['uma_slot'] = df_auto.groupby('row_id').cumcount()
 
         except Exception as e:
             st.error(f"Error loading DuckDB Parquets: {e}")
     else:
         pass
-
     csv_path = config_item.get('finals_csv', None)
 
-    # 3. COMBINE WITH CSV
+    # 3. COMBINE WITH CSV (FULL TEAM)
     if csv_path and os.path.exists(csv_path):
         try:
             raw_csv = pd.read_csv(csv_path)
@@ -1196,10 +1203,11 @@ def load_finals_data(config_item: dict):
             
             processed_rows = []
             
-            for i, (_, row) in enumerate(raw_csv.iterrows()):
-                row_id = i + 3
-                ign_raw = str(row.get('Player IGN', 'Unknown'))
+            # --- FIX: USE ROW INDEX TO PREVENT DRIFT ---
+            for row_idx, row in raw_csv.iterrows():
+                row_id = int(str(row_idx)) + 2 # Matches Excel Row Number perfectly
                 
+                ign_raw = str(row.get('Player IGN', 'Unknown'))
                 group = row.get('A or B Finals?', 'Unknown')
                 league = "Graded"
                 if league_col:
