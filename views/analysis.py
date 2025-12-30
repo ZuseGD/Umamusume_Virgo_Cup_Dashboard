@@ -101,7 +101,7 @@ def show_view(config_item):
     
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total Runs", len(df_filtered))
-    c2.metric("Total Winners", len(winners_df))
+    c2.metric("Total Winners + Opponents", len(winners_df))
     if selected_uma != "All Umas":
         win_rate = (len(winners_df) / len(df_filtered) * 100) if len(df_filtered) > 0 else 0
         c3.metric(f"{selected_uma} WR%", f"{win_rate:.1f}%")
