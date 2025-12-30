@@ -97,7 +97,7 @@ def show_view(config_item):
     # Calculate strictly based on filters
     winners_df = df_filtered[df_filtered['Is_Winner'] == 1]
 
-    st.info("👆 **Select a specific Uma from the Top** to see their detailed Profile.")
+    st.info("👆 **Select a specific Uma from the Top** and click on the Champion Profile tab to see their detailed Profile with Skills.")
     
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total Runs", len(df_filtered))
