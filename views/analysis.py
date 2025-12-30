@@ -272,7 +272,7 @@ def show_view(config_item):
                     st.plotly_chart(style_fig(fig, 'Aptitude Impact'), width='stretch', key=f"apt_{col}")
 
             # Columns for the 3 metrics
-            c_apt1, c_apt2, c_apt3 = st.columns(3)
+            c_apt1, c_apt2, c_apt3 = st.columns(3, border=True)
             
             # Get Labels from Config
             dist_label = config_item.get('aptitude_dist', 'Distance')
@@ -422,6 +422,9 @@ def show_view(config_item):
                 # 3. HTML Structure
                 card_html = f"""
                 <div style="
+                    height: 100%;
+                    display: flex;
+                    flex-direction: column;
                     border: 1px solid rgba(255,255,255,0.15); 
                     border-radius: 10px; 
                     padding: 15px; 
@@ -439,7 +442,7 @@ def show_view(config_item):
                         🏆 {row['Clean_Uma']} <span style='color:#888; font-size:0.8em'>({row['Clean_Style']})</span> <br> 
                         👤 {row['Clean_IGN']}
                         {disclaimer}  </div>
-                    <div style="font-size:0.85em; color:#DDD; margin-bottom:8px; font-family:monospace;">
+                    <div style="font-size:0.85em; color:#DDD; margin-bottom:8px; font-family:monospace; flex-grow: 1;">
                         {stats_txt}
                     </div>
                     <div style="font-size:0.8em; color:#AAA; line-height:1.4; border-top:1px solid rgba(255,255,255,0.1); padding-top:8px;">
@@ -452,12 +455,20 @@ def show_view(config_item):
             # --- ROW 1: PERFORMANCE ---
             c1, c2, c3 = st.columns(3)
             with c1:
-                if 'Run_Time' in winners_df.columns and winners_df['Run_Time'].notna().any():
-                    fastest_idx = winners_df['Run_Time'].idxmin()
-                    fastest = winners_df.loc[fastest_idx]
-                    record_card("⚡ Fastest Time", fastest['Run_Time_Str'], fastest, "#00CC96")
+                # REPLACED: Fastest Time -> Hardest Opponent
+                # Find the opponent (is_user=0) with the highest Total Stats
+                if not valid_stats_df.empty:
+                    # Filter for opponents specifically
+                    opponents = valid_stats_df[valid_stats_df['is_user'] == 0]
+                    
+                    if not opponents.empty:
+                        hardest_idx = opponents['Total_Stats'].idxmax()
+                        hardest = opponents.loc[hardest_idx]
+                        record_card("💀 Hardest Opponent", f"{float(str(hardest['Total_Stats']))} Total Stats", hardest, "#FF4B4B")
+                    else:
+                        st.info("No opponent data with stats available.")
                 else:
-                    st.info("Insufficient data to determine Run Time record.")
+                    st.info("Insufficient stat data.")
             
             with c2:
                 if 'Skill_Count' in rec_df.columns:
