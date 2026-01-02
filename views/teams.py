@@ -11,7 +11,7 @@ def show_view(df, team_df):
     total_sessions = len(team_df)
     total_umas = len(df)
 
-    tab1, tab2, tab3, tab4 = st.tabs(["Ideal Teams", "Running Style", "Runaway Impact", "Debuffer Impact", "Meta Evolution"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Ideal Teams", "Running Style", "Runaway Impact", "Meta Evolution"])
     
     # Filter Teams (Min 5 entries to be relevant)
     comp_counts = team_df['Team_Comp'].value_counts()
