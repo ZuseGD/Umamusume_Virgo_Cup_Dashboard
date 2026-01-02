@@ -8,7 +8,7 @@ CM_LIST = {
         "icon": "⚖️",
         "aptitude_dist": "Medium",   # Options: Sprint, Mile, Medium, Long
         "aptitude_surf": "Turf",   # Options: Turf, Dirt
-        "sheet_url": config('', default=''),
+        "sheet_url": config('SCORPIO_SHEET_URL', default=''),
         "is_multipart_parquet": False,
         "parquet_file": "libra.parquet" ,
         "finals_csv": None, 

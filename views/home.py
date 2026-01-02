@@ -28,36 +28,22 @@ def show_view(df, team_df, current_config):
     col_header, col_btn = st.columns([1, 1], gap="medium")
 
     with col_header:
-        with st.expander("🚀 Dashboard Update: Libra Cup & Finals Analysis Overhaul", expanded=True):
+        with st.expander("Scorpio Cup Dashboard Update", expanded=True):
             st.markdown("""
            
-**Version 2.0 - The "Analysis" Update**
+### **🚀 New Features**
+* **🛡️ Debuffer Impact Analysis:** Added a new section **Home** view to analyze the effectiveness of debuff strategies.
+    * **Win Rate Impact:** See exactly how much a Debuffer or Sacrifice improves your team's win rate compared to pure Ace teams.
+    * **Archetype Breakdown:** Performance stats split by debuffer type (e.g., *Stamina Drain* vs. *Speed Drain* vs. *2+ Debuff*).
+    * **Ace Synergy:** Which Aces benefit the most from having a debuffer support?
 
-We've completely reworked how you view Finals data! The old "OCR" and "Finals" tabs have been merged into a single, powerful **Analysis** section. This update brings robust support for the **Libra Cup** data format, smarter filtering, and a brand-new Hall of Records.
+### **♏ Scorpio Cup Support**
+* **New Data Format:** Updated the data loader to correctly parse the **Scorpio Cup (CM7)** CSV.
+* **Smarter Detection:** Fixed an issue where the loader confused the new "Quiz Questions" columns with Player Names.
 
----
-
-### ✨ New Features
-
-#### 🏆 Unified Analysis Hub
-* **Consolidated View:** Access all Finals insights in one place. No more switching between tabs for OCR builds and Match results.
-* **Champion Profiles:** Select any specific Uma from the sidebar to see her personal "Profile":
-    * **Radar Chart:** Compare her stats directly against the global average winner (with Speed correctly oriented at the top!).
-    * **Winning Decks:** See the top support cards used by winners of that specific character.
-    * **Skill Frequency:** View the most common skills equipped on winning runs.
-
-#### 💎 Hall of Records
-* **Superlatives:** Automatically detects standout performances:
-    * **⚡ Fastest Time:** Who ran the absolute fastest winning race?
-    * **📉 Minimalist:** Who won with the *least* amount of skills? (Now shows the exact skill list!)
-    * **🐕 Underdog:** Who won with the lowest total stats?
-    * **🦄 Niche Picks:** Highlights rare champions and off-meta strategies (e.g., a winning "Runaway" Gold Ship).
-* **Custom Cards:** Data is presented in beautiful, dark-mode friendly cards so you don't have to click dropdowns to see the details.
-
-#### 👑 Meta Impact Tier List
-* **Interactive Scatter Plot:** Visualizes the entire meta in one chart.
-* **Pick Rate vs. Win Rate:** Easily spot the "Meta Kings" (High Pick/High Win), "Sleepers" (Low Pick/High Win), and "Bait" (High Pick/Low Win).
-
+### **🐛 Bug Fixes & Improvements**
+* **Finals Winner Logic:** Fixed a critical bug where the system would default to the first horse (Uma 1) if the "Winner" column was missing or unreadable.
+* **Robust Column Search:** Improved how the tool finds "Winner Name" and "Running Style" columns to handle naming variations in the spreadsheet without crashing or guessing incorrect data.
 ---
 
             """)
@@ -223,6 +209,179 @@ We've completely reworked how you view Finals data! The old "OCR" and "Finals" t
         fig_group.update_traces(texttemplate='%{text} Races', hovertemplate='%{text} Races', textposition='inside')
         
         st.plotly_chart(style_fig(fig_group, height=350), width="stretch", config=PLOT_CONFIG)
+
+    def render_debuffer_analysis(team_df):
+        st.markdown("---")
+        st.subheader("🛡️ Debuffer Impact Analysis")
+        st.markdown("Comparing the performance of teams **With** vs **Without** a dedicated Debuffer/Sacrifice.")
+
+        if 'Has_Debuffer' not in team_df.columns:
+            st.warning("Role data not available. Please ensure your CSV contains 'Role' columns.")
+            return
+
+        # 1. SEGMENTATION
+        debuff_teams = team_df[team_df['Has_Debuffer'] == True].copy()
+        pure_teams = team_df[team_df['Has_Debuffer'] == False]
+
+        if debuff_teams.empty or pure_teams.empty:
+            st.info("Insufficient data to compare (Need both Debuffer and Non-Debuffer teams).")
+            return
+
+        # 2. CALCULATE OVERALL METRICS
+        wr_debuff = debuff_teams['Calculated_WinRate'].mean()
+        wr_pure = pure_teams['Calculated_WinRate'].mean()
+        delta = wr_debuff - wr_pure
+        
+        count_debuff = len(debuff_teams)
+        count_pure = len(pure_teams)
+
+        # 3. DISPLAY OVERALL METRICS
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Avg Win Rate (With Debuffer)", f"{wr_debuff:.1f}%", f"{delta:.1f}% vs Pure", delta_color="normal")
+        c2.metric("Avg Win Rate (Pure Teams)", f"{wr_pure:.1f}%")
+        c3.metric("Popularity", f"{count_debuff} Teams", f"{(count_debuff/len(team_df)*100):.0f}% of Meta")
+
+        st.markdown("---")
+
+        # =========================================================
+        # NEW: DEBUFFER TYPE BREAKDOWN
+        # =========================================================
+        st.subheader("🧪 Debuffer Archetypes")
+        st.caption("Breaking down performance by the **Type** of debuffer used.")
+
+        # A. Define Mappings based on Name
+        # You can expand this list as the meta evolves
+        TYPE_MAP = {
+            # Stamina Drainers
+            "Rice Shower (Halloween)": "Stamina Drain",
+            "Super Creek (Halloween)": "Stamina Drain",
+            "Mayano Top Gun (Wedding)": "Stamina Drain",
+            "Manhattan Cafe": "Stamina Drain",
+            "Nice Nature": "Stamina Drain",
+            "Mejiro Dober": "Stamina Drain",
+            
+            # Speed / Lane Control / General
+            "Air Groove": "Speed Drain/ Field of View",
+            "Grass Wonder": "Speed Drain",
+            "Agnes Tachyon": "Speed Drain",
+            "Symboli Rudolf": "Speed Drain",
+            "Curren Chan": "Speed Drain / Field of View",
+
+            # Acceleration
+            "Gold City (Festival)": "Acceleration",
+
+            # Field of View
+            "Super Creek": "Field of View",
+            "Matikanefukukitaru": "Field of View",
+            # Strategies
+            "Silence Suzuka": "Runaway / Sacrifice",
+        }
+
+        # B. Helper to find the type for a specific team row
+        def get_debuff_type(row):
+            umas = row['Clean_Uma'] # List of 3 names
+            roles = row['Clean_Role'] # List of 3 roles
+            
+            found_types = []
+            
+            for name, role in zip(umas, roles):
+                r_lower = str(role).lower()
+                # Check if this specific horse is marked as the debuffer
+                if 'debuff' in r_lower or 'sacrifice' in r_lower:
+                    # Map Name -> Type (Default to 'General' if unknown)
+                    dtype = TYPE_MAP.get(name, "General (White Reds)")
+                    found_types.append(dtype)
+            
+            if not found_types: return "Unknown"
+            if len(found_types) > 1: return "2+ Debuffer" # 2+ Debuffers
+            return found_types[0]
+
+        # C. Apply Logic
+        debuff_teams['Debuff_Type'] = debuff_teams.apply(get_debuff_type, axis=1)
+
+        # D. Aggregate Stats
+        type_stats = debuff_teams.groupby('Debuff_Type').agg(
+            Win_Rate=('Calculated_WinRate', 'mean'),
+            Count=('Clean_Uma', 'count')
+        ).reset_index()
+
+        # Calculate Delta vs Pure
+        type_stats['Impact (vs Pure)'] = type_stats['Win_Rate'] - wr_pure
+        type_stats = type_stats.sort_values('Win_Rate', ascending=False)
+
+        # E. Display Table
+        st.dataframe(
+            type_stats,
+            column_config={
+                "Debuff_Type": st.column_config.TextColumn("Archetype"),
+                "Win_Rate": st.column_config.ProgressColumn("Win Rate", format="%.1f%%", min_value=0, max_value=100),
+                "Impact (vs Pure)": st.column_config.NumberColumn("Impact", format="%+.1f%%"),
+                "Count": st.column_config.NumberColumn("Teams")
+            },
+            hide_index=True,
+            width = 'stretch'
+        )
+
+        st.markdown("---")
+
+        # =========================================================
+        # EXISTING: ACE SUPPORT ANALYSIS
+        # =========================================================
+        st.subheader("🤝 Ace Support: Who benefits most?")
+        st.caption("How much does a specific Ace's win rate improve when paired with a Debuffer?")
+
+        # Get list of popular Aces (appeared in > 10 teams)
+        all_umas = []
+        for umas in team_df['Clean_Uma']:
+            all_umas.extend(umas)
+        
+        uma_counts = pd.Series(all_umas).value_counts()
+        popular_umas = uma_counts[uma_counts > 10].index.tolist()
+        
+        ace_stats = []
+        
+        for ace in popular_umas:
+            # Find all teams containing this Ace
+            ace_teams = team_df[team_df['Clean_Uma'].apply(lambda x: ace in x)]
+            
+            # Split by Debuffer presence
+            w_debuff = ace_teams[ace_teams['Has_Debuffer'] == True]
+            wo_debuff = ace_teams[ace_teams['Has_Debuffer'] == False]
+            
+            if len(w_debuff) < 5 or len(wo_debuff) < 5:
+                continue # Skip if low sample size
+                
+            wr_w = w_debuff['Calculated_WinRate'].mean()
+            wr_wo = wo_debuff['Calculated_WinRate'].mean()
+            diff = wr_w - wr_wo
+            
+            ace_stats.append({
+                "Ace": ace,
+                "WR (With Debuffer)": wr_w,
+                "WR (Pure Team)": wr_wo,
+                "Impact (Delta)": diff,
+                "Samples": len(ace_teams)
+            })
+        
+        if ace_stats:
+            ace_df = pd.DataFrame(ace_stats).sort_values("Impact (Delta)", ascending=False)
+            
+            st.dataframe(
+                ace_df,
+                column_config={
+                    "WR (With Debuffer)": st.column_config.NumberColumn(format="%.1f%%"),
+                    "WR (Pure Team)": st.column_config.NumberColumn(format="%.1f%%"),
+                    "Impact (Delta)": st.column_config.NumberColumn(format="%.1f%%"),
+                },
+                hide_index=True,
+                width = 'stretch'
+            )
+        else:
+            st.info("Not enough data to calculate Ace synergies yet.")
+
+    render_debuffer_analysis(team_df)
+    st.markdown("---")
+
     # --- LEADERBOARD ---
     st.subheader("👑 Top Performers")
     st.warning("We are aware of an issue where some duplicate igns cause leaderboard inaccuracies. A fix is in progress.")

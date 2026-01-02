@@ -1,5 +1,6 @@
 import streamlit as st
 import plotly.express as px
+import pandas as pd
 from uma_utils import style_fig, PLOT_CONFIG, dynamic_height, show_description
 
 def show_view(df, team_df):
@@ -10,7 +11,7 @@ def show_view(df, team_df):
     total_sessions = len(team_df)
     total_umas = len(df)
 
-    tab1, tab2, tab3, tab4 = st.tabs(["Ideal Teams", "Running Style", "Runaway Impact", "Meta Evolution"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Ideal Teams", "Running Style", "Runaway Impact", "Debuffer Impact", "Meta Evolution"])
     
     # Filter Teams (Min 5 entries to be relevant)
     comp_counts = team_df['Team_Comp'].value_counts()
@@ -213,6 +214,7 @@ def show_view(df, team_df):
         fig_runner.update_layout(xaxis_title=None, showlegend=False)
         st.plotly_chart(style_fig(fig_runner, height=500), width="stretch", config=PLOT_CONFIG)
         show_description("runaway")
+
 
     # --- TAB 4: EVOLUTION ---
     with tab4:

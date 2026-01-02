@@ -564,7 +564,7 @@ def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
         return df
 
     # 2. Identify Core Metadata
-    ign_col = find_column(df, ['ign', 'player'])
+    ign_col = find_column(df, ['uniquedisplayname', 'ign', 'player'])
     group_col = find_column(df, ['cmgroup', 'bracket', 'league', 'selection'])
     money_col = find_column(df, ['spent', 'eur/usd', 'money'])
     time_col = find_column(df, ['timestamp', 'date'])
@@ -661,7 +661,7 @@ def _clean_raw_data(df: pd.DataFrame) -> pd.DataFrame:
         df.rename(columns=card_rename_map, inplace=True)
 
     col_map = {
-        'ign': find_column(df, ['ign', 'player']),
+        'ign': find_column(df, ['uniquedisplayname', 'ign', 'player']),
         'group': find_column(df, ['cmgroup', 'bracket', 'league', 'selection', 'group']),
         'money': find_column(df, ['spent', 'eur/usd', 'money']),
         'uma': find_column(df, ['uma']),
@@ -769,34 +769,30 @@ def _clean_raw_data(df: pd.DataFrame) -> pd.DataFrame:
 def _process_teams(df: pd.DataFrame) -> pd.DataFrame:
     """Aggregates individual uma rows into team rows."""
     
+    # Filter out Runaways/Suzuka if needed (Legacy logic, keep if you use it)
     filter_mask = (
         df['Clean_Style'].str.contains('Runaway|Oonige|Great Escape', case=False, na=False) & 
         (df['Clean_Uma'] != 'Silence Suzuka')
     )
     df_filtered = df[~filter_mask].copy()
 
-    # --- CRITICAL FIX: DO NOT GROUP BY CARDS ---
-    # We move cards to Aggregation so they don't split the rows if data is messy
     card_cols = [c for c in df.columns if c.startswith('card_')]
     
-    # Identify unique run keys. Use Timestamp if available, otherwise fallback.
-    # Note: 'Team_Comp' comes from exploded data to distinguish Team 1 vs 2 on same day
+    # Identify unique run keys.
     potential_keys = ['Clean_IGN', 'Display_IGN', 'Clean_Group', 'Round', 'Day', 'Original_Spent', 'Sort_Money', 'Clean_Timestamp', 'Team_Comp']
     group_cols = [c for c in potential_keys if c in df.columns]
 
-    print(f"DEBUG: Grouping by {len(group_cols)} keys: {group_cols}")
-    print(f"DEBUG: Collapsing {len(card_cols)} card columns using 'first'.")
-
-    # Define Aggregations
+    # --- UPDATED AGGREGATION RULES ---
     agg_rules = {
         'Clean_Uma': lambda x: sorted(list(x)), 
-        'Clean_Style': lambda x: list(x),       
+        'Clean_Style': lambda x: list(x),
+        # NEW: Aggregate Roles into a list for the team
+        'Clean_Role': lambda x: list(x) if 'Clean_Role' in df.columns else [], 
         'Calculated_WinRate': 'mean',    
         'Clean_Races': 'max',            
         'Clean_Wins': 'max'              
     }
     
-    # Add cards to aggregation rules (Take first value found for the team)
     for c in card_cols:
         agg_rules[c] = 'first'
 
@@ -809,14 +805,26 @@ def _process_teams(df: pd.DataFrame) -> pd.DataFrame:
     team_df = team_df[team_df['Clean_Uma'].apply(len) == 3]
     team_df['Team_Comp'] = team_df['Clean_Uma'].apply(lambda x: ", ".join(x))
     
-    
-    # Filter out rows where Round is 'Finals'
+    # --- NEW: Identify Debuffer Teams ---
+    def check_has_debuffer(roles):
+        # Check if any role in the list is a Debuffer or Sacrifice
+        for r in roles:
+            r_lower = str(r).lower()
+            if 'debuff' in r_lower or 'sacrifice' in r_lower:
+                return True
+        return False
+
+    if 'Clean_Role' in team_df.columns:
+        team_df['Has_Debuffer'] = team_df['Clean_Role'].apply(check_has_debuffer)
+    else:
+        team_df['Has_Debuffer'] = False
+
+    # Clean up Round/Day
     if 'Round' in team_df.columns:
         team_df = team_df[team_df['Round'] != 'Finals']
-    
-    # robustly check Day column as well just in case
     if 'Day' in team_df.columns:
         team_df = team_df[team_df['Day'] != 'Finals']
+        
     return team_df
 
 @st.cache_data(ttl=3600)
