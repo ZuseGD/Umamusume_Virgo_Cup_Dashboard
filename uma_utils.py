@@ -163,17 +163,21 @@ ORIGINAL_UMAS = [
 VARIANT_MAP = {
     # Festival Alts
     "archer": "Symboli Rudolf (Festival)",
+    "symboli rudolf (festival)": "Symboli Rudolf (Festival)",
     "moonlight": "Symboli Rudolf (Festival)",
     "festival rudolf": "Symboli Rudolf (Festival)",
     "autumn cosmos": "Gold City (Festival)",
+    "gold city (festival)": "Gold City (Festival)",
     "cosmos": "Gold City (Festival)",
     
     # Summer
     "swimsuit maru": "Maruzensky (Summer)",
     "summer night": "Maruzensky (Summer)",
     "hot☆summer": "Maruzensky (Summer)", 
+    "maruzensky (summer)": "Maruzensky (Summer)",
     "hopp'n♪happy": "Special Week (Summer)",
     "happy heart": "Special Week (Summer)",
+    "special week (summer)": "Special Week (Summer)",
     "hopp'n": "Special Week (Summer)",
     "hopp": "Special Week (Summer)",
     "hopp'n♪happy heart": "Special Week (Summer)",
@@ -181,36 +185,48 @@ VARIANT_MAP = {
     # Matikane Fukukitaru
     "lucky tidings": "Matikanefukukitaru (Full Armor)",
     "lucky": "Matikanefukukitaru (Full Armor)",
+    "matikanefukukitaru (full armor)": "Matikanefukukitaru (Full Armor)",
 
     # Oguri Cap
     "christmas oguri": "Oguri Cap (Christmas)",
+    "oguri cap (christmas)": "Oguri Cap (Christmas)",
     "xmas oguri": "Oguri Cap (Christmas)",
     "claus": "Oguri Cap (Christmas)", # Title: [Miracle of the White Star Claus]
     
     # Gold Ship
     "summer golshi": "Gold Ship (Summer)",
+    "gold ship (summer)": "Gold Ship (Summer)",
     "run! run!": "Gold Ship (Summer)", # Title keyword
     
     # Anime Versions
     "end of the skies": "Mejiro McQueen (Anime)",
+    "mejiro mcqueen (anime)": "Mejiro McQueen (Anime)",
     "beyond the horizon": "Tokai Teio (Anime)",
+    "tokai teio (anime)": "Tokai Teio (Anime)",
 
     # Fantasy Versions
     "kukulkan": "El Condor Pasa (Fantasy)", 
     "monk el": "El Condor Pasa (Fantasy)",
+    "el condor pasa (fantasy)": "El Condor Pasa (Fantasy)",
     "saintly jade": "Grass Wonder (Fantasy)",
+    "grass wonder (fantasy)": "Grass Wonder (Fantasy)",
 
     # Hallloween Variants
     "halloween digital": "Agnes Digital (Halloween)",
+    "agnes digital (halloween)": "Agnes Digital (Halloween)",
     "vampire": "Rice Shower (Halloween)",
+    "rice shower (halloween)": "Rice Shower (Halloween)",
     "chiffon-wrapped": "Super Creek (Halloween)",
+    "super creek (halloween)": "Super Creek (Halloween)",
     "mummy": "Super Creek (Halloween)",
 
     # Wedding Variants
     "sunlight bouquet": "Mayano Top Gun (Wedding)",
     "sunlight": "Mayano Top Gun (Wedding)",
+    "mayano top gun (wedding)": "Mayano Top Gun (Wedding)",
     "quercus civilis": "Air Groove (Wedding)",
     "quercus": "Air Groove (Wedding)",
+    "air groove (wedding)": "Air Groove (Wedding)",
 
     
     # Add any other specific titles from your CSVs here
@@ -572,6 +588,7 @@ def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
     # --- CARD DETECTION ---
     card_cols = [c for c in df.columns if "card status in account" in c.lower()]
     print(f"DEBUG: Found {len(card_cols)} card columns in Raw Data.")
+
     
     card_rename_map = {}
     for col in card_cols:
@@ -843,9 +860,15 @@ def load_data(sheet_url: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
                 # Convert timestamp to datetime for accurate sorting
                 df['Clean_Timestamp'] = pd.to_datetime(df['Clean_Timestamp'], errors='coerce')
                 sort_cols.insert(0, 'Clean_Timestamp')
+            
                 
             df = df.sort_values(by=sort_cols, ascending=False)
             
+            if 'Clean_Uma' in df.columns:
+                unique_names = df['Clean_Uma'].dropna().unique()
+                name_map = {name: smart_match_name(name, ORIGINAL_UMAS) for name in unique_names}
+                df['Clean_Uma'] = df['Clean_Uma'].map(name_map)
+
             # --- CRITICAL FIX: AGGRESSIVE DEDUPLICATION ---
             # We assume one submission per player per round/day is the valid one.
             # We drop duplicates based on Player + Round + Day + Uma Name
@@ -890,7 +913,7 @@ def extract_races_count(series):
     return series.apply(parse_races)
 
 def parse_uma_details(series):
-    return series.astype(str).apply(lambda x: x.split(' - ')[0].strip().title())
+    return series.astype(str).str.strip()
 
 def calculate_score(wins, races):
     if races == 0: return 0
