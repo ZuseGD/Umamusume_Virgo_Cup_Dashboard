@@ -567,7 +567,7 @@ def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Detects and transforms Raw 'Wide' format. 
     Preserves Timestamp (for run uniqueness) and Cards.
-    Updated to capture 'Role' if available.
+    Updated to capture 'Role' if available and handle 'Same Team' flags.
     """
     print("DEBUG: Checking if file is Raw Data...")
     
@@ -580,6 +580,7 @@ def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
         return df
 
     # 2. Identify Core Metadata
+    # FIX: Added 'uniquedisplayname' to target the correct column and avoid 'reigning' keyword false positives
     ign_col = find_column(df, ['uniquedisplayname', 'ign', 'player'])
     group_col = find_column(df, ['cmgroup', 'bracket', 'league', 'selection'])
     money_col = find_column(df, ['spent', 'eur/usd', 'money'])
@@ -588,7 +589,6 @@ def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
     # --- CARD DETECTION ---
     card_cols = [c for c in df.columns if "card status in account" in c.lower()]
     print(f"DEBUG: Found {len(card_cols)} card columns in Raw Data.")
-
     
     card_rename_map = {}
     for col in card_cols:
@@ -612,21 +612,46 @@ def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
             if not wins_col or not races_col:
                 continue
 
+            # --- SAME TEAM FLAG DETECTION ---
+            # Check if there is a "Same as previous day" flag for this Day/Team
+            flag_col = None
+            if day > 1 and team_idx == 1:
+                # Pattern: "Was your Day X ... same ... Day Y ... ?"
+                flag_pat = f"Was your Day {day}.*Team Comp 1.*same.*Day {day-1}.*Team Comp 1"
+                flag_col = find_col_fuzzy(df.columns, flag_pat)
+
             for uma_idx in range(1, 4):
                 name_col = find_col_fuzzy(df.columns, f"{prefix_pattern}.*Uma\\s*{uma_idx}.*Name")
-                style_col = find_col_fuzzy(df.columns, f"{prefix_pattern}.*Uma\\s*{uma_idx}.*Style")
-                # --- NEW: Look for Role ---
+                style_col = find_col_fuzzy(df.columns, f"{prefix_pattern}.*Uma\\s*{uma_idx}.*(Style|Running)")
                 role_col = find_col_fuzzy(df.columns, f"{prefix_pattern}.*Uma\\s*{uma_idx}.*Role")
                 
-                if not name_col:
+                # --- PREVIOUS DAY COLS (For backfilling) ---
+                prev_name_col = None
+                prev_style_col = None
+                prev_role_col = None
+                
+                if flag_col:
+                    prev_prefix = f"Day\\s*{day-1}.*Team\\s*Comp\\s*{team_idx}"
+                    prev_name_col = find_col_fuzzy(df.columns, f"{prev_prefix}.*Uma\\s*{uma_idx}.*Name")
+                    prev_style_col = find_col_fuzzy(df.columns, f"{prev_prefix}.*Uma\\s*{uma_idx}.*(Style|Running)")
+                    prev_role_col = find_col_fuzzy(df.columns, f"{prev_prefix}.*Uma\\s*{uma_idx}.*Role")
+
+                if not name_col and not (flag_col and prev_name_col):
                     continue
                 
                 # Selection
-                cols_to_select = [ign_col, group_col, money_col, name_col, style_col, wins_col, races_col] + card_cols
-                if time_col: cols_to_select.append(time_col)
+                # Use name_col if exists, otherwise assume we might fill it later
+                cols_to_select = [ign_col, group_col, money_col, wins_col, races_col] + card_cols
+                if name_col: cols_to_select.append(name_col)
+                if style_col: cols_to_select.append(style_col)
                 if role_col: cols_to_select.append(role_col)
-
+                if time_col: cols_to_select.append(time_col)
+                
+                cols_to_select = [c for c in cols_to_select if c is not None]
                 subset = df[cols_to_select].copy()
+                
+                # Ensure 'uma' column exists even if name_col was missing (pure fill scenario)
+                if name_col not in subset.columns: subset[name_col] = None 
                 
                 # Renaming
                 base_rename = {
@@ -643,11 +668,33 @@ def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
 
                 subset.rename(columns={**base_rename, **card_rename_map}, inplace=True)
                 
+                # --- APPLY SAME TEAM LOGIC ---
+                if flag_col and prev_name_col:
+                    # Identify rows where User said "Yes"
+                    is_same = df[flag_col].astype(str).str.lower() == 'yes'
+                    
+                    if is_same.any():
+                        # Fill Name
+                        subset.loc[is_same, 'uma'] = subset.loc[is_same, 'uma'].fillna(df.loc[is_same, prev_name_col])
+                        
+                        # Fill Style
+                        if 'style' in subset.columns and prev_style_col:
+                            subset.loc[is_same, 'style'] = subset.loc[is_same, 'style'].fillna(df.loc[is_same, prev_style_col])
+                        elif prev_style_col: # If style col didn't exist in current day
+                            subset.loc[is_same, 'style'] = df.loc[is_same, prev_style_col]
+                            
+                        # Fill Role
+                        if 'role' in subset.columns and prev_role_col:
+                            subset.loc[is_same, 'role'] = subset.loc[is_same, 'role'].fillna(df.loc[is_same, prev_role_col])
+                        elif prev_role_col:
+                            subset.loc[is_same, 'role'] = df.loc[is_same, prev_role_col]
+
                 # Context
                 subset['Day'] = str(day)
                 subset['Round'] = "CM" 
                 subset['Team_Comp'] = str(team_idx)
                 
+                # Filter out rows that are still empty after filling
                 subset = subset[subset['uma'].notna() & (subset['uma'] != '')]
                 
                 if not subset.empty:
@@ -918,7 +965,7 @@ def parse_uma_details(series):
 def calculate_score(wins, races):
     if races == 0: return 0
     wr = (wins / races) * 100
-    return wr * np.sqrt(races)
+    return wr * (np.sqrt(races)*2)
 
 def anonymize_players(df, metric='Calculated_WinRate', top_n=10):
     player_stats = df.groupby('Clean_IGN').agg({
