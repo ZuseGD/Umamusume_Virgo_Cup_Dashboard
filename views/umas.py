@@ -91,7 +91,7 @@ def show_view(df, team_df):
     }).reset_index()
     
     # Calculate Global Pick Rate
-    uma_stats['Pick_Rate'] = (uma_stats['Clean_Races'] / total_entries) * 100
+    uma_stats['Pick_Rate'] = (uma_stats['Clean_Races'] / total_entries) * 300
     
     # Filter: Hide very low sample size (less than 10 entries)
     uma_stats = uma_stats[uma_stats['Clean_Races'] >= 10]

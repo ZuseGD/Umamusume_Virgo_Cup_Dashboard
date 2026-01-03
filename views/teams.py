@@ -29,7 +29,7 @@ def show_view(df, team_df):
             }).reset_index().rename(columns={'Clean_Races': 'Entries'})
             
             # Calculate Pick Rate
-            comp_stats['Pick_Rate'] = (comp_stats['Entries'] / total_sessions) * 100
+            comp_stats['Pick_Rate'] = (comp_stats['Entries'] / total_sessions) * 300
             
             # 2. BUBBLE CHART (Pick Rate vs Win Rate)
             st.markdown("#### 💠 Meta Quadrants (Pick Rate vs. Win Rate)")
@@ -143,7 +143,7 @@ def show_view(df, team_df):
         }).reset_index().rename(columns={'Clean_Races': 'Entries'})
         
         # Calculate Pick Rate (Relative to Umas)
-        style_stats['Pick_Rate'] = (style_stats['Entries'] / total_umas) * 100
+        style_stats['Pick_Rate'] = (style_stats['Entries'] / total_umas) * 300
         
         style_stats = style_stats[(style_stats['Entries'] > 5) & (style_stats['Standard_Style'] != 'Unknown')]
         desired_order = ['Runaway', 'Front Runner', 'Pace Chaser', 'Late Surger', 'End Closer']
@@ -197,7 +197,7 @@ def show_view(df, team_df):
         }).reset_index().rename(columns={'Clean_Races': 'Entries'})
         
         runner_stats['Strategy'] = runner_stats['Has_Runaway'].map({True: 'With Runaway', False: 'No Runaway'})
-        runner_stats['Pick_Rate'] = (runner_stats['Entries'] / total_sessions) * 100
+        runner_stats['Pick_Rate'] = (runner_stats['Entries'] / total_sessions) * 300
         
         fig_runner = px.bar(
             runner_stats, x='Strategy', y='Calculated_WinRate', color='Strategy',
