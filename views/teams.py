@@ -197,7 +197,7 @@ def show_view(df, team_df):
         }).reset_index().rename(columns={'Clean_Races': 'Entries'})
         
         runner_stats['Strategy'] = runner_stats['Has_Runaway'].map({True: 'With Runaway', False: 'No Runaway'})
-        runner_stats['Pick_Rate'] = (runner_stats['Entries'] / total_sessions) * 300
+        runner_stats['Pick_Rate'] = (runner_stats['Entries'] / total_sessions) * 100
         
         fig_runner = px.bar(
             runner_stats, x='Strategy', y='Calculated_WinRate', color='Strategy',
