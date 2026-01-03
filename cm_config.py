@@ -5,7 +5,7 @@ from decouple import config
 CM_LIST = {
     "Scorpio Cup (2025)": {
         "id": "Scorpio Cup (2025)",
-        "icon": "⚖️",
+        "icon": "🦀",
         "aptitude_dist": "Medium",   # Options: Sprint, Mile, Medium, Long
         "aptitude_surf": "Turf",   # Options: Turf, Dirt
         "sheet_url": config('SCORPIO_SHEET_URL', default=''),
