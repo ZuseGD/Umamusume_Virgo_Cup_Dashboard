@@ -143,7 +143,7 @@ def show_view(df, team_df):
         }).reset_index().rename(columns={'Clean_Races': 'Entries'})
         
         # Calculate Pick Rate (Relative to Umas)
-        style_stats['Pick_Rate'] = (style_stats['Entries'] / total_umas) * 300
+        style_stats['Pick_Rate'] = (style_stats['Entries'] / total_umas) * 100
         
         style_stats = style_stats[(style_stats['Entries'] > 5) & (style_stats['Standard_Style'] != 'Unknown')]
         desired_order = ['Runaway', 'Front Runner', 'Pace Chaser', 'Late Surger', 'End Closer']
