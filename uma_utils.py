@@ -567,7 +567,7 @@ def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Detects and transforms Raw 'Wide' format. 
     Preserves Timestamp (for run uniqueness) and Cards.
-    Updated to capture 'Role' if available and handle 'Same Team' flags.
+    Updated with SEQUENTIAL BACKFILL to handle chained 'Same Team' flags (Day 1 -> Day 2 -> Day 3).
     """
     print("DEBUG: Checking if file is Raw Data...")
     
@@ -576,20 +576,61 @@ def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
     if test_col:
         print(f"DEBUG: Raw Data detected! Found key column: {test_col}")
     else:
-        print("DEBUG: Not Raw Data (or detection failed). Skipping explode.")
+        print("DEBUG: Not Raw Data. Skipping explode.")
         return df
 
-    # 2. Identify Core Metadata
-    # FIX: Added 'uniquedisplayname' to target the correct column and avoid 'reigning' keyword false positives
+    # Work on a copy to avoid SettingWithCopy warnings
+    df = df.copy()
+
+    # 2. PRE-PROCESS: SEQUENTIAL BACKFILL (The Fix)
+    # We loop Day 2 -> 3 -> 4. This ensures that if Day 3 copies Day 2, 
+    # and Day 2 copied Day 1, Day 3 gets the correct data.
+    print("DEBUG: Pre-processing 'Same Team' flags...")
+    
+    for day in range(2, 5): # Days 2, 3, 4
+        # Pattern: "Was your Day X ... same ... Day Y ... ?"
+        # Note: This flag only exists for Team Comp 1
+        flag_pat = f"Was your Day {day}.*Team Comp 1.*same.*Day {day-1}.*Team Comp 1"
+        flag_col = find_col_fuzzy(df.columns, flag_pat)
+        
+        if flag_col:
+            # Identify rows where user said "Yes"
+            is_same = df[flag_col].astype(str).str.lower() == 'yes'
+            count = is_same.sum()
+            
+            if count > 0:
+                print(f"DEBUG: Backfilling Day {day} from Day {day-1} for {count} rows.")
+                
+                # Transfer Data for Umas 1, 2, 3 (Name, Style, Role)
+                for uma_idx in range(1, 4):
+                    # Current Day Cols
+                    curr_prefix = f"Day\\s*{day}.*Team\\s*Comp\\s*1"
+                    c_name = find_col_fuzzy(df.columns, f"{curr_prefix}.*Uma\\s*{uma_idx}.*Name")
+                    c_style = find_col_fuzzy(df.columns, f"{curr_prefix}.*Uma\\s*{uma_idx}.*(Style|Running)")
+                    c_role = find_col_fuzzy(df.columns, f"{curr_prefix}.*Uma\\s*{uma_idx}.*Role")
+                    
+                    # Previous Day Cols
+                    prev_prefix = f"Day\\s*{day-1}.*Team\\s*Comp\\s*1"
+                    p_name = find_col_fuzzy(df.columns, f"{prev_prefix}.*Uma\\s*{uma_idx}.*Name")
+                    p_style = find_col_fuzzy(df.columns, f"{prev_prefix}.*Uma\\s*{uma_idx}.*(Style|Running)")
+                    p_role = find_col_fuzzy(df.columns, f"{prev_prefix}.*Uma\\s*{uma_idx}.*Role")
+                    
+                    # Execute Copy
+                    if c_name and p_name:
+                        df.loc[is_same, c_name] = df.loc[is_same, c_name].fillna(df.loc[is_same, p_name])
+                    if c_style and p_style:
+                        df.loc[is_same, c_style] = df.loc[is_same, c_style].fillna(df.loc[is_same, p_style])
+                    if c_role and p_role:
+                        df.loc[is_same, c_role] = df.loc[is_same, c_role].fillna(df.loc[is_same, p_role])
+
+    # 3. Identify Core Metadata
     ign_col = find_column(df, ['uniquedisplayname', 'ign', 'player'])
     group_col = find_column(df, ['cmgroup', 'bracket', 'league', 'selection'])
     money_col = find_column(df, ['spent', 'eur/usd', 'money'])
     time_col = find_column(df, ['timestamp', 'date'])
     
-    # --- CARD DETECTION ---
+    # Card Cols
     card_cols = [c for c in df.columns if "card status in account" in c.lower()]
-    print(f"DEBUG: Found {len(card_cols)} card columns in Raw Data.")
-    
     card_rename_map = {}
     for col in card_cols:
         match = re.search(r'\[(.*?)\]', col)
@@ -599,7 +640,7 @@ def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
         else:
             card_rename_map[col] = f"card_{col[:30]}"
 
-    # 3. Iteration
+    # 4. Standard Explode Loop
     processed_dfs = []
     
     for day in range(1, 5):
@@ -612,35 +653,15 @@ def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
             if not wins_col or not races_col:
                 continue
 
-            # --- SAME TEAM FLAG DETECTION ---
-            # Check if there is a "Same as previous day" flag for this Day/Team
-            flag_col = None
-            if day > 1 and team_idx == 1:
-                # Pattern: "Was your Day X ... same ... Day Y ... ?"
-                flag_pat = f"Was your Day {day}.*Team Comp 1.*same.*Day {day-1}.*Team Comp 1"
-                flag_col = find_col_fuzzy(df.columns, flag_pat)
-
             for uma_idx in range(1, 4):
                 name_col = find_col_fuzzy(df.columns, f"{prefix_pattern}.*Uma\\s*{uma_idx}.*Name")
                 style_col = find_col_fuzzy(df.columns, f"{prefix_pattern}.*Uma\\s*{uma_idx}.*(Style|Running)")
                 role_col = find_col_fuzzy(df.columns, f"{prefix_pattern}.*Uma\\s*{uma_idx}.*Role")
                 
-                # --- PREVIOUS DAY COLS (For backfilling) ---
-                prev_name_col = None
-                prev_style_col = None
-                prev_role_col = None
-                
-                if flag_col:
-                    prev_prefix = f"Day\\s*{day-1}.*Team\\s*Comp\\s*{team_idx}"
-                    prev_name_col = find_col_fuzzy(df.columns, f"{prev_prefix}.*Uma\\s*{uma_idx}.*Name")
-                    prev_style_col = find_col_fuzzy(df.columns, f"{prev_prefix}.*Uma\\s*{uma_idx}.*(Style|Running)")
-                    prev_role_col = find_col_fuzzy(df.columns, f"{prev_prefix}.*Uma\\s*{uma_idx}.*Role")
-
-                if not name_col and not (flag_col and prev_name_col):
+                # Since we backfilled above, we only check if name_col exists and has data
+                if not name_col:
                     continue
                 
-                # Selection
-                # Use name_col if exists, otherwise assume we might fill it later
                 cols_to_select = [ign_col, group_col, money_col, wins_col, races_col] + card_cols
                 if name_col: cols_to_select.append(name_col)
                 if style_col: cols_to_select.append(style_col)
@@ -650,51 +671,21 @@ def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
                 cols_to_select = [c for c in cols_to_select if c is not None]
                 subset = df[cols_to_select].copy()
                 
-                # Ensure 'uma' column exists even if name_col was missing (pure fill scenario)
-                if name_col not in subset.columns: subset[name_col] = None 
-                
-                # Renaming
                 base_rename = {
-                    ign_col: 'ign', 
-                    group_col: 'group', 
-                    money_col: 'money', 
-                    name_col: 'uma', 
-                    style_col: 'style', 
-                    wins_col: 'wins', 
-                    races_col: 'races'
+                    ign_col: 'ign', group_col: 'group', money_col: 'money', 
+                    name_col: 'uma', style_col: 'style', 
+                    wins_col: 'wins', races_col: 'races'
                 }
                 if time_col: base_rename[time_col] = 'Timestamp'
                 if role_col: base_rename[role_col] = 'role'
 
                 subset.rename(columns={**base_rename, **card_rename_map}, inplace=True)
                 
-                # --- APPLY SAME TEAM LOGIC ---
-                if flag_col and prev_name_col:
-                    # Identify rows where User said "Yes"
-                    is_same = df[flag_col].astype(str).str.lower() == 'yes'
-                    
-                    if is_same.any():
-                        # Fill Name
-                        subset.loc[is_same, 'uma'] = subset.loc[is_same, 'uma'].fillna(df.loc[is_same, prev_name_col])
-                        
-                        # Fill Style
-                        if 'style' in subset.columns and prev_style_col:
-                            subset.loc[is_same, 'style'] = subset.loc[is_same, 'style'].fillna(df.loc[is_same, prev_style_col])
-                        elif prev_style_col: # If style col didn't exist in current day
-                            subset.loc[is_same, 'style'] = df.loc[is_same, prev_style_col]
-                            
-                        # Fill Role
-                        if 'role' in subset.columns and prev_role_col:
-                            subset.loc[is_same, 'role'] = subset.loc[is_same, 'role'].fillna(df.loc[is_same, prev_role_col])
-                        elif prev_role_col:
-                            subset.loc[is_same, 'role'] = df.loc[is_same, prev_role_col]
-
-                # Context
                 subset['Day'] = str(day)
                 subset['Round'] = "CM" 
                 subset['Team_Comp'] = str(team_idx)
                 
-                # Filter out rows that are still empty after filling
+                # Valid Row Check
                 subset = subset[subset['uma'].notna() & (subset['uma'] != '')]
                 
                 if not subset.empty:

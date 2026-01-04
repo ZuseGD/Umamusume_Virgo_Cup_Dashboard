@@ -38,7 +38,6 @@ pip-delete-this-directory.txt
 .streamlit/config.toml
 *.xls
 *.xlsx
-*.json
 # Exception: If you have config JSONs you want to keep, un-comment the next line:
 # !config.json
 
