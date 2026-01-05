@@ -28,22 +28,13 @@ def show_view(df, team_df, current_config):
     col_header, col_btn = st.columns([1, 1], gap="medium")
 
     with col_header:
-        with st.expander("Scorpio Cup Dashboard Update", expanded=True):
+        with st.expander("Backfill Bugfix", expanded=True):
             st.markdown("""
-           
-### **🚀 New Features**
-* **🛡️ Debuffer Impact Analysis:** Added a new section **Home** view to analyze the effectiveness of debuff strategies.
-    * **Win Rate Impact:** See exactly how much a Debuffer or Sacrifice improves your team's win rate compared to pure Ace teams.
-    * **Archetype Breakdown:** Performance stats split by debuffer type (e.g., *Stamina Drain* vs. *Speed Drain* vs. *2+ Debuff*).
-    * **Ace Synergy:** Which Aces benefit the most from having a debuffer support?
-
-### **♏ Scorpio Cup Support**
-* **New Data Format:** Updated the data loader to correctly parse the **Scorpio Cup (CM7)** CSV.
-* **Smarter Detection:** Fixed an issue where the loader confused the new "Quiz Questions" columns with Player Names.
+    
 
 ### **🐛 Bug Fixes & Improvements**
-* **Finals Winner Logic:** Fixed a critical bug where the system would default to the first horse (Uma 1) if the "Winner" column was missing or unreadable.
-* **Robust Column Search:** Improved how the tool finds "Winner Name" and "Running Style" columns to handle naming variations in the spreadsheet without crashing or guessing incorrect data.
+* **Fixed the backfilling of previous team comps for days 3-4:** Now accurately retains and displays team compositions from earlier days when trainers didn't update them, ensuring historical data integrity.
+* **Card Database Added:** This is for future features, stay tuned!
 ---
 
             """)
