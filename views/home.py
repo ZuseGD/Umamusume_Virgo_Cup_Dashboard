@@ -39,6 +39,7 @@ def show_view(df, team_df, current_config):
 * **Removed Legend from team style bubble chart:** Improved clarity by removing redundant legends from visualizations. (it was ugly)
 * **SIG FIGS:** Win Rates and metrics are now displayed with consistent significant figures for better readability.
 * **ONLY ONE:** Aggressively filtering out Runaways that are not Suzuka
+* **Fixed Nakayama Festa name issue:** Kawakami Princess should now be correctly identified.
 ---
 
             """)

@@ -143,7 +143,7 @@ ORIGINAL_UMAS = [
     "Mayano Top Gun", "Manhattan Cafe", "Mihono Bourbon", 
     "Mejiro Ryan",  "Hishi Akebono", "Yukino Bijin", "Rice Shower", 
     "Ines Fujin",  "Agnes Tachyon",  "Admire Vega", "Inari One", 
-    "Winning Ticket", "Air Groove", 
+    "Winning Ticket", "Air Groove", "Kawakami Princess", "Mejiro Degu",
     "Matikanefukukitaru",  "Meisho Doto",  "Mejiro Dober", 
     "Nice Nature",  "King Halo",  "Machikane Tannhauser", "Ikuno Dictus",
     "Mejiro Palmer", "Daitaku Helios", "Twin Turbo", "Satono Diamond", "Kitasan Black", 
@@ -154,7 +154,7 @@ ORIGINAL_UMAS = [
     "Hishi Miracle", "Neo Universe", "Tap Dance City", "Jungle Pocket", "Copano Rickey",
     "Hokko Tarumae", "Wonder Acosta", "Symboli Kris S", "Tanino Gimlet", "Daiichi Ruby", "K.S. Miracle", "Aston Machan",
     "Satono Crown", "Cheval Grand", "Vivilos", "Dantsu Flame", "Air Shakur", "Gold City", 
-    "Eishin Flash", "Smart Falcon", "Zenno Rob Roy"
+    "Eishin Flash", "Smart Falcon", "Zenno Rob Roy", "Haru Urara"
 ]
 
 # 2. VARIANT MAP (The "Detectors")
@@ -200,9 +200,13 @@ VARIANT_MAP = {
     
     # Anime Versions
     "end of the skies": "Mejiro McQueen (Anime)",
+    "mejiro mcqueen (anime collab)": "Mejiro McQueen (Anime)",
+    "Mejiro McQueen (Anime)": "Mejiro McQueen (Anime)",
     "mejiro mcqueen (anime)": "Mejiro McQueen (Anime)",
     "beyond the horizon": "Tokai Teio (Anime)",
+    "tokai teio (anime collab)": "Tokai Teio (Anime)",
     "tokai teio (anime)": "Tokai Teio (Anime)",
+    "Tokai Teio (Anime)": "Tokai Teio (Anime)",
 
     # Fantasy Versions
     "kukulkan": "El Condor Pasa (Fantasy)", 
