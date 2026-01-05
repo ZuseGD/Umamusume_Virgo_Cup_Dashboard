@@ -457,18 +457,27 @@ def _parse_run_time_to_seconds(time_str):
 def analyze_significant_roles(df, role_col='Clean_Role', score_col='Calculated_WinRate', threshold=5.0):
     """
     Analyzes if specific roles have a significant impact on Win Rate.
-    Only returns stats if deviation from global average > threshold %.
+    
+    Logic:
+    1. STOCK ROLES: Always included.
+    2. POPULARITY CHECK: 
+       - If the Uma is "Niche" (< 10 Unique Users), we show EVERYTHING (All custom roles).
+       - If the Uma is "Meta" (>= 10 Unique Users), we filter "Others" for significance/sample size.
     """
+    STOCK_ROLES = ["Unity Cup Scenario Ace", "URA Scenario Ace", "Debuffer", "Hybrid (ace + debuffer)", "Sacrifice", "Blocker", "Throwaway"]
     if role_col not in df.columns or df[role_col].nunique() <= 1:
         return None
 
+    if role_col not in df.columns or df[role_col].nunique() <= 1:
+            return None
+
     # Filter out "Unknown" or invalid roles
-    valid_df = df[~df[role_col].isin(['Unknown', '', 'nan'])]
+    valid_df = df[~df[role_col].isin(['Unknown', '', 'nan', 'None'])]
     if valid_df.empty:
         return None
 
     global_avg = valid_df[score_col].mean()
-    
+        
     # Aggregation
     role_stats = valid_df.groupby(role_col).agg(
         Win_Rate=(score_col, 'mean'),
@@ -477,12 +486,22 @@ def analyze_significant_roles(df, role_col='Clean_Role', score_col='Calculated_W
 
     # Calculate Impact
     role_stats['Diff_vs_Avg'] = role_stats['Win_Rate'] - global_avg
-    
-    # Filter for significance (e.g., > 5% difference) and Sample Size (> 5 entries)
-    sig_roles = role_stats[
-        (role_stats['Diff_vs_Avg'].abs() >= threshold) & 
-        (role_stats['Count'] >= 10)
-    ].sort_values('Win_Rate', ascending=False)
+
+    # Count unique trainers to define "Less Popular" vs "Meta"
+    user_count = df['Clean_IGN'].nunique() if 'Clean_IGN' in df.columns else len(df)
+    is_niche_uma = user_count < 20
+        
+    if is_niche_uma:
+        # NICHE CASE: Show EVERYTHING (No filters)
+        # We want to see every weird role the 3 people playing this horse came up with.
+        sig_roles = role_stats.sort_values('Win_Rate', ascending=False)
+        
+    else:
+        # META CASE: Apply Filters to reduce noise
+        is_stock = role_stats[role_col].isin(STOCK_ROLES)
+        is_significant = (role_stats['Diff_vs_Avg'].abs() >= threshold) & (role_stats['Count'] >= 10)
+        
+        sig_roles = role_stats[is_stock | is_significant].sort_values('Win_Rate', ascending=False)
     
     if sig_roles.empty:
         return None

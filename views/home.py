@@ -40,6 +40,7 @@ def show_view(df, team_df, current_config):
 * **SIG FIGS:** Win Rates and metrics are now displayed with consistent significant figures for better readability.
 * **ONLY ONE:** Aggressively filtering out Runaways that are not Suzuka
 * **Fixed Nakayama Festa name issue:** Kawakami Princess should now be correctly identified.
+* **Improved Role Analysis Logic:** Refined the filtering and display logic for role statistics to ensure both static and significant other roles are shown.
 ---
 
             """)
