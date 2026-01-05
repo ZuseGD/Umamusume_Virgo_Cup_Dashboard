@@ -29,7 +29,7 @@ def show_view(df, team_df):
             }).reset_index().rename(columns={'Clean_Races': 'Entries'})
             
             # Calculate Pick Rate
-            comp_stats['Pick_Rate'] = (comp_stats['Entries'] / total_sessions) * 300
+            comp_stats['Pick_Rate'] = (comp_stats['Entries'] / total_sessions) * 100
             
             # 2. BUBBLE CHART (Pick Rate vs Win Rate)
             st.markdown("#### 💠 Meta Quadrants (Pick Rate vs. Win Rate)")
@@ -86,7 +86,7 @@ def show_view(df, team_df):
         # CHART 1: TEAM STYLE COMBINATIONS
         st.markdown("#### 💠 Meta Style Combinations")
         
-        style_team_df = team_df.copy()
+        style_team_df = filtered_team_df.copy()
         style_team_df['Style_Comp'] = style_team_df['Clean_Style'].apply(get_style_comp)
         
         comp_stats = style_team_df.groupby('Style_Comp').agg({
@@ -109,7 +109,8 @@ def show_view(df, team_df):
                 hover_name='Style_Comp',
                 title="Winning Style Combinations",
                 template='plotly_dark',
-                labels={'Pick_Rate': 'Pick Rate (%)', 'Calculated_WinRate': 'Win Rate %'},
+                labels={'Pick_Rate': 'Pick Rate (%)', 'Calculated_WinRate': 'Win Rate %', 'Style_Comp': 'Style Combination'},
+                hover_data={'Entries': True, 'Pick_Rate': ':.2f', 'Calculated_WinRate': ':.1f', 'Style_Comp': False},
                 height=500,
                 size_max=80
             )
@@ -121,8 +122,7 @@ def show_view(df, team_df):
 
             final_fig = style_fig(fig_style_bubble, height=500)
             final_fig.update_layout(
-                legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5),
-                margin=dict(b=80)
+                showlegend=False
             )
             st.plotly_chart(final_fig, width="stretch", config=PLOT_CONFIG)
             show_description("teams_meta")
@@ -134,7 +134,7 @@ def show_view(df, team_df):
         # CHART 2: INDIVIDUAL STYLE PERFORMANCE
         st.markdown("#### 📋 Individual Style Performance")
         
-        indiv_style_df = df.copy()
+        indiv_style_df = filtered_team_df.copy()
         indiv_style_df['Standard_Style'] = indiv_style_df['Clean_Style'].apply(standardize_style)
         
         style_stats = indiv_style_df.groupby('Standard_Style').agg({
@@ -219,7 +219,7 @@ def show_view(df, team_df):
     # --- TAB 4: EVOLUTION ---
     with tab4:
         st.subheader("📈 Meta Evolution over Time")
-        st.warning("Double click the legend items to isolate specific teams.")
+
         # Get Top 5 Teams
         top_teams = team_df['Team_Comp'].value_counts().head(5).index.tolist()
         
@@ -245,9 +245,11 @@ def show_view(df, team_df):
                 title="Top 5 Teams: Daily Pick Rate %",
                 markers=True, 
                 template='plotly_dark',
-                labels={'Pick_Rate': 'Pick Rate (%)', 'Team_Comp': 'Team Composition'}
+                labels={'Pick_Rate': 'Pick Rate (%)', 'Team_Comp': 'Team Composition'},
+                hover_data={'Pick_Rate': ':.2f', 'Session': False}
             )
             fig_evo.update_layout(hovermode="x unified", yaxis_title="Pick Rate (%)", coloraxis_colorbar=dict(orientation="h", yanchor="bottom", y=1.4, xanchor="right", x=1))
+            fig_evo.update_traces(showlegend=False)
             st.plotly_chart(style_fig(fig_evo, height=500), width="stretch", config=PLOT_CONFIG)
             show_description("evolution")
         else:

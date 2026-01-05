@@ -35,6 +35,9 @@ def show_view(df, team_df, current_config):
 ### **🐛 Bug Fixes & Improvements**
 * **Fixed the backfilling of previous team comps for days 3-4:** Now accurately retains and displays team compositions from earlier days when trainers didn't update them, ensuring historical data integrity.
 * **Card Database Added:** This is for future features, stay tuned!
+* **Removed Unused Code:** Cleaned up unnecessary code from the previous version.
+* **Removed Legend from team style bubble chart:** Improved clarity by removing redundant legends from visualizations. (it was ugly)
+* **SIG FIGS:** Win Rates and metrics are now displayed with consistent significant figures for better readability.
 ---
 
             """)
