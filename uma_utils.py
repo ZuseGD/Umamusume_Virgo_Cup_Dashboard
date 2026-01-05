@@ -819,6 +819,12 @@ def _clean_raw_data(df: pd.DataFrame) -> pd.DataFrame:
     if 'Day' in df.columns:
         df = df[df['Day'] != 'Finals']
 
+    filter_mask = (
+        df['Clean_Style'].str.contains('Runaway|Oonige|Great Escape', case=False, na=False) & 
+        (df['Clean_Uma'] != 'Silence Suzuka')
+    )
+    df = df[~filter_mask].copy()
+
     return df
 
 def _process_teams(df: pd.DataFrame) -> pd.DataFrame:
