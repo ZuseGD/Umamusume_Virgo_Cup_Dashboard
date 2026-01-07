@@ -399,9 +399,8 @@ def show_view(config_item):
                 else:
                     skills_str = "No skills recorded (No OCR submission)"
 
-                # FIXED: Disclaimer Logic
                 # Check for explicit 0 (Opponent) or explicit False
-                val = row.get('is_user')
+                val = row.get('is_user_val')
                 is_opponent = False
                 
                 # Check numeric/boolean False
@@ -411,10 +410,6 @@ def show_view(config_item):
                      except:
                          pass
                 
-                # Optional: Treat missing is_user as opponent? 
-                # Uncomment next line if you want to flag NULLs as opponents too
-                #if pd.isna(val): is_opponent = True 
-
                 disclaimer = ""
                 if is_opponent:
                     disclaimer = "<br><span style='color:#EF553B; font-size:0.8em; font-style:italic;'>⚠️ Opponent Data (Not User)</span>"
@@ -565,13 +560,13 @@ def show_view(config_item):
                 # Deduplicate based on IGN and Character Name
                 niche_winners = niche_winners.drop_duplicates(subset=['Clean_IGN', 'Clean_Uma'])
                 
-                disp = niche_winners[['Clean_IGN', 'Clean_Uma', 'Clean_Style', 'Speed', 'Stamina', 'Power', 'Guts', 'Wit', 'Skill_Count', 'Run_Time_Str']]
+                disp = niche_winners[['Clean_IGN', 'Clean_Uma', 'Clean_Style', 'Speed', 'Stamina', 'Power', 'Guts', 'Wit', 'Skill_Count']]
                 st.dataframe(disp, width='stretch', hide_index=True, column_config={
                     "Clean_IGN": st.column_config.TextColumn("Player"),
                     "Clean_Uma": st.column_config.TextColumn("Uma"),
                     "Clean_Style": st.column_config.TextColumn("Running Style"),
-                    "Skill_Count": st.column_config.NumberColumn("Number of Skills"),
-                    "Run_Time_Str": st.column_config.TextColumn("Winning Time"),})
+                    "Skill_Count": st.column_config.NumberColumn("Number of Skills")
+                })
             else:
                 st.info("No niche winners found matching criteria.")
 

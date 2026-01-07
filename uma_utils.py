@@ -1292,7 +1292,8 @@ def load_finals_data(config_item: dict):
             
             if 'A or B Finals?' in raw_csv.columns:
                  raw_csv = raw_csv.dropna(subset=['A or B Finals?'])
-            
+
+            ign_col = find_column(raw_csv, ['player ign', 'unique display name', 'trainer name'])
             league_col = find_column(raw_csv, ['league', 'selection'])
             winner_type_col = find_column(raw_csv, ["ownumaoropponent", "winnerown"]) 
            # --- AGGRESSIVE COLUMN SEARCH ---
@@ -1325,9 +1326,12 @@ def load_finals_data(config_item: dict):
             
             # --- FIX: USE ROW INDEX TO PREVENT DRIFT ---
             for row_idx, row in raw_csv.iterrows():
-                row_id = int(str(row_idx)) + 2 # Matches Excel Row Number perfectly
+                row_id = int(str(row_idx)) + 2 # Matches CSV Row Number perfectly
                 
-                ign_raw = str(row.get('Player IGN', 'Unknown'))
+                if ign_col:
+                    ign_raw = str(row.get(ign_col, 'Unknown'))
+                else:
+                    ign_raw = "Unknown"
                 group = row.get('A or B Finals?', 'Unknown')
                 league = "Graded"
                 if league_col:
@@ -1368,7 +1372,7 @@ def load_finals_data(config_item: dict):
                 winner_idx = -1
                 
                 # 1. Explicit "Own" win Check
-                is_explicit_own = 'own' in w_type
+                is_explicit_own = ('own' in w_type) or ('1st' in w_type)
                 if is_explicit_own:
                     # Match by Name
                     for k, u in enumerate(team_data):
@@ -1394,7 +1398,6 @@ def load_finals_data(config_item: dict):
                     
                     # FIX: REMOVED DEFAULT TO 0 FALLBACK.
                             
-
                 # --- PROCESS TEAM UMAS (1-3) ---
                 for k in range(3):
                     u_data = team_data[k]
@@ -1402,35 +1405,14 @@ def load_finals_data(config_item: dict):
                         is_win = 1 if k == winner_idx else 0
                         result = 1 if k == winner_idx else np.nan
                         
-                        # FIX: Override style for winners using the explicit 'Winner - Running Style' column
-                        # This fixes cases where the Team Comp style is wrong (e.g., Runaway) but the Winner section is correct.
                         final_style = u_data['clean_style']
                         Unknown_List = ["Unknown", "Nan", "None", "nan", ""]
                         if is_win and (w_clean_style not in Unknown_List):
                             final_style = w_clean_style
 
-                        valid_winner_style = False
-                        if w_clean_style:
-                            s_lower = str(w_clean_style).lower()
-                            if "unknown" not in s_lower and "nan" not in s_lower and s_lower.strip() != "":
-                                valid_winner_style = True
-                        
-                        # --- DEBUG: CHECK OVERRIDE LOGIC ---
-                        # Only print for winners to reduce noise. 
-                        # Remove 'row_idx < 10' limit after testing if you need to see deeper rows.
-                        if is_win and int(str(row_idx)) < 10: 
-                            print(f"\n--- Row {row_id} Winner Debug ---")
-                            print(f"   Horse: {u_data['clean_name']}")
-                            print(f"   Original Team Style: '{u_data['clean_style']}'")
-                            print(f"   Winner Section Raw:  '{w_style_raw}'")
-                            print(f"   Winner Section Clean: '{w_clean_style}'")
-                            print(f"   Valid to Override?:   {valid_winner_style}")
-                            
-                            if valid_winner_style:
-                                print(f"   ACTION: Overriding '{u_data['clean_style']}' -> '{w_clean_style}'")
-                            else:
-                                print(f"   ACTION: Keeping '{u_data['clean_style']}' (No Override)")
-                # -----------------------------------
+                        # If not 1st (Winner), assume Opponent (is_user=0). 
+                        # Otherwise User (is_user=1).
+                        is_user_val = 1 if is_win else 0
                         
                         processed_rows.append({
                             'row_id': row_id,
@@ -1444,7 +1426,7 @@ def load_finals_data(config_item: dict):
                             'Is_Winner': is_win, 
                             'Result': result, 
                             'Skill_Count': 0,
-                            'is_user': 1 
+                            'is_user': is_user_val # <--- APPLIED HERE
                         })
 
                 # --- PROCESS OPPONENT WINNER ---

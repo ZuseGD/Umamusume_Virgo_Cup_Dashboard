@@ -9,14 +9,37 @@ CM_LIST = {
         "aptitude_dist": "Medium",   # Options: Sprint, Mile, Medium, Long
         "aptitude_surf": "Turf",   # Options: Turf, Dirt
         "sheet_url": config('SCORPIO_SHEET_URL', default=''),
-        "is_multipart_parquet": False,
+        "is_multipart_parquet": True,
+        "finals_parts": {
+            "statsheet": "data/cm7_finals_statsheet_0.parquet",
+            "podium": "data/cm7_finals_podium_0.parquet",
+            "deck": "data/cm7_finals_deck_0.parquet"
+        },
+         # Backwards compatibility flags
         "parquet_file": "libra.parquet" ,
-        "finals_csv": None, 
+        "finals_csv": "data/cm7_finals.csv", 
         "finals_parquet": None,
         "form_url": 'https://forms.gle/BUUMNG1MYZesYUjy7',
         "status_msg": "Forms have not started yet.",
         "guide_images": [
             "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/scorpio.png"
+        ]
+    },
+    "Sagittarius Cup (2026)": {
+        "id": "Sagittarius Cup (2026)",
+        "icon": "🏹",
+        "aptitude_dist": "Long",   # Options: Sprint, Mile, Medium, Long
+        "aptitude_surf": "Turf",   # Options: Turf, Dirt
+        "sheet_url": config('', default=''),
+        "is_multipart_parquet": False,
+         # Backwards compatibility flags
+        "parquet_file": None ,
+        "finals_csv": None, 
+        "finals_parquet": None,
+        "form_url": 'https://forms.gle/BUUMNG1MYZesYUjy7',
+        "status_msg": "Forms have not started yet.",
+        "guide_images": [
+            "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/sagittarius.png"
         ]
     },
     "Libra Cup (2025)": {

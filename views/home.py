@@ -28,20 +28,16 @@ def show_view(df, team_df, current_config):
     col_header, col_btn = st.columns([1, 1], gap="medium")
 
     with col_header:
-        with st.expander("Backfill Bugfix", expanded=True):
+        with st.expander("Scorpio Initial Finals Analysis", expanded=True):
             st.markdown("""
     
 
-### **🐛 Bug Fixes & Improvements**
-* **Fixed the backfilling of previous team comps for days 3-4:** Now accurately retains and displays team compositions from earlier days when trainers didn't update them, ensuring historical data integrity.
-* **Card Database Added:** This is for future features, stay tuned!
-* **Removed Unused Code:** Cleaned up unnecessary code from the previous version.
-* **Removed Legend from team style bubble chart:** Improved clarity by removing redundant legends from visualizations. (it was ugly)
-* **SIG FIGS:** Win Rates and metrics are now displayed with consistent significant figures for better readability.
-* **ONLY ONE:** Aggressively filtering out Runaways that are not Suzuka
-* **Fixed Nakayama Festa name issue:** Kawakami Princess should now be correctly identified.
-* **Improved Role Analysis Logic:** Refined the filtering and display logic for role statistics to ensure both static and significant other roles are shown.
----
+Scorpio Cup Finals have concluded! This section is now live with a cursory analysis of the initial finals data. 
+                        
+Sagittarius Cup Preview Has Been Released
+                        
+Deck data is still being worked on and will be added soon.
+
 
             """)
 
