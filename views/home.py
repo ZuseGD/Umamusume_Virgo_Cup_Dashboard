@@ -179,7 +179,7 @@ Deck data is still being worked on and will be added soon.
         fig_dist.update_layout(bargap=0.1)
         st.plotly_chart(style_fig(fig_dist, height=350), width="stretch", config=PLOT_CONFIG)
     with g2:
-        # UPDATED: Aggregate both Win Rate (Mean) and Races (Sum)
+        # Aggregate both Win Rate (Mean) and Races (Sum)
         group_stats = team_df.groupby('Clean_Group').agg({
             'Calculated_WinRate': 'mean', 
             'Clean_Races': 'sum'

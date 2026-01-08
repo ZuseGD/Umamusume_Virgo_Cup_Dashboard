@@ -57,7 +57,7 @@ def show_view(team_df):
         x=selected_col, 
         y='Calculated_WinRate', 
         color=selected_col,
-        category_orders={selected_col: final_order}, # Apply our custom sort
+        category_orders={selected_col: final_order}, # custom sort
         title=f"Win Rate Distribution: {clean_name}",
         labels={selected_col: "Limit Break (LB)", 'Calculated_WinRate': "Win Rate %"},
         template='plotly_dark',
@@ -77,7 +77,7 @@ def show_view(team_df):
         Median_WinRate='median'
     ).reset_index()
     
-    # Sort the table by our custom order
+    # Sort the table by custom order
     stats[selected_col] = pd.Categorical(stats[selected_col], categories=final_order, ordered=True)
     stats = stats.sort_values(selected_col)
     

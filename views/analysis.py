@@ -474,8 +474,6 @@ def show_view(config_item):
                         record_card("📉 Minimalist Build (Lowest Number of Skills)", f"{min_skill['Skill_Count']} Skills", min_skill, "#AB63FA")
             
             with c3:
-                # NICHE PICK LOGIC
-                # --- UPDATED: RAREST CHAMPION LOGIC (Least Wins -> Least Entries) ---
                 # Rarest Champion (Logic remains the same, uses full rec_df)
                 if selected_uma == "All Umas":
                     win_counts = winners_df['Clean_Uma'].value_counts()

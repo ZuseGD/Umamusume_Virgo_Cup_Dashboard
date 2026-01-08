@@ -110,7 +110,7 @@ def show_view(df, team_df):
     st.markdown("#### 💠 Popularity vs. Performance (Quadrants)")
     fig_scatter = px.scatter(
         uma_stats, 
-        x='Pick_Rate',              # <--- UPDATED: Now uses Pick Rate %
+        x='Pick_Rate',              
         y='Calculated_WinRate',
         size='Pick_Rate',           # Size by pick rate
         color='Calculated_WinRate',
@@ -119,7 +119,6 @@ def show_view(df, team_df):
         template='plotly_dark',
         hover_name='Clean_Uma',
         labels={'Pick_Rate': 'Pick Rate (%)', 'Calculated_WinRate': 'Win Rate (%)', 'Clean_Races': 'Number of Entries'},
-        # Add entries to hover for detail
         hover_data={'Clean_Races': True, 'Pick_Rate': ':.1f', 'Calculated_WinRate': ':.1f'},
         size_max=100
     )
@@ -147,7 +146,7 @@ def show_view(df, team_df):
         orientation='v', 
         color='Calculated_WinRate', 
         color_continuous_scale='Viridis', 
-        text='Pick_Rate',          # <--- UPDATED: Text shows Pick Rate %
+        text='Pick_Rate',          
         template='plotly_dark', 
         # Pass extra data for tooltip
         hover_data={'Clean_Uma': False, 'Short_Name': False, 'Clean_Races': False, 'Pick_Rate': ':.2f', 'Calculated_WinRate': False},

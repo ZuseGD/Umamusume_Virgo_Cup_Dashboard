@@ -590,7 +590,6 @@ def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Detects and transforms Raw 'Wide' format. 
     Preserves Timestamp (for run uniqueness) and Cards.
-    Updated with SEQUENTIAL BACKFILL to handle chained 'Same Team' flags (Day 1 -> Day 2 -> Day 3).
     """
     print("DEBUG: Checking if file is Raw Data...")
     
@@ -866,7 +865,7 @@ def _process_teams(df: pd.DataFrame) -> pd.DataFrame:
     potential_keys = ['Clean_IGN', 'Display_IGN', 'Clean_Group', 'Round', 'Day', 'Original_Spent', 'Sort_Money', 'Clean_Timestamp', 'Team_Comp']
     group_cols = [c for c in potential_keys if c in df.columns]
 
-    # --- UPDATED AGGREGATION RULES ---
+    # --- AGGREGATION RULES ---
     agg_rules = {
         'Clean_Uma': lambda x: sorted(list(x)), 
         'Clean_Style': lambda x: list(x),
@@ -1177,7 +1176,7 @@ def load_finals_data(config_item: dict):
             else:
                 select_parts.append("NULL as Is_Winner")
 
-            # --- UPDATED IS_USER LOGIC (OR SOURCE) ---
+            # --- IS_USER LOGIC (OR SOURCE) ---
             # 1. Check Podium (IGN Match)
             p_is_user_col = None
             for c in cols_pod:
