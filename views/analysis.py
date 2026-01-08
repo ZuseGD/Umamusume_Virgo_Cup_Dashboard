@@ -368,7 +368,7 @@ def show_view(config_item):
 
     with tab_records:
         title_scope = f" {selected_uma}" if selected_uma != "All Umas" else "All Umas"
-        st.subheader(f"💎 Hall of Records ({title_scope})")
+        st.subheader(f"🥛 Hall of Milk ({title_scope})")
         
         # 1. Base copy
         rec_df = winners_df.copy()

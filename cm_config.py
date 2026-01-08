@@ -3,8 +3,8 @@ from decouple import config
 # update the relevant CM form_url with link when form is live/none when inactive
 # update sheet_url with the exploded CSV link from Google Sheets when available use the previous event's link as placeholder if needed
 CM_LIST = {
-    "Scorpio Cup (2025)": {
-        "id": "Scorpio Cup (2025)",
+    "Scorpio Cup (CM7)": {
+        "id": "Scorpio Cup (CM7)",
         "icon": "🦀",
         "aptitude_dist": "Medium",   # Options: Sprint, Mile, Medium, Long
         "aptitude_surf": "Turf",   # Options: Turf, Dirt
@@ -25,8 +25,8 @@ CM_LIST = {
             "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/scorpio.png"
         ]
     },
-    "Sagittarius Cup (2026)": {
-        "id": "Sagittarius Cup (2026)",
+    "Sagittarius Cup (CM8)": {
+        "id": "Sagittarius Cup (CM8)",
         "icon": "🏹",
         "aptitude_dist": "Long",   # Options: Sprint, Mile, Medium, Long
         "aptitude_surf": "Turf",   # Options: Turf, Dirt
@@ -42,8 +42,8 @@ CM_LIST = {
             "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/sagittarius.png"
         ]
     },
-    "Libra Cup (2025)": {
-        "id": "Libra Cup (2025)",
+    "Libra Cup (CM6)": {
+        "id": "Libra Cup (CM6)",
         "icon": "⚖️",
         "aptitude_dist": "Long",   # Options: Sprint, Mile, Medium, Long
         "aptitude_surf": "Turf",   # Options: Turf, Dirt
@@ -67,8 +67,8 @@ CM_LIST = {
         ]
     },
     
-    "Virgo Cup (2025)": {
-        "id": "Virgo Cup (2025)",
+    "Virgo Cup (CM5)": {
+        "id": "Virgo Cup (CM5)",
         "icon": "🏆",
         "aptitude_dist": "Mile",   # Options: Sprint, Mile, Medium, Long
         "aptitude_surf": "Turf",   # Options: Turf, Dirt

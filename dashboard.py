@@ -16,7 +16,7 @@ st.set_page_config(page_title="Moomamusume Dashboard", page_icon=page_icon, layo
 
 
 #  EVENT SELECTION
-st.sidebar.header("📅 Event Selector")
+st.sidebar.header("📅 CM Selector")
 event_names = list(CM_LIST.keys())
 selected_event_name = st.sidebar.selectbox("Select Event", event_names, index=0, key="event_selector")
 current_config = CM_LIST[selected_event_name]
@@ -116,14 +116,14 @@ if data_loaded:
         {"label": "Card Usage", "name": "Cards", "icon": "🗃️"},
         {"label": "Analysis", "name": "Analysis", "icon": "🏆"},
         {"label": "Timeline", "name": "Timeline", "icon": "📍"},
-        {"label": "Guides", "name": "Guides", "icon": "📚"},
+        {"label": "Canva", "name": "Canva", "icon": "📚"},
     ]
 else:
-    # LIMITED NAVIGATION: Only Home, Timeline, Guides
+    # LIMITED NAVIGATION: Only Home, Timeline, Canva
     pages = [
         {"label": "Overview", "name": "Home", "icon": "🌍"},
         {"label": "Timeline", "name": "Timeline", "icon": "📍"},
-        {"label": "Guides", "name": "Guides", "icon": "📚"},
+        {"label": "Canva", "name": "Canva", "icon": "📚"},
     ]
 
 # Safety Check: If user was on a page that no longer exists (e.g. switched event), reset to Home
@@ -175,7 +175,7 @@ if st.session_state.current_page == "Home":
 
         
 
-elif st.session_state.current_page == "Guides":
+elif st.session_state.current_page == "Canva":
     from views import guides
     guides.show_view(current_config)
 elif st.session_state.current_page == "Timeline":

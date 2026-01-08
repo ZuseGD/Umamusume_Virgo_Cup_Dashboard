@@ -2,13 +2,19 @@ import streamlit as st
 import streamlit.components.v1 as components
 import base64
 import os
+from cm_config import CM_LIST
 
 def show_view(current_config):
-    st.set_page_config(page_title="📚 Event Guides", layout="wide")
+    st.set_page_config(page_title="Moouma Guides", layout="wide")
     st.info(" **NOTE:** If the guides are not loading, that means there are no guides available for this CM yet. Please check back later!")
     # 1. Header
+    st.header("📅 CM Selector")
+    event_names = list(CM_LIST.keys())
+    selected_event_name = st.selectbox("Select Event", event_names, index=0, key="event_selector1")
+    current_config = CM_LIST[selected_event_name]
     cm_id = current_config.get('id', 'Champion Meeting')
     event_name = cm_id.replace('_', ' ').title()
+
     st.header(f"📚 Canva Guides: {event_name}")
     
     # 2. Load Images
@@ -60,6 +66,7 @@ def get_image_src(path):
             return f"data:{mime_type};base64,{b64}"
     return ""
 
+@st.cache_data
 def render_custom_viewer(path):
     """
     Renders a high-performance HTML/JS Image Viewer.

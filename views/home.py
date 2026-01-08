@@ -37,6 +37,10 @@ Scorpio Cup Finals have concluded! This section is now live with a cursory analy
 Sagittarius Cup Preview Has Been Released
                         
 Deck data is still being worked on and will be added soon.
+                        
+Added selectbox in Canva
+            
+Renamed CM selector
 
 
             """)
