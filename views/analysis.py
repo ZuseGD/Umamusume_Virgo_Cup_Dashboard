@@ -310,21 +310,29 @@ def show_view(config_item):
                 st.caption(f"Showing rankings for **{selected_style}** strategy only.")
 
             # 1. Prepare Data
-            leaderboard = df_filtered.groupby('Clean_Uma').agg(
+            df_user_only = df_filtered[df_filtered['is_user'] == 1].copy()
+            leaderboard = df_user_only.groupby('Clean_Uma').agg(
                 Entries=('Clean_Uma', 'count'),
                 Wins=('Is_Winner', 'sum')
             ).reset_index()
-            leaderboard['Win Rate %'] = (leaderboard['Wins'] / leaderboard['Entries'] * 100)
+            
+            total_entries = leaderboard['Entries'].sum()
+            leaderboard['Win Rate'] = leaderboard['Wins'] / leaderboard['Entries'] *100
+            total_wins = leaderboard['Wins'].sum()
+            leaderboard['Win Share'] = (leaderboard['Wins'] / total_wins * 100)
+            leaderboard['Normalized Win Share'] = ((leaderboard['Win Share'] - leaderboard['Win Share'].min()) / \
+                                     (leaderboard['Win Share'].max() - leaderboard['Win Share'].min())) * 100
             
             # Sort by Wins (Meta) or Win Rate (Performance)
-            leaderboard = leaderboard.sort_values(['Win Rate %'], ascending=[False]).head(20)
+            leaderboard = leaderboard.sort_values(['Normalized Win Share','Win Rate'], ascending=[False, False]).head(20)
             
             
             for rank, row in leaderboard.iterrows():
                 uma_name = row['Clean_Uma']
-                win_rate = row['Win Rate %']
+                win_per = row['Normalized Win Share']
                 count = row['Wins']
                 entries = row['Entries']
+                win_rate = row['Win Rate']
                 
                 # 1. Get Image
                 img_src = get_uma_base64(uma_name)
@@ -333,9 +341,9 @@ def show_view(config_item):
                 else:
                     img_tag = f"<img src='{img_src}' style='width: 45px; height: 45px; object-fit: cover; border-radius: 50%; border: 2px solid #555;'>"
 
-                bar_width = min(win_rate, 100)
+                bar_width = min(win_per, 100)
 
-                # 2. Create Layout: [ Card Visual (85%) ] [ Button (15%) ]
+                # 2. Create Layout: [ Card Visual (90%) ] [ Button (10%) ]
                 c_card, c_btn = st.columns([0.90, 0.10])
 
                 # 3. Render the Visual Card in the left column
@@ -353,7 +361,7 @@ def show_view(config_item):
                                     <div style="width: {bar_width}%; height: 100%; background: linear-gradient(90deg, #00CC96, #00b887);"></div>
                                 </div>
                                 <div style="font-size: 0.75em; color: #888; margin-top: 2px;">
-                                    {count} W / {entries} Runs
+                                    {count} User Wins / {entries} User Submitted {uma_name} Races
                                 </div>
                             </div>
                         </div>
