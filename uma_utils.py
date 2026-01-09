@@ -198,6 +198,8 @@ VARIANT_MAP = {
 
     # Biwa
     "rouge caroler": "Biwa Hayahide (Christmas)",
+    "biwa hayahide (christmas)": "Biwa Hayahide (Christmas)",
+    "christmas biwa hayahide": "Biwa Hayahide (Christmas)",
     
     # Gold Ship
     "summer golshi": "Gold Ship (Summer)",
