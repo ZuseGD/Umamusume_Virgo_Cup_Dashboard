@@ -134,7 +134,7 @@ def show_view(df, team_df):
         # CHART 2: INDIVIDUAL STYLE PERFORMANCE
         st.markdown("#### 📋 Individual Style Performance")
         
-        indiv_style_df = filtered_team_df.copy()
+        indiv_style_df = team_df.copy()
         indiv_style_df['Standard_Style'] = indiv_style_df['Clean_Style'].apply(standardize_style)
         
         style_stats = indiv_style_df.groupby('Standard_Style').agg({
@@ -143,7 +143,7 @@ def show_view(df, team_df):
         }).reset_index().rename(columns={'Clean_Races': 'Entries'})
         
         # Calculate Pick Rate (Relative to Umas)
-        style_stats['Pick_Rate'] = (style_stats['Entries'] / total_umas) * 100
+        style_stats['Pick_Rate'] = (style_stats['Entries'] / total_sessions) * 100
         
         style_stats = style_stats[(style_stats['Entries'] > 5) & (style_stats['Standard_Style'] != 'Unknown')]
         desired_order = ['Runaway', 'Front Runner', 'Pace Chaser', 'Late Surger', 'End Closer']
