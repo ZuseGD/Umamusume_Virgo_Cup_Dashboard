@@ -7,6 +7,9 @@ from collections import Counter
 from uma_utils import get_card_rarity_map, render_visual_card_list, get_type_icon_src, get_uma_base64, find_uma_image_path
 from uma_utils import load_finals_data
 
+def set_uma_filter(name):
+    st.session_state.selected_uma_filter = name
+
 def render_build_guide(uma_df):
     """
     Renders a specific build guide for the selected Uma.
@@ -206,7 +209,7 @@ def show_view(config_item):
         st.warning("No analysis data available yet.")
         return
 
-    # --- GLOBAL SIDEBAR FILTERS ---
+    # --- GLOBAL FINALS FILTERS ---
     st.markdown("### 🎯 Analysis Filters")
     col1, col2 = st.columns(2)
     with col1:
@@ -250,7 +253,10 @@ def show_view(config_item):
 
     # 2. Uma Filter
     all_umas = ["All Umas"] + sorted(df_group['Clean_Uma'].dropna().unique())
-    selected_uma = st.selectbox("Filter by Uma", all_umas)
+    #Initialize the state if it doesn't exist
+    if "selected_uma_filter" not in st.session_state:
+        st.session_state.selected_uma_key = "All Umas"
+    selected_uma = st.selectbox("Filter by Uma", all_umas, key="selected_uma_filter")
     
     # 3. Style Filter
     all_styles = ["All Styles"] + sorted(df_group['Clean_Style'].dropna().unique())
@@ -313,8 +319,6 @@ def show_view(config_item):
             # Sort by Wins (Meta) or Win Rate (Performance)
             leaderboard = leaderboard.sort_values(['Win Rate %'], ascending=[False]).head(20)
             
-            # 2. Render Visual List (HTML)
-            st.markdown("### 🌟 Top Performers")
             
             for rank, row in leaderboard.iterrows():
                 uma_name = row['Clean_Uma']
@@ -322,38 +326,53 @@ def show_view(config_item):
                 count = row['Wins']
                 entries = row['Entries']
                 
-                # Get Image
+                # 1. Get Image
                 img_src = get_uma_base64(uma_name)
-                
-                # Fallback Icon if no image found
                 if not img_src:
-                    # Use a generic placeholder or the type icon as backup
-                    img_tag = f"<div style='width: 50px; height: 50px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px;'>🐴</div>"
+                    img_tag = f"<div style='width: 45px; height: 45px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px;'>🐴</div>"
                 else:
-                    img_tag = f"<img src='{img_src}' style='width: 50px; height: 50px; object-fit: cover; border-radius: 50%; border: 2px solid #555;'>"
+                    img_tag = f"<img src='{img_src}' style='width: 45px; height: 45px; object-fit: cover; border-radius: 50%; border: 2px solid #555;'>"
 
-                # Progress Bar Width
                 bar_width = min(win_rate, 100)
-                
-                # Render Row
-                html_block = dedent(f"""
-                    <div style="display: flex; align-items: center; margin-bottom: 12px; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 10px;">
-                        <div style="margin-right: 15px;">{img_tag}</div>
-                        <div style="flex-grow: 1;">
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                                <span style="font-weight: bold; font-size: 1.1em;">{uma_name}</span>
-                                <span style="font-weight: bold; color: #00CC96;">{win_rate:.1f}% WR</span>
-                            </div>
-                            <div style="width: 100%; height: 8px; background: #333; border-radius: 4px; overflow: hidden;">
-                                <div style="width: {bar_width}%; height: 100%; background: linear-gradient(90deg, #00CC96, #00b887);"></div>
-                            </div>
-                            <div style="font-size: 0.8em; color: #888; margin-top: 4px;">
-                                {count} Wins / {entries} Runs
+
+                # 2. Create Layout: [ Card Visual (85%) ] [ Button (15%) ]
+                c_card, c_btn = st.columns([0.90, 0.10])
+
+                # 3. Render the Visual Card in the left column
+                with c_card:
+                    # We removed the bottom-margin from the HTML so it aligns better with the button
+                    html_block = dedent(f"""
+                        <div style="display: flex; align-items: center; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 10px; height: 100%;">
+                            <div style="margin-right: 12px;">{img_tag}</div>
+                            <div style="flex-grow: 1;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                                    <span style="font-weight: bold; font-size: 1em;">{uma_name}</span>
+                                    <span style="font-weight: bold; color: #00CC96;">{win_rate:.1f}%</span>
+                                </div>
+                                <div style="width: 100%; height: 6px; background: #333; border-radius: 3px; overflow: hidden;">
+                                    <div style="width: {bar_width}%; height: 100%; background: linear-gradient(90deg, #00CC96, #00b887);"></div>
+                                </div>
+                                <div style="font-size: 0.75em; color: #888; margin-top: 2px;">
+                                    {count} W / {entries} Runs
+                                </div>
                             </div>
                         </div>
-                    </div>
-                """)
-                st.markdown(html_block, unsafe_allow_html=True)
+                    """)
+                    st.markdown(html_block, unsafe_allow_html=True)
+
+                # 4. Render the Action Button in the right column
+                with c_btn:
+                    # vertical whitespace to align the button with the card center
+                    st.write("") 
+                    st.button(
+                        "🔍", 
+                        key=f"btn_select_{uma_name}", 
+                        help=f"Filter to {uma_name}'s Profile",
+                        on_click=set_uma_filter,
+                        args=(uma_name,)
+                    )
+                # a tiny spacer between rows
+                st.write("")
 
         else:
             # --- DETAILED OSHI VIEW (Specific Character) ---
