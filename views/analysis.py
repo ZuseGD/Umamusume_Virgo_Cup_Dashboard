@@ -2,8 +2,183 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
+from textwrap import dedent
 from collections import Counter
+from uma_utils import get_card_rarity_map, render_visual_card_list, get_type_icon_src, get_uma_base64, find_uma_image_path
+from uma_utils import load_finals_data
 
+def render_build_guide(uma_df):
+    """
+    Renders a specific build guide for the selected Uma.
+    - Uses Base64 icons for Deck Archetypes.
+    """
+    
+    
+    st.markdown("### 🛠️ Build Guide")
+    
+    # 1. Filter Winners
+    winners = uma_df[uma_df['Is_Winner'] == 1].copy()
+    if winners.empty:
+        st.info("No winning data available to generate a build guide.")
+        return
+
+    # 2. Style Filter
+    available_styles = sorted(winners['Clean_Style'].dropna().unique())
+    if len(available_styles) > 1:
+        default_style = winners['Clean_Style'].value_counts().idxmax()
+        c_filter, _ = st.columns([1, 2])
+        with c_filter:
+            selected_build_style = st.selectbox(
+                "Select Strategy:", 
+                available_styles, 
+                index=available_styles.index(default_style),
+                key="build_guide_style_filter"
+            )
+        winners = winners[winners['Clean_Style'] == selected_build_style]
+        st.caption(f"Analyzing: **{selected_build_style}**")
+
+    # --- METRICS ---
+    col_A, col_B = st.columns([1, 1])
+    
+    # 3. ARCHETYPE (Visual Update with Base64)
+    with col_A:
+        st.markdown("#### 📐 Recommended Deck")
+        
+        archetypes = []
+        for _, row in winners.iterrows():
+            current_types = []
+            for i in range(1, 7):
+                c_type = row.get(f'card{i}_type')
+                if pd.notna(c_type) and str(c_type).lower() not in ['nan', 'none', '', 'unknown']:
+                    current_types.append(str(c_type).capitalize())
+            
+            if current_types:
+                counts = Counter(current_types)
+                sorted_tc = tuple(sorted(counts.items(), key=lambda x: (-x[1], x[0])))
+                archetypes.append(sorted_tc)
+        
+        if archetypes:
+            common_archs = Counter(archetypes).most_common(5)
+            top_arch, top_count = common_archs[0]
+            
+            # Helper to render archetype HTML with Base64 Icons
+            def render_arch_html(arch_tuple, count=None, is_main=False):
+                html_parts = []
+                for type_name, qty in arch_tuple:
+                    # USE NEW HELPER HERE
+                    icon_src = get_type_icon_src(type_name)
+                    
+                    block = f"""
+                    <div style="display: inline-flex; align-items: center; margin-right: 12px; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 6px;">
+                        <span style="font-weight: bold; margin-right: 4px; font-size: {'1.1em' if is_main else '0.9em'};">{qty}x</span>
+                        <img src="{icon_src}" style="width: {'24px' if is_main else '18px'}; height: {'24px' if is_main else '18px'}; vertical-align: middle;">
+                    </div>
+                    """
+                    html_parts.append(block)
+                
+                inner_html = "".join(html_parts)
+                
+                if count:
+                    usage_html = f"<div style='margin-top: 4px; font-size: 0.8em; color: #888;'>Used by {count} winners</div>"
+                    return f"<div>{inner_html}</div>{usage_html}"
+                return f"<div>{inner_html}</div>"
+
+            # Render Meta Build
+            st.success("✅ **Meta Standard**")
+            st.markdown(f"""
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                {render_arch_html(top_arch, count=top_count, is_main=True)}
+                                <span style="font-size: 0.9em; color: #AAA;"></span>
+                            </div>
+                            """, unsafe_allow_html=True)
+            
+            
+            # Render Alternatives
+            if len(common_archs) > 1:
+                st.markdown("##### 🔀 Alternatives")
+                with st.container():
+                    for arch, count in common_archs[1:]:
+                        st.markdown(
+                            f"""
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                {render_arch_html(arch, is_main=False)}
+                                <span style="font-size: 0.9em; color: #AAA;">{count} runs</span>
+                            </div>
+                            """, 
+                            unsafe_allow_html=True
+                        )
+
+    # 4. INVESTMENT (No changes needed)
+    with col_B:
+        st.markdown("#### 💰 Cost Analysis")
+        rarity_map = get_card_rarity_map()
+        
+        ssr_counts = []
+        for _, row in winners.iterrows():
+            high_level_ssrs = 0
+            for i in range(1, 7):
+                c_id = row.get(f'card{i}_id')
+                raw_lvl = row.get(f'card{i}_level')
+                
+                is_ssr = rarity_map.get(c_id, False)
+                lvl = 0
+                try:
+                    val = str(raw_lvl).upper()
+                    if "MLB" in val: lvl = 50
+                    elif "LB" in val: lvl = int(float(val.replace("LB","")))
+                    else: lvl = int(float(val))
+                except: pass
+                
+                if is_ssr and lvl >= 45:
+                    high_level_ssrs += 1
+            ssr_counts.append(high_level_ssrs)
+        
+        if ssr_counts:
+            avg_whale_score = sum(ssr_counts) / len(ssr_counts)
+            st.metric("Avg Maxed SSRs", f"{avg_whale_score:.1f} / 6")
+            
+            if avg_whale_score > 3.5:
+                st.warning("⚠️ **Expensive** (Requires 4+ Maxed SSRs)")
+            elif avg_whale_score > 1.5:
+                st.info("⚖️ **Moderate** (2-3 SSRs + Borrow)")
+            else:
+                st.success("✅ **Budget Friendly** (SR Heavy)")
+
+    st.markdown("---")
+    
+    # 5. CORE CARDS (Visual Grid)
+    if not winners.empty:
+        uma_cards = []
+        for _, row in winners.iterrows():
+            for i in range(1, 7):
+                c_name = row.get(f'card{i}_name')
+                c_type = row.get(f'card{i}_type')
+                c_id = row.get(f'card{i}_id')
+                
+                if pd.notna(c_name) and str(c_name).strip() not in ["", "None", "nan"]:
+                    uma_cards.append({
+                        "Name": c_name,
+                        "Type": str(c_type).capitalize(),
+                        "ID": c_id
+                    })
+                    
+        if uma_cards:
+            card_df = pd.DataFrame(uma_cards)
+            # Safe aggregation
+            stats = card_df.groupby('ID').agg({
+                'Name': 'first',
+                'Type': 'first',
+                'ID': 'count'
+            }).rename(columns={'ID': 'Count'}).reset_index()
+            
+            stats['Usage %'] = (stats['Count'] / len(winners) * 100)
+            
+            render_visual_card_list(
+                stats, 
+                title=f"🃏 Core Cards for {winners['Clean_Uma'].iloc[0]} ({winners['Clean_Style'].iloc[0]})",
+                limit=10
+            )
+            
 def style_fig(fig, title=None):
     """Applies a colorful, dark-mode friendly theme to Plotly charts."""
     fig.update_layout(
@@ -20,7 +195,7 @@ def style_fig(fig, title=None):
     return fig
 
 def show_view(config_item):
-    from uma_utils import load_finals_data
+    
     st.warning("this page is under construction and may not function as intended.")
     st.header(f"📊 {config_item['id']} - Championship Analysis")
     
@@ -97,7 +272,7 @@ def show_view(config_item):
     # Calculate strictly based on filters
     winners_df = df_filtered[df_filtered['Is_Winner'] == 1]
 
-    st.info("👆 **Select a specific Uma from the Top** and click on the Champion Profile tab to see their detailed Profile with Skills.")
+    st.info("👆 **Select a specific Uma from the Top** and click on the Champion Profile tab to see their detailed Profile with Skills and Builds for the character.")
     
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total Runs", len(df_filtered))
@@ -113,7 +288,7 @@ def show_view(config_item):
     # --- TABS ---
     tab_overview, tab_stats, tab_meta, tab_records, tab_impact = st.tabs([
         "🏆 Champion Profile", 
-        "💪 Stats & Build", 
+        "💪 Stats & Aptitude", 
         "🌍 Meta Trends",
         "🥛 Hall of Milk",
         "👑 Meta Impact"
@@ -124,45 +299,77 @@ def show_view(config_item):
     # =========================================================
     with tab_overview:
         if selected_uma == "All Umas":
-            
-            
-            # Show Leaderboard if no specific Uma selected
             st.subheader(f"🏆 {selected_league} Leaderboard")
             if selected_style != "All Styles":
                 st.caption(f"Showing rankings for **{selected_style}** strategy only.")
 
-            # FIX: Use df_filtered to respect Strategy filter
+            # 1. Prepare Data
             leaderboard = df_filtered.groupby('Clean_Uma').agg(
                 Entries=('Clean_Uma', 'count'),
                 Wins=('Is_Winner', 'sum')
             ).reset_index()
-            leaderboard['Win Rate %'] = (leaderboard['Wins'] / leaderboard['Entries'] * 100).round(1)
-            leaderboard = leaderboard.sort_values(['Wins', 'Win Rate %'], ascending=[False, False]).reset_index(drop=True)
-            leaderboard.index += 1
+            leaderboard['Win Rate %'] = (leaderboard['Wins'] / leaderboard['Entries'] * 100)
             
-            st.dataframe(
-                leaderboard, 
-                width='stretch',
-                column_config={
-                    "Win Rate %": st.column_config.ProgressColumn("Win Rate", format="%.1f%%", min_value=0, max_value=100),
-                    "Clean_Uma": st.column_config.TextColumn("Uma Name"),
-                    "Entries": st.column_config.NumberColumn("Total Entries")
-                },
-                column_order=["Clean_Uma", "Wins","Entries","Win Rate %"]
-            )
+            # Sort by Wins (Meta) or Win Rate (Performance)
+            leaderboard = leaderboard.sort_values(['Win Rate %'], ascending=[False]).head(20)
+            
+            # 2. Render Visual List (HTML)
+            st.markdown("### 🌟 Top Performers")
+            
+            for rank, row in leaderboard.iterrows():
+                uma_name = row['Clean_Uma']
+                win_rate = row['Win Rate %']
+                count = row['Wins']
+                entries = row['Entries']
+                
+                # Get Image
+                img_src = get_uma_base64(uma_name)
+                
+                # Fallback Icon if no image found
+                if not img_src:
+                    # Use a generic placeholder or the type icon as backup
+                    img_tag = f"<div style='width: 50px; height: 50px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px;'>🐴</div>"
+                else:
+                    img_tag = f"<img src='{img_src}' style='width: 50px; height: 50px; object-fit: cover; border-radius: 50%; border: 2px solid #555;'>"
+
+                # Progress Bar Width
+                bar_width = min(win_rate, 100)
+                
+                # Render Row
+                html_block = dedent(f"""
+                    <div style="display: flex; align-items: center; margin-bottom: 12px; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 10px;">
+                        <div style="margin-right: 15px;">{img_tag}</div>
+                        <div style="flex-grow: 1;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span style="font-weight: bold; font-size: 1.1em;">{uma_name}</span>
+                                <span style="font-weight: bold; color: #00CC96;">{win_rate:.1f}% WR</span>
+                            </div>
+                            <div style="width: 100%; height: 8px; background: #333; border-radius: 4px; overflow: hidden;">
+                                <div style="width: {bar_width}%; height: 100%; background: linear-gradient(90deg, #00CC96, #00b887);"></div>
+                            </div>
+                            <div style="font-size: 0.8em; color: #888; margin-top: 4px;">
+                                {count} Wins / {entries} Runs
+                            </div>
+                        </div>
+                    </div>
+                """)
+                st.markdown(html_block, unsafe_allow_html=True)
+
         else:
-            # --- DETAILED OSHI VIEW ---
+            # --- DETAILED OSHI VIEW (Specific Character) ---
             st.subheader(f"🌟 {selected_uma} Analysis")
-            st.info(f"Analysis based on **{selected_league}** data. Note that Stats, Skills, and Cards are sourced from user submitted OCR data merged with manual entries (without skill/stat/card data), and uniques to uma ratios may not be 1 to 1.")
+            
+            st.info(f"Analysis based on **{selected_league}** data. Note that Stats, Skills, and Cards are sourced from user submitted OCR data merged with manual entries.")
             if winners_df.empty:
                 st.warning(f"No significant recorded wins for {selected_uma} in {selected_league} yet.")
-            else:
-                c_radar, c_cards = st.columns([1, 1])
-                
-                # --- A. RADAR CHART (Comparison) ---
-                with c_radar:
-                    stats = ['Speed', 'Stamina', 'Power', 'Guts', 'Wit']
-                    if all(s in winners_df.columns for s in stats):
+            
+            if not winners_df.empty:
+                # Get the Image Source (Base64)
+                img_src = get_uma_base64(selected_uma)
+
+                # 2. Comparison Logic (Same as before)
+                stats = ['Speed', 'Stamina', 'Power', 'Guts', 'Wit']
+                if all(s in winners_df.columns for s in stats):
                         uma_stats = winners_df[stats].mean().fillna(0).tolist()
                         if uma_stats is not None and sum(uma_stats) > 0:
                             # FIX: Baseline uses df_baseline (All Winners matching Strategy)
@@ -193,50 +400,53 @@ def show_view(config_item):
                                 ), 
                                 showlegend=True
                             )
+                            fig.add_layout_image(
+                                dict(
+                                    source=img_src,
+                                    xanchor="center", 
+                                    yanchor="middle",
+                                    layer='above',      
+                                    opacity=0.2,       
+                                    xref='paper',
+                                    yref='paper',
+                                    visible=True,
+                                    sizing='contain',   
+                                    x=0.5, y=0.5,      
+                                    sizex=0.6, sizey=0.6,
+                                )
+                            )
                             st.plotly_chart(style_fig(fig, f"Stat Comparison: {selected_uma}"), width='stretch')
-                        else:
-                            st.info("Insufficient stat data for radar chart.")
-
-                # --- B. TOP SUPPORT CARDS ---
-                with c_cards:
-                    card_cols = [c for c in winners_df.columns if 'card' in c.lower() and 'name' in c.lower()]
-                    all_cards = []
-                    for col in card_cols:
-                        all_cards.extend(winners_df[col].dropna().tolist())
-                    
-                    if all_cards:
-                        card_counts = pd.DataFrame(Counter(all_cards).items(), columns=['Card', 'Count'])
-                        card_counts = card_counts.sort_values('Count', ascending=True).tail(10)
-                        
-                        fig_cards = px.bar(card_counts, x='Count', y='Card', orientation='h', text='Count',
-                                           color_discrete_sequence=['#AB63FA'])
-                        st.plotly_chart(style_fig(fig_cards, "Most Used Support Cards (Winners)"), width='stretch')
-                    else:
-                        st.info("No support card data available for winners.")
-
-                # --- C. WINNING SKILLS ---
-                st.markdown("#### ⚡ Top Skills on Winning Runs")
-                if 'Skill_List' in winners_df.columns:
-                    
-                    all_skills = []
-                    for skills in winners_df['Skill_List']:
-                        if isinstance(skills, list): all_skills.extend(skills)
-                    
-                    if all_skills:
-                        skill_counts = pd.DataFrame(Counter(all_skills).items(), columns=['Skill', 'Count'])
-                        skill_counts = skill_counts.sort_values('Count', ascending=True).tail(15)
-                        
-                        fig_skills = px.bar(skill_counts, x='Count', y='Skill', orientation='h', text='Count',
-                                            color='Count', color_continuous_scale='Viridis')
-                        st.plotly_chart(style_fig(fig_skills, f"Top Skills For {selected_uma} Winners"), width='stretch')
                 else:
-                    st.info("No skill data available for winners.")
+                    st.info("Insufficient stat data for radar chart.")
+                            
+
+                # # --- B. TOP SUPPORT CARDS (Small Visual) ---
+                # with c_cards:  
+                #     st.markdown("#### 🃏 Top Cards")
+                #     uma_cards_list = []
+                #     for _, row in winners_df.iterrows():
+                #         for i in range(1, 7):
+                #             c_name = row.get(f'card{i}_name')
+                #             c_type = row.get(f'card{i}_type')
+                #             c_id = row.get(f'card{i}_id')
+                #             if pd.notna(c_name) and str(c_name) not in ['nan', 'Unknown']:
+                #                 uma_cards_list.append({'Name': c_name, 'Type': c_type, 'ID': c_id})
+                    
+                #     if uma_cards_list:
+                #         from uma_utils import render_visual_card_list
+                #         c_df = pd.DataFrame(uma_cards_list)
+                #         stats = c_df.groupby('ID').agg({'Name':'first','Type':'first','ID':'count'}).rename(columns={'ID':'Count'}).reset_index()
+                #         stats['Usage %'] = (stats['Count'] / len(winners_df) * 100)
+                #         render_visual_card_list(stats, title="", limit=6)
+                
+                render_build_guide(df_filtered)
 
     # =========================================================
     # TAB 2: STATS & BUILD (Aggregate)
     # =========================================================
     with tab_stats:
-        st.subheader("💪 Stat Distributions (Winners Only)")
+
+        
         
         if winners_df.empty:
             st.warning("No winners to analyze.")
@@ -291,6 +501,8 @@ def show_view(config_item):
                 plot_aptitude('Aptitude_Style', "Strategy", c_apt3)
             
             st.markdown("---")
+
+            st.subheader("💪 Stat Distributions (Winners Only)")
             # --- 1. BOX PLOTS (Stat Spread) ---
             stat_cols = ['Speed', 'Stamina', 'Power', 'Guts', 'Wit']
             # Melt for Faceted Box Plot

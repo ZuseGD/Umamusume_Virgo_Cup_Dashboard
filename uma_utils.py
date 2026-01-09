@@ -9,6 +9,8 @@ import ast
 from typing import Tuple, List, Optional
 import duckdb
 import difflib
+import json
+import base64
 
 # --- CONFIGURATION ---
 
@@ -189,9 +191,13 @@ VARIANT_MAP = {
 
     # Oguri Cap
     "christmas oguri": "Oguri Cap (Christmas)",
+    "ashen miracle": "Oguri Cap (Christmas)",
     "oguri cap (christmas)": "Oguri Cap (Christmas)",
     "xmas oguri": "Oguri Cap (Christmas)",
-    "claus": "Oguri Cap (Christmas)", # Title: [Miracle of the White Star Claus]
+    "claus": "Oguri Cap (Christmas)", 
+
+    # Biwa
+    "rouge caroler": "Biwa Hayahide (Christmas)",
     
     # Gold Ship
     "summer golshi": "Gold Ship (Summer)",
@@ -244,6 +250,123 @@ NAME_ALIASES = {
     "T.M. Opera": "T.M. Opera O",
     "TM Opera O": "T.M. Opera O",
 }
+
+def get_base64_src(file_path):
+    """
+    Reads an image file and converts it to a base64 string for HTML embedding.
+    """
+    if not os.path.exists(file_path):
+        return ""
+    try:
+        with open(file_path, "rb") as f:
+            data = f.read()
+        encoded = base64.b64encode(data).decode()
+        return f"data:image/png;base64,{encoded}"
+    except Exception as e:
+        print(f"Error encoding image {file_path}: {e}")
+        return ""
+
+
+# --- SHARED ICON HELPER ---
+def get_type_icon_src(type_name):
+    """
+    Returns the Base64 SRC string for a card type icon.
+    """
+    TYPE_ICON_MAP = {
+        "speed": "speed_icon.png",
+        "stamina": "stamina_icon.png",
+        "power": "power_icon.png",
+        "guts": "guts_icon.png",
+        "wit": "wit_icon.png",
+        "pal": "pal_icon.png",
+        "group": "group_icon.png"
+    }
+    
+    # Normalize input
+    clean_type = str(type_name).lower()
+    
+    icon_file = TYPE_ICON_MAP.get(clean_type, "unknown.png")
+    path = f"assets/card_type/{icon_file}"
+    return get_base64_src(path)
+
+def get_card_rarity_map(json_path="data/supportcard.json"):
+    """
+    Returns a dict: { card_id (int) : is_ssr (bool) }
+    Reads from the uploaded supportcard.json.
+    Assumes 'rarity': 3 corresponds to SSR.
+    """
+    # 1. Verify Path
+    if not os.path.exists(json_path):
+        # Fallback: Try looking in root if data/ path fails
+        if os.path.exists("supportcard.json"):
+            json_path = "supportcard.json"
+        else:
+            return {}
+    
+    try:
+        with open(json_path, "r", encoding="utf-8") as f:
+            cards = json.load(f)
+            
+        rarity_map = {}
+        for c in cards:
+            cid = c.get('id')
+            # In standard Uma DBs: 1=R, 2=SR, 3=SSR
+            rarity = c.get('rarity', 0)
+            rarity_map[cid] = (rarity == 3) 
+            
+        return rarity_map
+    except Exception as e:
+        print(f"Error loading rarity map: {e}")
+        return {}
+    
+# --- UMA IMAGE MATCHING HELPER ---
+def find_uma_image_path(target_name):
+    """
+    Scans assets/umas/ for a matching image.
+    Uses smart_match_name to handle variants/aliases in filenames.
+    
+    Example Matches:
+    - Target: "Vodka" -> Matches: "[Wild Top Gear] Vodka.png" (via Strip)
+    """
+    base_dir = "assets/umas"
+    if not os.path.exists(base_dir):
+        return None
+    
+   
+    try:
+        files = os.listdir(base_dir)
+        png_files = [f for f in files if f.lower().endswith(".png")]
+        
+        # --- PASS 1: SMART  MATCH ---
+        # We run every filename through smart_match_name. 
+        # If the file's  name matches our target, it's a hit.
+        for f in png_files:
+            name_no_ext = os.path.splitext(f)[0]
+            file_canonical = smart_match_name(name_no_ext)
+            
+            if file_canonical == target_name:
+                return os.path.join(base_dir, f)
+        
+        # --- PASS 2: EXACT/CONTAINMENT FALLBACK ---
+        # If smart match failed (maybe target isn't in canonical list?), try raw string matching.
+        for f in png_files:
+            # Check if target name is literally inside the filename
+            # e.g. "Vodka" in "[Wild Top Gear] Vodka.png"
+            if target_name.lower() in f.lower():
+                return os.path.join(base_dir, f)
+                
+    except Exception as e:
+        print(f"Error searching for uma image: {e}")
+        return None
+        
+    return None
+
+def get_uma_base64(clean_name):
+    """Returns the base64 src for a character image."""
+    path = find_uma_image_path(clean_name)
+    if path:
+        return get_base64_src(path) # Re-uses your existing base64 helper
+    return None # Return None if not found
 
 def hybrid_merge_entries(df_ocr, df_manual):
     """
@@ -375,10 +498,10 @@ def hybrid_merge_entries(df_ocr, df_manual):
         col_s = f"{base_col}{secondary_suffix}"
         invalid = ['Unknown', 'unknown', 'nan', '', 'None']
         
-        if col_p in df.columns: s_p = df[col_p].replace(invalid, np.nan)
+        if col_p in df.columns: s_p = df[col_p].replace(invalid, np.nan).infer_objects(copy=False)
         else: s_p = pd.Series(np.nan, index=df.index)
             
-        if col_s in df.columns: s_s = df[col_s].replace(invalid, np.nan)
+        if col_s in df.columns: s_s = df[col_s].replace(invalid, np.nan).infer_objects(copy=False)
         else: s_s = pd.Series(np.nan, index=df.index)
             
         filled = s_p.fillna(s_s)
@@ -1134,11 +1257,20 @@ def load_finals_data(config_item: dict):
             
             # Deck Columns
             for i in range(1, 7):
+                # 1. Name
                 cname = f"card{i}_name"
                 select_parts.append(safe_col('d', cname, cname, cols_deck))
+                
+                # 2. Level
                 clevel = f"card{i}_level"
                 select_parts.append(safe_col('d', clevel, clevel, cols_deck))
+                
+                # 3. Type
+                ctype = f"card{i}_type"
+                select_parts.append(safe_col('d', ctype, ctype, cols_deck))
 
+                cid = f"card{i}_id"
+                select_parts.append(safe_col('d', cid, cid, cols_deck))
             target_dist = config_item.get('aptitude_dist', 'Long') 
             target_surf = config_item.get('aptitude_surf', 'Turf')
             select_parts.append(safe_col('s', target_dist, 'Aptitude_Dist', cols_stat))
@@ -1457,6 +1589,62 @@ def load_finals_data(config_item: dict):
     
     return combined_df, raw_dfs
 
+# --- VISUAL CARD RENDERER (Updated Layout) ---
+def render_visual_card_list(card_data, title="Top Cards", limit=10):
+    """
+    Renders a grid of cards using HTML for layout.
+    Uses Base64 icons to ensure they render correctly in st.markdown.
+    """
+    st.subheader(title)
+    
+    if card_data.empty:
+        st.info("No data available.")
+        return
+
+    # Sort
+    top_cards = card_data.sort_values('Count', ascending=False).head(limit)
+    
+    # Grid Layout
+    COLS_PER_ROW = 5
+    for i in range(0, len(top_cards), COLS_PER_ROW):
+        cols = st.columns(COLS_PER_ROW)
+        batch = top_cards.iloc[i : i + COLS_PER_ROW]
+        
+        for col, (_, row) in zip(cols, batch.iterrows()):
+            with col:
+                # 1. Card Image (Standard Streamlit Image works fine for local files)
+                card_img_path = f"assets/cards/{int(row['ID'])}.png"
+                if os.path.exists(card_img_path):
+                    st.image(card_img_path, width='stretch')
+                else:
+                    st.warning(f"Missing: {row['ID']}")
+                
+                # 2. Stats Line (Icon + Percentage) -> Needs Base64 for HTML
+                icon_src = get_type_icon_src(row['Type'])
+                
+                # Type Color
+                type_color_map = {
+                    "Speed": "#4cabce", "Stamina": "#e05858", "Power": "#f0a500",
+                    "Guts": "#e685b5", "Wisdom": "#26a506", "Friend": "#fbff00", "Group": "#3efa05"
+                }
+                t_color = type_color_map.get(str(row['Type']).capitalize(), "#888")
+
+                # HTML Block with Base64 Icon
+                html_stats = f"""
+                <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 5px; margin-bottom: 2px;">
+                    <img src="{icon_src}" style="width: 24px; height: 24px; object-fit: contain;">
+                    <span style="font-size: 1.4em; font-weight: 800; color: #FAFAFA; line-height: 1;">
+                        {row['Usage %']:.1f}%
+                    </span>
+                </div>
+                <div style="text-align: center; font-size: 0.8em; color: {t_color}; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    {row['Name']}
+                </div>
+                """
+                
+                # RENDER WITH UNSAFE HTML
+                st.markdown(html_stats, unsafe_allow_html=True)
+                st.progress(min(row['Usage %'] / 100, 1.0))
 footer_html = """
 <style>
 .footer {
