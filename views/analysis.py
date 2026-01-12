@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import pandas as pd
 from textwrap import dedent
 from collections import Counter
-from uma_utils import get_card_rarity_map, render_visual_card_list, get_type_icon_src, get_uma_base64, get_stat_icon_base64
+from uma_utils import get_card_rarity_map, render_visual_card_list, get_type_icon_src, get_uma_base64, get_stat_icon_base64, add_img_chart
 from uma_utils import load_finals_data
 
 STAT_CHECKPOINTS = {
@@ -26,7 +26,7 @@ def render_stat_row(stat, uma_val, global_val, color):
 
     # Bar Widths (Max 1200 adjustable based on scenario)
     max_val = 1200 
-    uma_pct = min(uma_val / max_val * 100, 100)
+    uma_pct = min(uma_val / max_val * 100, 100)  
     global_pct = min(global_val / max_val * 100, 100)
     
     # Checkpoint Logic
@@ -501,8 +501,10 @@ def show_view(config_item):
                             with c_radar:
                                 radar_options = ['All Umas', f'{selected_uma}']
                                 radar_selection = st.segmented_control(
-                                    'Selected', radar_options, selection_mode='multi', default=['All Umas', f'{selected_uma}']
+                                    'Toggle Visibility', radar_options, selection_mode='multi', default=['All Umas', f'{selected_uma}']
                                 )
+
+
 
                                 if radar_selection == ['All Umas', f'{selected_uma}'] or radar_selection == [f'{selected_uma}', 'All Umas']:
                                     st.plotly_chart(style_fig(fig, f"Stat Comparison: {selected_uma}"), width='stretch')
@@ -980,10 +982,12 @@ def show_view(config_item):
                 size='Runs', 
                 color='Win Rate %',
                 hover_name='Clean_Uma',
-                color_continuous_scale='RdYlGn',
+                color_continuous_scale='RdYlGn',    
                 size_max=100,
-                title=f"Meta Landscape ({selected_league})"
+                title=None
             )
+            add_img_chart(meta_df, fig_scatter)
+                    
             
             # Quadrant Lines (Median)
             avg_wr = meta_df['Win Rate %'].mean()
@@ -994,7 +998,7 @@ def show_view(config_item):
             
             fig_scatter.update_layout(legend=dict(title=None, orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
             fig_scatter.update_traces(textposition='top center')
-            st.plotly_chart(style_fig(fig_scatter), width='stretch')
+            st.plotly_chart(style_fig(fig_scatter, title=f'{selected_league} Finals Bubble Chart'), width='stretch')
             
             st.caption("""
             - **Top Right:** Meta Kings (High Use, High Wins)

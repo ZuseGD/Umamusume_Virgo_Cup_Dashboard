@@ -11,6 +11,8 @@ import duckdb
 import difflib
 import json
 import base64
+from PIL import Image, ImageDraw, ImageOps, ImageChops
+import io
 
 # --- CONFIGURATION ---
 
@@ -253,6 +255,59 @@ NAME_ALIASES = {
     "TM Opera O": "T.M. Opera O",
 }
 
+@st.cache_data
+def make_circle_image(base64_str):
+    if not base64_str: return None
+    
+    try:
+        # 1. Decode
+        if ',' in base64_str:
+            header, encoded = base64_str.split(',', 1)
+        else:
+            header = "data:image/png;base64"
+            encoded = base64_str
+            
+        img_data = base64.b64decode(encoded)
+        img = Image.open(io.BytesIO(img_data)).convert("RGBA")
+        
+        # 2. Prepare Super-Sampled Mask (Anti-Aliasing)
+        scale = 3
+        big_size = (img.size[0] * scale, img.size[1] * scale)
+        mask = Image.new('L', big_size, 0)
+        draw = ImageDraw.Draw(mask)
+        draw.ellipse((0, 0) + big_size, fill=255)
+        
+        # Resize mask down to image size smoothly
+        mask = mask.resize(img.size, resample=Image.Resampling.LANCZOS)
+        
+        # 3. Fit Image (Center Crop)
+        # We ensure the image is square and centered before applying masks
+        img = ImageOps.fit(img, mask.size, centering=(0.5, 0.5))
+        
+        # 4. THE FIX: Combine Masks
+        # We grab the existing Alpha channel of the character
+        r, g, b, a = img.split()
+        
+        # We Multiply the existing alpha (a) by the circle mask (mask)
+        # Logic: 
+        # - If pixel is transparent in Original (Alpha=0) -> 0 * 255 = 0 (Remains Transparent)
+        # - If pixel is outside Circle (Mask=0) -> 255 * 0 = 0 (Hidden)
+        # - If pixel is Character inside Circle -> 255 * 255 = 255 (Visible)
+        final_alpha = ImageChops.multiply(a, mask)
+        
+        # Apply the combined alpha
+        img.putalpha(final_alpha)
+        
+        # 5. Output
+        buffer = io.BytesIO()
+        img.save(buffer, format="PNG")
+        return f"{header},{base64.b64encode(buffer.getvalue()).decode()}"
+
+    except Exception as e:
+        # st.error(f"Error processing image: {e}") # Uncomment for debugging
+        return base64_str
+
+@st.cache_data
 def get_base64_src(file_path):
     """
     Reads an image file and converts it to a base64 string for HTML embedding.
@@ -1660,6 +1715,74 @@ def get_stat_icon_base64(stat_name):
             encoded = base64.b64encode(f.read()).decode()
         return f"data:image/png;base64,{encoded}"
     return "" # Return empty if not found (will fallback to text)
+
+# Requires Pick Rate % and Win Rate %
+def add_img_chart(df, fig, opacity = 0.6, marker_opacity = 0.3):
+
+    use_icons = st.checkbox("Show Character Icons", value=True)
+
+    # Calculate dynamic axes range to ensure images fit
+    x_max = df['Pick Rate %'].max() * 1.15
+    y_max = df['Win Rate %'].max() * 1.15
+    fig.update_xaxes(range=[0, x_max])
+    fig.update_yaxes(range=[0, y_max])
+
+    if use_icons:
+        max_runs = df['Runs'].max()
+
+        # The biggest bubble (max_runs) will take up this fraction of the axis
+        max_width_fraction = 0.5
+        max_height_fraction = 0.4
+                    
+        # Minimum size buffer (so Umas with few runs aren't microscopic)
+        min_width_fraction = 0.04
+        min_height_fraction = 0.06
+
+        # Hide the actual dots, but keep them for Hover functionality
+        fig.update_traces(marker=dict(opacity=marker_opacity))
+                    
+
+        for _, row in df.iterrows():
+            uma_name = row['Clean_Uma']
+            run_count = row['Runs']
+            img_src = get_uma_base64(uma_name)
+
+            circle_img = make_circle_image(img_src)
+                        
+            if circle_img:
+                ratio = run_count / max_runs
+
+                current_sizex = (x_max * max_width_fraction) * ratio
+                current_sizey = (y_max * max_height_fraction) * ratio
+
+                # Apply Minimum Floor For bubbles
+                current_sizex = max(current_sizex, x_max * min_width_fraction)
+                current_sizey = max(current_sizey, y_max * min_height_fraction)
+
+                fig.add_layout_image(
+                    dict(
+                        source=circle_img,
+                        x=row['Pick Rate %'],
+                        y=row['Win Rate %'],
+                        xref="x",
+                        yref="y",
+                        sizex=current_sizex,
+                        sizey=current_sizey,
+                        xanchor="center",
+                        yanchor="middle",
+                        layer="above",
+                        opacity=opacity
+                    )
+                )
+            else:
+                # Fallback: If no image, show a small text label
+                fig.add_annotation(
+                    x=row['Pick Rate %'], y=row['Win Rate %'],
+                    text=uma_name[:3], showarrow=False,
+                    font=dict(size=10, color="white")
+                )
+
+            
 
 footer_html = """
 <style>

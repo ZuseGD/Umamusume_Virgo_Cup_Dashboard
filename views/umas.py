@@ -1,6 +1,6 @@
 import streamlit as st
 import plotly.express as px
-from uma_utils import style_fig, PLOT_CONFIG, dynamic_height, show_description, analyze_significant_roles
+from uma_utils import style_fig, PLOT_CONFIG, dynamic_height, show_description, analyze_significant_roles, add_img_chart
 
 def show_view(df, team_df):
     st.set_page_config(page_title="Uma Performance Dashboard", layout="wide")
@@ -82,7 +82,7 @@ def show_view(df, team_df):
     st.markdown("---")
     
     # --- 2. TIER LIST SECTION ---
-    st.subheader("📊 Uma Tier List")
+    st.subheader("Uma Tier List")
     
     # Aggregate Stats
     uma_stats = df.groupby('Clean_Uma').agg({
@@ -91,13 +91,15 @@ def show_view(df, team_df):
     }).reset_index()
     
     # Calculate Global Pick Rate
-    uma_stats['Pick_Rate'] = (uma_stats['Clean_Races'] / total_entries) * 300
+    uma_stats['Pick Rate %'] = (uma_stats['Clean_Races'] / total_entries) * 300
     
     # Filter: Hide very low sample size (less than 10 entries)
     uma_stats = uma_stats[uma_stats['Clean_Races'] >= 10]
     
     # Prepare Top 15 for Bar Chart
     top_umas = uma_stats.sort_values('Calculated_WinRate', ascending=False).head(15).copy()
+    uma_stats['Win Rate %'] = uma_stats['Calculated_WinRate']
+    uma_stats['Runs'] = uma_stats['Clean_Races']
     top_umas['Short_Name'] = top_umas['Clean_Uma'].apply(
         lambda x: x[:18] + ".." if len(x) > 18 else x
     )
@@ -107,25 +109,27 @@ def show_view(df, team_df):
     chart_height = dynamic_height(n_items, min_height=600, per_item=45)
 
     # SCATTER PLOT (Quadrants)
-    st.markdown("#### 💠 Popularity vs. Performance (Quadrants)")
+    st.markdown("####  Popularity vs. Performance (Quadrants)")
     fig_scatter = px.scatter(
         uma_stats, 
-        x='Pick_Rate',              
+        x='Pick Rate %',              
         y='Calculated_WinRate',
-        size='Pick_Rate',           # Size by pick rate
+        size='Pick Rate %',           # Size by pick rate
         color='Calculated_WinRate',
         color_continuous_scale='Viridis',
         title="Uma Tier List: Pick Rate vs Performance",
         template='plotly_dark',
         hover_name='Clean_Uma',
-        labels={'Pick_Rate': 'Pick Rate (%)', 'Calculated_WinRate': 'Win Rate (%)', 'Clean_Races': 'Number of Entries'},
-        hover_data={'Clean_Races': True, 'Pick_Rate': ':.1f', 'Calculated_WinRate': ':.1f'},
-        size_max=100
+        labels={'Pick Rate %': 'Pick Rate (%)', 'Calculated_WinRate': 'Win Rate (%)', 'Clean_Races': 'Number of Entries'},
+        hover_data={'Clean_Races': True, 'Pick Rate %': ':.1f', 'Calculated_WinRate': ':.1f'},
+        size_max=120
     )
+
+    add_img_chart(uma_stats, fig_scatter)
     
     # Add Average Reference Lines
     avg_wr = uma_stats['Calculated_WinRate'].mean()
-    avg_pick = uma_stats['Pick_Rate'].mean()
+    avg_pick = uma_stats['Pick Rate %'].mean()
     
     fig_scatter.add_hline(y=avg_wr, line_dash="dot", annotation_text="Avg WR", annotation_position="bottom left")
     fig_scatter.add_vline(x=avg_pick, line_dash="dot", annotation_text="Avg Pick Rate", annotation_position="top right")
@@ -146,11 +150,11 @@ def show_view(df, team_df):
         orientation='v', 
         color='Calculated_WinRate', 
         color_continuous_scale='Viridis', 
-        text='Pick_Rate',          
+        text='Pick Rate %',          
         template='plotly_dark', 
         # Pass extra data for tooltip
-        hover_data={'Clean_Uma': False, 'Short_Name': False, 'Clean_Races': False, 'Pick_Rate': ':.2f', 'Calculated_WinRate': False},
-        labels={'Calculated_WinRate': 'Win Rate (%)', 'Short_Name': 'Uma', 'Pick_Rate': 'Pick Rate (%)'},
+        hover_data={'Clean_Uma': False, 'Short_Name': False, 'Clean_Races': False, 'Pick Rate %': ':.2f', 'Calculated_WinRate': False},
+        labels={'Calculated_WinRate': 'Win Rate (%)', 'Short_Name': 'Uma', 'Pick Rate %': 'Pick Rate (%)'},
         height=chart_height
     )
     

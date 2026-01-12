@@ -41,6 +41,7 @@ def show_view(df, team_df, current_config):
 * **Smart Sorting:** The "Top Performers" list is now sorted by **Win Rate %** (descending) by default, prioritizing efficiency over raw win counts.
 * **Images:** Added images to ocr deck data
 * **Enhanced stat visualization:** New checkpoints and icons!
+* **Added Uma Icons to bubble charts!** Experimental
 
 
 
