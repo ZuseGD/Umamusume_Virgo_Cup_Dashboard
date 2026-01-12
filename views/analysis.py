@@ -4,8 +4,59 @@ import plotly.graph_objects as go
 import pandas as pd
 from textwrap import dedent
 from collections import Counter
-from uma_utils import get_card_rarity_map, render_visual_card_list, get_type_icon_src, get_uma_base64, find_uma_image_path
+from uma_utils import get_card_rarity_map, render_visual_card_list, get_type_icon_src, get_uma_base64, get_stat_icon_base64
 from uma_utils import load_finals_data
+
+STAT_CHECKPOINTS = {
+    'Speed':   { 600: "We be sandbagging", 800: "GOTTA GO FAST", 1000: "VROOOOOOM", 1200: "Speed Cap"},
+    'Stamina': {370: "ARE YOU BAKUSHINING TEAM TRIALS?", 600: "TT Mile Runner", 800: "Much stamina, much good", 1000: "So much untapped power", 1200: "WOW, SO MUCH STAMINA"},
+    'Power':   {400: "How we getting up the hill bro?", 600: "is this a long?", 800 : "John Power", 1000: "I tap my power and I win the game", 1200: "Power Cap"},
+    'Guts':    {0: "You have to read berserk", 500: "Unc Guts", 800: "Why don't skeletons fight each other?", 1000: "Meta Guts", 1000: "GUTS MAXXING", 1200: "GIGACHAD GUTS ENJOYER"},
+    'Wit':     {300: "STUDY MORE BECOME DOCTOR", 400: "Perfection", 600: "Megamind", 800: "3 Wit cards, how original", 1000: "SURRRELLLY EVERY SKILL PROCS", 1200: "Wit CAAPPPPPPPPPPPPPPPPPP"},
+}
+
+def get_checkpoint_text(stat_name, value):
+    thresholds = STAT_CHECKPOINTS.get(stat_name, {})
+    # Find the highest threshold met
+    met = [msg for lim, msg in thresholds.items() if value >= lim]
+    return met[-1] if met else ""
+
+def render_stat_row(stat, uma_val, global_val, color):
+    icon_src = get_stat_icon_base64(stat)
+
+    # Bar Widths (Max 1200 adjustable based on scenario)
+    max_val = 1200 
+    uma_pct = min(uma_val / max_val * 100, 100)
+    global_pct = min(global_val / max_val * 100, 100)
+    
+    # Checkpoint Logic
+    checkpoint_msg = get_checkpoint_text(stat, uma_val)
+    if uma_pct >= global_pct:
+        checkpoint_html = f'<span style="color: #FFD700; font-size: 0.7em; margin-left: 6px;">★ {checkpoint_msg}</span>' if checkpoint_msg else ""
+    else:
+        checkpoint_html = f'<span style="color: #FFD700; font-size: 0.7em; margin-left: 6px;">{checkpoint_msg}</span>' if checkpoint_msg else ""
+    
+    
+    
+    # Icon HTML: Use <img> if found, else Text
+    if icon_src:
+        icon_html = f'<img src="{icon_src}" style="width: 24px; vertical-align: middle; margin-right: 8px;">'
+    else:
+        icon_html = f'<span style="margin-right: 8px;">{stat[:3].upper()}</span>'
+
+    return f"""
+<div style="margin-bottom: 8px;">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+<div style="display: flex; align-items: center; color: {color}; font-weight: bold;">
+{icon_html} {int(uma_val)} {checkpoint_html}
+</div>
+<div style="font-size: 0.75em; color: #888;"> Global Average: {int(global_val)}</div>
+</div>
+<div style="position: relative; width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px;">
+<div style="position: absolute; left: {global_pct}%; top: -2px; bottom: -2px; width: 2px; background: rgba(255,255,255,0.5); z-index: 1;"></div>
+<div style="width: {uma_pct}%; height: 100%; background: {color}; border-radius: 4px; opacity: 0.9;"></div>
+</div>
+</div>"""
 
 def set_uma_filter(name):
     st.session_state.selected_uma_filter = name
@@ -68,7 +119,6 @@ def render_build_guide(uma_df):
             def render_arch_html(arch_tuple, count=None, is_main=False):
                 html_parts = []
                 for type_name, qty in arch_tuple:
-                    # USE NEW HELPER HERE
                     icon_src = get_type_icon_src(type_name)
                     
                     block = f"""
@@ -179,7 +229,7 @@ def render_build_guide(uma_df):
             render_visual_card_list(
                 stats, 
                 title=f"🃏 Core Cards for {winners['Clean_Uma'].iloc[0]} ({winners['Clean_Style'].iloc[0]})",
-                limit=10
+                limit=12
             )
             
 def style_fig(fig, title=None):
@@ -408,6 +458,11 @@ def show_view(config_item):
                             else:
                                 all_winner_stats = [0]*5
                                 baseline_name = "Global Avg (No Data)"
+                            
+                            
+                            if 'current_data' not in st.session_state:
+                                st.session_state.current_data = False
+
 
                             fig = go.Figure()
                             
@@ -424,7 +479,7 @@ def show_view(config_item):
                                 polar=dict(
                                     radialaxis=dict(visible=True, range=[0, 1200]),
                                     angularaxis=dict(rotation=90, direction="clockwise")
-                                ), 
+                                ),
                                 showlegend=True
                             )
                             fig.add_layout_image(
@@ -442,7 +497,96 @@ def show_view(config_item):
                                     sizex=0.6, sizey=0.6,
                                 )
                             )
-                            st.plotly_chart(style_fig(fig, f"Stat Comparison: {selected_uma}"), width='stretch')
+                            c_radar, c_df = st.columns([0.60, 0.40])
+                            with c_radar:
+                                radar_options = ['All Umas', f'{selected_uma}']
+                                radar_selection = st.segmented_control(
+                                    'Selected', radar_options, selection_mode='multi', default=['All Umas', f'{selected_uma}']
+                                )
+
+                                if radar_selection == ['All Umas', f'{selected_uma}'] or radar_selection == [f'{selected_uma}', 'All Umas']:
+                                    st.plotly_chart(style_fig(fig, f"Stat Comparison: {selected_uma}"), width='stretch')
+                                else:
+                                    def make_fig(data, name, color = '#00CC96', title= f"Stat Comparison: {selected_uma}", image = False):
+                                        selected_fig = go.Figure(
+                                            data=[go.Scatterpolar(
+                                            r=data, 
+                                            theta=stats, fill='toself', 
+                                            name= name, 
+                                            line_color= color)
+                                                
+                                            ]
+                                        )
+                                        selected_fig.update_layout(
+                                            polar=dict(
+                                            radialaxis=dict(visible=True, range=[0, 1200]),
+                                            angularaxis=dict(rotation=90, direction="clockwise")
+                                            ),
+                                            showlegend=True
+                                        )
+                                        if image:
+                                            selected_fig.add_layout_image(
+                                                dict(
+                                                    source=img_src,
+                                                    xanchor="center", 
+                                                    yanchor="middle",
+                                                    layer='above',      
+                                                    opacity=0.2,       
+                                                    xref='paper',
+                                                    yref='paper',
+                                                    visible=True,
+                                                    sizing='contain',   
+                                                    x=0.5, y=0.5,      
+                                                    sizex=0.6, sizey=0.6,
+                                                )
+                                            ) 
+                                        st.plotly_chart(style_fig(selected_fig, title), width='stretch')
+
+                                    if radar_selection == ['All Umas']:
+                                        make_fig(all_winner_stats, 'Average Stats', color= "#D8EBE6", title = 'Average of All Umas')
+                                    elif radar_selection == [f'{selected_uma}']:
+                                        make_fig(uma_stats, f'{selected_uma} stats', title=f'Average of {selected_uma}', image = True) 
+                                        
+                                    
+                                    
+                            with c_df:
+                                st.markdown(f"##### Mean Build Stats ({selected_uma})")
+            
+                                # Prepare Data
+                                stats_list = ['Speed', 'Stamina', 'Power', 'Guts', 'Wit']
+                                uma_means = winners_df[stats_list].mean().fillna(0)
+                                
+                                # Global Baseline Data
+                                baseline_subset = df_baseline[df_baseline['Is_Winner'] == 1]
+                                if not baseline_subset.empty:
+                                    global_means = baseline_subset[stats_list].mean().fillna(0)
+                                else:
+                                    global_means = pd.Series([0]*5, index=stats_list)
+
+                                stat_colors = {
+                                                    'Speed': '#3B82F6',   # Blue
+                                                    'Stamina': '#EF4444', # Red
+                                                    'Power': '#F59E0B',   # Orange/Yellow
+                                                    'Guts': '#EC4899',    # Pink
+                                                    'Wit': '#10B981'      # Green
+                                                }
+
+                                # Render List
+                                html_stack = ""
+                                for stat in stats_list:
+                                    html_stack += render_stat_row(
+                                        stat, 
+                                        uma_means[stat], 
+                                        global_means[stat],
+                                        stat_colors[stat]
+                                    )
+                                
+                                # Wrap in a container for cleaner styling
+                                st.markdown(dedent(f"""
+                                <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px;">
+                                    {html_stack}
+                                </div>
+                                """), unsafe_allow_html=True)
                 else:
                     st.info("Insufficient stat data for radar chart.")
                             

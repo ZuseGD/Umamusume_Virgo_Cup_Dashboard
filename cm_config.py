@@ -19,8 +19,8 @@ CM_LIST = {
         "parquet_file": "libra.parquet" ,
         "finals_csv": "data/cm7_finals.csv", 
         "finals_parquet": None,
-        "form_url": 'https://forms.gle/BUUMNG1MYZesYUjy7',
-        "status_msg": "Forms have not started yet.",
+        "form_url": None,
+        "status_msg": "Forms have closed.",
         "guide_images": [
             "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/scorpio.png"
         ]
@@ -36,7 +36,7 @@ CM_LIST = {
         "parquet_file": None ,
         "finals_csv": None, 
         "finals_parquet": None,
-        "form_url": 'https://forms.gle/BUUMNG1MYZesYUjy7',
+        "form_url": None,
         "status_msg": "Forms have not started yet.",
         "guide_images": [
             "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/sagittarius.png"
@@ -60,7 +60,7 @@ CM_LIST = {
         # Backwards compatibility flags
         "finals_csv": "data/cm6_finals.csv",
         "finals_parquet": None,
-        "form_url": 'https://forms.gle/BUUMNG1MYZesYUjy7',
+        "form_url": None,
         "status_msg": "Forms have closed for this event.",
         "guide_images": [
             "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/libra.png"
@@ -80,7 +80,7 @@ CM_LIST = {
         "finals_csv": "data/1_virgo_finals.csv", 
         "finals_parquet": "data/1_virgo_finals.parquet",
 
-        "form_url": 'https://forms.gle/BUUMNG1MYZesYUjy7', 
+        "form_url": None, 
         "status_msg": "Forms have closed for this event.",
         "guide_images": [
             "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/virgo.png"

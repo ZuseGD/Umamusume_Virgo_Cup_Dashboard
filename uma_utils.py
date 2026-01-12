@@ -1607,7 +1607,7 @@ def render_visual_card_list(card_data, title="Top Cards", limit=10):
     top_cards = card_data.sort_values('Count', ascending=False).head(limit)
     
     # Grid Layout
-    COLS_PER_ROW = 5
+    COLS_PER_ROW = 6
     for i in range(0, len(top_cards), COLS_PER_ROW):
         cols = st.columns(COLS_PER_ROW)
         batch = top_cards.iloc[i : i + COLS_PER_ROW]
@@ -1627,7 +1627,7 @@ def render_visual_card_list(card_data, title="Top Cards", limit=10):
                 # Type Color
                 type_color_map = {
                     "Speed": "#4cabce", "Stamina": "#e05858", "Power": "#f0a500",
-                    "Guts": "#e685b5", "Wisdom": "#26a506", "Friend": "#fbff00", "Group": "#3efa05"
+                    "Guts": "#e685b5", "Wit": "#26a506", "Pal": "#fbff00", "Group": "#3efa05"
                 }
                 t_color = type_color_map.get(str(row['Type']).capitalize(), "#888")
 
@@ -1647,6 +1647,20 @@ def render_visual_card_list(card_data, title="Top Cards", limit=10):
                 # RENDER WITH UNSAFE HTML
                 st.markdown(html_stats, unsafe_allow_html=True)
                 st.progress(min(row['Usage %'] / 100, 1.0))
+
+
+def get_stat_icon_base64(stat_name):
+    # Map 'Speed' -> 'speed_icon.png', etc.
+    filename = f"{stat_name.lower()}_icon.png"
+    # Adjust this path to match your project structure exactly
+    path = os.path.join("assets", "card_type", filename)
+    
+    if os.path.exists(path):
+        with open(path, "rb") as f:
+            encoded = base64.b64encode(f.read()).decode()
+        return f"data:image/png;base64,{encoded}"
+    return "" # Return empty if not found (will fallback to text)
+
 footer_html = """
 <style>
 .footer {

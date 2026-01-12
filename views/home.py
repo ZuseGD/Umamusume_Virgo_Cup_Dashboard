@@ -40,6 +40,7 @@ def show_view(df, team_df, current_config):
   * The character image now overlays the center of the chart with 80% opacity (`layer='above'`), resolving previous alignment and whitespace issues caused by split columns.
 * **Smart Sorting:** The "Top Performers" list is now sorted by **Win Rate %** (descending) by default, prioritizing efficiency over raw win counts.
 * **Images:** Added images to ocr deck data
+* **Enhanced stat visualization:** New checkpoints and icons!
 
 
 
