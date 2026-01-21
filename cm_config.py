@@ -3,6 +3,24 @@ from decouple import config
 # update the relevant CM form_url with link when form is live/none when inactive
 # update sheet_url with the exploded CSV link from Google Sheets when available use the previous event's link as placeholder if needed
 CM_LIST = {
+    
+    "Sagittarius Cup (CM8)": {
+        "id": "Sagittarius Cup (CM8)",
+        "icon": "🏹",
+        "aptitude_dist": "Long",   # Options: Sprint, Mile, Medium, Long
+        "aptitude_surf": "Turf",   # Options: Turf, Dirt
+        "sheet_url": config('SAGITTARIUS_SHEET_URL', default=''),
+        "is_multipart_parquet": False,
+         # Backwards compatibility flags
+        "parquet_file": None ,
+        "finals_csv": None, 
+        "finals_parquet": None,
+        "form_url": "https://forms.gle/dMVGByzu1ceuqaxs5",
+        "status_msg": "Forms have not started yet.",
+        "guide_images": [
+            "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/sagittarius.png"
+        ]
+    },
     "Scorpio Cup (CM7)": {
         "id": "Scorpio Cup (CM7)",
         "icon": "🦀",
@@ -19,27 +37,10 @@ CM_LIST = {
         "parquet_file": "libra.parquet" ,
         "finals_csv": "data/cm7_finals.csv", 
         "finals_parquet": None,
-        "form_url": None,
+        "form_url": "https://forms.gle/dMVGByzu1ceuqaxs5",
         "status_msg": "Forms have closed.",
         "guide_images": [
             "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/scorpio.png"
-        ]
-    },
-    "Sagittarius Cup (CM8)": {
-        "id": "Sagittarius Cup (CM8)",
-        "icon": "🏹",
-        "aptitude_dist": "Long",   # Options: Sprint, Mile, Medium, Long
-        "aptitude_surf": "Turf",   # Options: Turf, Dirt
-        "sheet_url": config('', default=''),
-        "is_multipart_parquet": False,
-         # Backwards compatibility flags
-        "parquet_file": None ,
-        "finals_csv": None, 
-        "finals_parquet": None,
-        "form_url": None,
-        "status_msg": "Forms have not started yet.",
-        "guide_images": [
-            "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/sagittarius.png"
         ]
     },
     "Libra Cup (CM6)": {
@@ -60,7 +61,7 @@ CM_LIST = {
         # Backwards compatibility flags
         "finals_csv": "data/cm6_finals.csv",
         "finals_parquet": None,
-        "form_url": None,
+        "form_url": "https://forms.gle/dMVGByzu1ceuqaxs5",
         "status_msg": "Forms have closed for this event.",
         "guide_images": [
             "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/libra.png"
@@ -80,7 +81,7 @@ CM_LIST = {
         "finals_csv": "data/1_virgo_finals.csv", 
         "finals_parquet": "data/1_virgo_finals.parquet",
 
-        "form_url": None, 
+        "form_url": "https://forms.gle/dMVGByzu1ceuqaxs5", 
         "status_msg": "Forms have closed for this event.",
         "guide_images": [
             "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/virgo.png"
