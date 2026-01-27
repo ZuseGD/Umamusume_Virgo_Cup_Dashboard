@@ -10,7 +10,7 @@ def show_view(current_config):
     # 1. Header
     st.header("📅 CM Selector")
     event_names = list(CM_LIST.keys())
-    selected_event_name = st.selectbox("Select Event", event_names, index=0, key="event_selector1")
+    selected_event_name = st.selectbox("Select Event", event_names, index=0, key="event_selector_canva")
     current_config = CM_LIST[selected_event_name]
     cm_id = current_config.get('id', 'Champion Meeting')
     event_name = cm_id.replace('_', ' ').title()
