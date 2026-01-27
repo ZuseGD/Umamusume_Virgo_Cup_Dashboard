@@ -383,31 +383,64 @@ def show_view(df, team_df, current_config):
 
     # --- LEADERBOARD ---
     st.subheader("👑 Top Performers")
-    st.warning("We are aware of an issue where some duplicate igns cause leaderboard inaccuracies. A fix is in progress.")
-    unique_sessions = df.drop_duplicates(subset=['Display_IGN', 'Round', 'Day'])
-    stats_source = unique_sessions[unique_sessions['Display_IGN'] != "Anonymous Trainer"]
     
-    leaderboard = stats_source.groupby('Display_IGN').agg({'Clean_Wins': 'sum', 'Clean_Races': 'sum'}).reset_index()
-    leaderboard = leaderboard[(leaderboard['Clean_Races'] >= 15) & (leaderboard['Clean_Races'] <= 81)]
+    # 1. Use the Filtered DF, but work with Clean_IGN (Raw Names)
+    # We drop duplicates to get unique sessions for this filtered view
+    unique_sessions = df.drop_duplicates(subset=['Clean_IGN', 'Round', 'Day'])
+    
+    # 2. Group by Clean_IGN (ignoring the "Anonymous Trainer" label from global load)
+    # We want to find the Top 10 for *THIS SPECIFIC* filter selection
+    leaderboard = unique_sessions.groupby('Clean_IGN').agg({
+        'Clean_Wins': 'sum', 
+        'Clean_Races': 'sum'
+    }).reset_index()
+
+    # 3. Dynamic Threshold
+    # If viewing a single Day (Max 20 races), require fewer races to show up
+    min_races = 5 if len(unique_sessions) < 100 else 15
+    leaderboard = leaderboard[leaderboard['Clean_Races'] >= min_races]
+
+    # 4. Calculate Scores
     leaderboard['Global_WinRate'] = (leaderboard['Clean_Wins'] / leaderboard['Clean_Races']) * 100
     leaderboard['Score'] = leaderboard.apply(lambda x: calculate_score(x['Clean_Wins'], x['Clean_Races']), axis=1)
+
     
-    main_teams = team_df.groupby('Display_IGN')['Team_Comp'].agg(lambda x: x.mode()[0] if not x.mode().empty else "Various").reset_index()
-    leaderboard = pd.merge(leaderboard, main_teams, on='Display_IGN', how='left').sort_values('Score', ascending=False).head(10).sort_values('Score', ascending=True)
+    # Ensure team_df is also filtered by the sidebar selections (which you did in the sidebar block)
+    # We merge on Clean_IGN to get the correct strategy
+    if 'Clean_IGN' in team_df.columns:
+        # Get the most common team comp for each player IN THIS FILTERED VIEW
+        main_teams = team_df.groupby('Clean_IGN')['Team_Comp'].agg(
+            lambda x: x.mode()[0] if not x.mode().empty else "Various"
+        ).reset_index()
+    else:
+        # Fallback if Clean_IGN isn't in team_df (it should be if loaded correctly)
+        main_teams = pd.DataFrame(columns=['Clean_IGN', 'Team_Comp'])
+
+    leaderboard = pd.merge(leaderboard, main_teams, on='Clean_IGN', how='left')
+
+    # 6. Sort and Cut to Top 10
+    leaderboard = leaderboard.sort_values('Score', ascending=False).head(10).sort_values('Score', ascending=True)
+
+    # 7. Rename Clean_IGN to Display_IGN for the chart label
+    leaderboard.rename(columns={'Clean_IGN': 'Display_IGN'}, inplace=True)
     
-    fig_leader = px.bar(
-        leaderboard, y='Score', x='Display_IGN', orientation='v', 
-        color='Global_WinRate', text='Clean_Wins', color_continuous_scale='Turbo',
-        hover_data={'Team_Comp': True, 
-                    'Score': ':.1f',
-                    'Global_WinRate': False,
-                    'Display_IGN': False,
-                    'Clean_Wins': False},
-        labels={'Score': 'Performance Score', 'Display_IGN': 'Trainer', 'Global_WinRate': 'Win Rate %', 'Clean_Wins': 'Wins', 'Team_Comp': 'Main Team Composition'},
-    )
-    fig_leader.update_layout(coloraxis_colorbar=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-    fig_leader.update_traces(texttemplate='Wins: %{text} | WR: %{marker.color:.1f}%', textposition='outside')
-    st.plotly_chart(style_fig(fig_leader, height=600), width="stretch", config=PLOT_CONFIG)
+    # 8. Plot
+    if not leaderboard.empty:
+        fig_leader = px.bar(
+            leaderboard, y='Score', x='Display_IGN', orientation='v', 
+            color='Global_WinRate', text='Clean_Wins', color_continuous_scale='Turbo',
+            hover_data={'Team_Comp': True, 
+                        'Score': ':.1f',
+                        'Global_WinRate': False,
+                        'Display_IGN': False,
+                        'Clean_Wins': False},
+            labels={'Score': 'Performance Score', 'Display_IGN': 'Trainer', 'Global_WinRate': 'Win Rate %', 'Clean_Wins': 'Wins', 'Team_Comp': 'Main Team Composition'},
+        )
+        fig_leader.update_layout(coloraxis_colorbar=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+        fig_leader.update_traces(texttemplate='Wins: %{text} | WR: %{marker.color:.1f}%', textposition='outside')
+        st.plotly_chart(style_fig(fig_leader, height=600), width="stretch", config=PLOT_CONFIG)
+    else:
+        st.info("No players meet the race threshold for this specific filter.")
 
     # --- MONEY ---
     st.subheader("💰 Spending Impact")
