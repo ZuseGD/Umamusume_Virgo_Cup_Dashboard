@@ -28,20 +28,11 @@ def show_view(df, team_df, current_config):
     col_header, col_btn = st.columns([1, 1], gap="medium")
 
     with col_header:
-        with st.expander("Images in Finals Analysis", expanded=True):
+        with st.expander("Added CM8 Finals", expanded=True):
             st.markdown("""
     
-### 🚀 New Features
-* **Interactive Analysis Leaderboard:** Added a clickable "Magnifying Glass" (🔍) button next to each Top Performer. Clicking this button now automatically filters the entire dashboard to show deep-dive stats for that specific Uma.
+### Added CM8 Finals Data Support
 
-### 🎨 Visual Improvements
-* **Radar Chart Overhaul:**
-  * Merged the Character Image and Radar Chart into a single visualization component.
-  * The character image now overlays the center of the chart with 80% opacity (`layer='above'`), resolving previous alignment and whitespace issues caused by split columns.
-* **Smart Sorting:** The "Top Performers" list is now sorted by **Win Rate %** (descending) by default, prioritizing efficiency over raw win counts.
-* **Images:** Added images to ocr deck data
-* **Enhanced stat visualization:** New checkpoints and icons!
-* **Added Uma Icons to bubble charts!** Experimental
 
 
 

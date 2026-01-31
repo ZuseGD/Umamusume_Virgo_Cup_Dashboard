@@ -10,10 +10,15 @@ CM_LIST = {
         "aptitude_dist": "Long",   # Options: Sprint, Mile, Medium, Long
         "aptitude_surf": "Turf",   # Options: Turf, Dirt
         "sheet_url": config('SAGITTARIUS_SHEET_URL', default=''),
-        "is_multipart_parquet": False,
+        "is_multipart_parquet": True,
+        "finals_parts": {
+            "statsheet": "data/cm8_finals_statsheet_1.parquet",
+            "podium": "data/cm8_finals_podium_1.parquet",
+            "deck": "data/cm8_finals_deck_1.parquet"
+        },
          # Backwards compatibility flags
         "parquet_file": None ,
-        "finals_csv": None, 
+        "finals_csv": "data/cm8_finals.csv", 
         "finals_parquet": None,
         "form_url": "https://forms.gle/dMVGByzu1ceuqaxs5",
         "status_msg": "Forms have not started yet.",
@@ -51,7 +56,7 @@ CM_LIST = {
             "deck": "data/cm7_finals_deck_0.parquet"
         },
          # Backwards compatibility flags
-        "parquet_file": "libra.parquet" ,
+        "parquet_file": None ,
         "finals_csv": "data/cm7_finals.csv", 
         "finals_parquet": None,
         "form_url": "https://forms.gle/dMVGByzu1ceuqaxs5",

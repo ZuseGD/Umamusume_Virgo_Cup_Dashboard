@@ -293,6 +293,7 @@ def show_view(config_item):
             default_idx = available_groups.index("A Finals") if "A Finals" in available_groups else 0
             selected_group = st.radio("Finals Group", available_groups, index=default_idx)
             df_group = df_league[df_league['Finals_Group'] == selected_group].copy()
+            df_group = df_group[df_group['Clean_Style'] != 'Unknown']
         else:
             st.warning("No groups found for this league.")
             df_group = pd.DataFrame()
@@ -715,7 +716,7 @@ def show_view(config_item):
             
             if not style_stats.empty:
                 fig_style = px.bar(style_stats, x='Clean_Style', y='Win Rate %', text='Win Rate %', labels={'Clean_Style': 'Running Strategy', 'Win Rate %': 'Win Rate (%)'},
-                                   color='Clean_Style', color_discrete_sequence=px.colors.qualitative.Pastel, orientation='v')
+                                   color='Clean_Style', color_discrete_sequence=px.colors.qualitative.Pastel, orientation='v', hover_data=['Runs'])
                 fig_style.update_layout(legend=dict(title=None, orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
                 st.plotly_chart(style_fig(fig_style, "Win Rate by Running Strategy"), width='stretch')
             else:
@@ -757,6 +758,10 @@ def show_view(config_item):
         
         # 1. Base copy
         rec_df = winners_df.copy()
+
+        rec_df['Clean_IGN'] = rec_df['Clean_IGN'].fillna("Unknown Trainer") 
+        rec_df = rec_df[rec_df['Clean_Style'] != 'nan']
+        rec_df['Skill_Count'] = rec_df['Skill_Count'].fillna(0).astype(int) 
         
         if rec_df.empty:
             st.warning(f"No winners found for {selected_uma}. Cannot determine records.")
@@ -771,6 +776,8 @@ def show_view(config_item):
             # This filters out Manual CSV entries that have no stats (Total = 0)
             # so they don't incorrectly show up as "Underdog" or "Lowest Speed"
             valid_stats_df = rec_df[rec_df['Total_Stats'] > 1].copy()
+
+            valid_stats_df = valid_stats_df.dropna(subset=['Clean_Style'])
             
             # --- CUSTOM HTML CARD FUNCTION ---
             def record_card(label, value, row, color="#FFD700"):

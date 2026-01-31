@@ -72,7 +72,7 @@ def show_view(df, team_df):
         fig_drill.update_traces(
             texttemplate='%{x:.1f}%', 
             textposition='inside',
-            hovertemplate='<b>%{y}</b><br>Win Rate: %{x:.1f}%<br>Count: %{customdata[0]}<extra></extra>'
+            hovertemplate='<b>%{y}</b><br>Win Rate: %{x:.1f}%<br>Number of Races: %{customdata[0]}<extra></extra>'
         )
         
         fig_drill.update_layout(xaxis_title="Win Rate (%)", yaxis_title=None)

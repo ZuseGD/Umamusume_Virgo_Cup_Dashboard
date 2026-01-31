@@ -1333,16 +1333,17 @@ def load_finals_data(config_item: dict):
             select_parts.append(safe_col('s', target_dist, 'Aptitude_Dist', cols_stat))
             select_parts.append(safe_col('s', target_surf, 'Aptitude_Surface', cols_stat))
 
-            needed_apts = ['Front', 'Pace', 'Late', 'End']
+            needed_apts = ['Front', 'Pace', 'Late', 'End', 'Runaway']
             lower_stat_cols = [c.lower() for c in cols_stat]
             has_apts = all(n.lower() in lower_stat_cols for n in needed_apts)
             if has_apts and 'style' in [c.lower() for c in cols_pod]:
                 style_logic = """
                 CASE 
-                    WHEN lower(p.style) LIKE '%front%' OR lower(p.style) LIKE '%runaway%' THEN s.Front
+                    WHEN lower(p.style) LIKE '%front%' THEN s.Front
                     WHEN lower(p.style) LIKE '%pace%' THEN s.Pace
                     WHEN lower(p.style) LIKE '%late%' THEN s.Late
                     WHEN lower(p.style) LIKE '%end%' THEN s.End
+                    WHEN lower(p.style) LIKE '%runaway%' THEN s.Runaway
                     ELSE NULL
                 END as Aptitude_Style
                 """
@@ -1483,7 +1484,7 @@ def load_finals_data(config_item: dict):
 
             ign_col = find_column(raw_csv, ['player ign', 'unique display name', 'trainer name'])
             league_col = find_column(raw_csv, ['league', 'selection'])
-            winner_type_col = find_column(raw_csv, ["ownumaoropponent", "winnerown"]) 
+            winner_type_col = find_column(raw_csv, ["ownumaoropponent", "winnerown", "isthewinnerumayourownumaoropponent"]) 
            # --- AGGRESSIVE COLUMN SEARCH ---
             # Finds 'Finals - Winner - Name' and 'Finals - Winner - Running Style' even with weird chars
             winner_style_col = None
@@ -1509,7 +1510,7 @@ def load_finals_data(config_item: dict):
             if winner_style_col and winner_style_col not in raw_csv.columns:
                 print(f"CRITICAL ERROR: Detected column '{winner_style_col}' is NOT in dataframe columns!")
             # ----------------------------
-            
+
             processed_rows = []
             
             # --- FIX: USE ROW INDEX TO PREVENT DRIFT ---
@@ -1555,6 +1556,16 @@ def load_finals_data(config_item: dict):
                             team_data.append(None)
                     else:
                         team_data.append(None)
+
+                # --- AUTO-FILL WINNER STYLE IF MISSING ---
+                if w_clean_name != "Unknown" and (w_clean_style == "nan" or w_clean_style == "Unknown"):
+                    for member in team_data:
+                        if member and member['clean_name'] == w_clean_name:
+                            # Found the winner in the team list! Use that declared style.
+                            if member['clean_style'] != "Unknown":
+                                w_clean_style = member['clean_style']
+                                print(f"DEBUG: Auto-filled style for {w_clean_name}: {w_clean_style}")
+                                break
 
                 # --- DETERMINE WINNER INDEX ---
                 winner_idx = -1
