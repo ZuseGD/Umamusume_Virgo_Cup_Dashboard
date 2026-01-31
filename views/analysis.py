@@ -777,7 +777,7 @@ def show_view(config_item):
             # so they don't incorrectly show up as "Underdog" or "Lowest Speed"
             valid_stats_df = rec_df[rec_df['Total_Stats'] > 1].copy()
 
-            valid_stats_df = valid_stats_df.dropna(subset=['Clean_Style'])
+            valid_stats_df['Clean_Style'] = valid_stats_df['Clean_Style'].fillna("Opponent Uma")
             
             # --- CUSTOM HTML CARD FUNCTION ---
             def record_card(label, value, row, color="#FFD700"):

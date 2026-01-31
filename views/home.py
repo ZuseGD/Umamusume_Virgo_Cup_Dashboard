@@ -32,7 +32,7 @@ def show_view(df, team_df, current_config):
             st.markdown("""
     
 ### Added CM8 Finals Data Support
-
+* **NaN Handling** Now properly handles missing style data in CM8 Finals submissions.
 
 
 
