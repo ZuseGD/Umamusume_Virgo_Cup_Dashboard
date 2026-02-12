@@ -138,7 +138,6 @@ ORIGINAL_UMAS = [
     # Originals
     "Symboli Rudolf", "Maruzensky", "Oguri Cap", "El Condor Pasa", "Grass Wonder",
     "Mejiro McQueen", "Vodka", "Daiwa Scarlet", "Taiki Shuttle", "Gold Ship",
-    # ... (Add other canonicals as needed)
     "Special Week",  "Silence Suzuka", "Tokai Teio",
     "Fuji Kiseki",  "Hishi Amazon",
     "T.M. Opera O", "Narita Brian", 
@@ -242,7 +241,19 @@ VARIANT_MAP = {
     "quercus": "Air Groove (Wedding)",
     "air groove (wedding)": "Air Groove (Wedding)",
 
-    
+    # New Year Variants
+    "new year ♪ new urara!": "Haru Urara (New Year)",
+    "haru urara (new year)": "Haru Urara (New Year)",
+    "new year urara": "Haru Urara (New Year)",
+    "new year, same radiance!": "T.M. Opera O (New Year)",
+    "same radiance": "T.M. Opera O (New Year)",
+    "t.m. opera o (new year)": "T.M. Opera O (New Year)",
+
+    # Valentine Variants
+    "mihono bourbon (valentine)": "Mihono Bourbon (Valentine)",
+    "code: icing": "Mihono Bourbon (Valentine)",
+    "code icing": "Mihono Bourbon (Valentine)",
+
     # Add any other specific titles from your CSVs here
     # Format: "unique keyword found in csv": "Target Canonical Name"
 }
