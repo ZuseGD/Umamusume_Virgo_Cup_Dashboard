@@ -31,8 +31,8 @@ def show_view(df, team_df, current_config):
         with st.expander("Added CM8 Finals", expanded=True):
             st.markdown("""
     
-### Added CM8 Finals Data Support
-* **NaN Handling** Now properly handles missing style data in CM8 Finals submissions.
+### Added CM9
+* **Variant Updates** Updated the variant names for the most recent umas
 
 
 
