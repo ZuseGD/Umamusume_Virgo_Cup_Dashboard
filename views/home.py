@@ -28,12 +28,12 @@ def show_view(df, team_df, current_config):
     col_header, col_btn = st.columns([1, 1], gap="medium")
 
     with col_header:
-        with st.expander("Added CM8 Finals", expanded=True):
+        with st.expander("Reorganized CM9", expanded=True):
             st.markdown("""
     
 ### Added CM9
 * **Variant Updates** Updated the variant names for the most recent umas
-
+* **Data handling update** Updated data handling in _explode_raw_form_data and reorganize CM9 section in home view
 
 
             """)

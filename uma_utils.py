@@ -830,10 +830,13 @@ def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
                     
                     # Execute Copy
                     if c_name and p_name:
+                        df[c_name] = df[c_name].astype(object)
                         df.loc[is_same, c_name] = df.loc[is_same, c_name].fillna(df.loc[is_same, p_name])
                     if c_style and p_style:
+                        df[c_style] = df[c_style].astype(object)
                         df.loc[is_same, c_style] = df.loc[is_same, c_style].fillna(df.loc[is_same, p_style])
                     if c_role and p_role:
+                        df[c_role] = df[c_role].astype(object)
                         df.loc[is_same, c_role] = df.loc[is_same, c_role].fillna(df.loc[is_same, p_role])
 
     # 3. Identify Core Metadata
