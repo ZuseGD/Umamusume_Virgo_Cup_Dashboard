@@ -20,6 +20,23 @@ CM_LIST = {
             "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/capricorn.png"
         ]
     },
+     "Aquarius Cup (CM10)": {
+        "id": "Aquarius Cup (CM10)",
+        "icon": "♒",
+        "aptitude_dist": "Sprint",   # Options: Sprint, Mile, Medium, Long
+        "aptitude_surf": "Dirt",   # Options: Turf, Dirt
+        "sheet_url": config('AQUARIUS_SHEET_URL', default=''),
+        "is_multipart_parquet": False,
+         # Backwards compatibility flags
+        "parquet_file": None,
+        "finals_csv": None, 
+        "finals_parquet": None,
+        "form_url": "https://forms.gle/CpHZSNs3BMghF5Jp7",
+        "status_msg": "Forms have closed.",
+        "guide_images": [
+            "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/aquarius.png"
+        ]
+    },
     "Sagittarius Cup (CM8)": {
         "id": "Sagittarius Cup (CM8)",
         "icon": "🏹",
