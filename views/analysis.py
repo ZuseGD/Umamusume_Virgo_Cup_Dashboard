@@ -656,7 +656,7 @@ def show_view(config_item):
                     st.plotly_chart(style_fig(fig, 'Aptitude Impact'), width='stretch', key=f"apt_{col}")
 
             # Columns for the 3 metrics
-            c_apt1, c_apt2, c_apt3 = st.columns(3, border=True)
+            c_apt1, c_apt2 = st.columns(2, border=True)
             
             # Get Labels from Config
             dist_label = config_item.get('aptitude_dist', 'Distance')
@@ -671,8 +671,6 @@ def show_view(config_item):
                 # e.g. "Surface (Turf) S-Rank"
                 plot_aptitude('Aptitude_Surface', f"Surface ({surf_label})", c_apt2)
                 
-            if 'Aptitude_Style' in winners_df.columns:
-                plot_aptitude('Aptitude_Style', "Strategy", c_apt3)
             
             st.markdown("---")
 

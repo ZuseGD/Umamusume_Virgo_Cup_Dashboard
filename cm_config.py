@@ -9,10 +9,15 @@ CM_LIST = {
         "aptitude_dist": "Sprint",   # Options: Sprint, Mile, Medium, Long
         "aptitude_surf": "Turf",   # Options: Turf, Dirt
         "sheet_url": config('CAPRICORN_SHEET_URL', default=''),
-        "is_multipart_parquet": False,
+        "is_multipart_parquet": True,
+        "finals_parts": {
+            "statsheet": "data/cm9_finals_statsheet_0.parquet",
+            "podium": "data/cm9_finals_podium_0.parquet",
+            "deck": "data/cm9_finals_deck_0.parquet"
+        },
          # Backwards compatibility flags
         "parquet_file": None,
-        "finals_csv": None, 
+        "finals_csv": "data/cm9_finals.csv", 
         "finals_parquet": None,
         "form_url": "https://forms.gle/CpHZSNs3BMghF5Jp7",
         "status_msg": "Forms have closed.",
