@@ -21,6 +21,15 @@ PLOT_CONFIG = {
     'displayModeBar': True,
     'displaylogo': False,
     'modeBarButtonsToRemove': ['sendDataToCloud', 'lasso2d', 'select2d', 'zoom2d', 'pan2d'],
+    'responsive': True,
+    
+}
+
+BUBBLE_CONFIG = {
+    'scrollZoom': True, 
+    'displayModeBar': True,
+    'displaylogo': False,
+    'modeBarButtonsToRemove': ['sendDataToCloud', 'lasso2d'],
     'responsive': True
 }
 
@@ -1202,8 +1211,6 @@ def style_fig(fig, height=600):
         yaxis=dict(automargin=True),
         xaxis=dict(automargin=True)
     )
-    fig.update_xaxes(fixedrange=True)
-    fig.update_yaxes(fixedrange=True)
     return fig
 
 def dynamic_height(n_items, min_height=400, per_item=40):
@@ -1745,6 +1752,7 @@ def get_stat_icon_base64(stat_name):
 def add_img_chart(df, fig, opacity = 0.6, marker_opacity = 0.3):
 
     use_icons = st.checkbox("Show Character Icons", value=True)
+    st.info("Toggle to show Uma icons sized by number of runs. Hover over bubbles for details. Uncheck when zooming in as Uma Icons are static in size due to limitations, but invisible markers will still scale and show hover info.")
 
     # Calculate dynamic axes range to ensure images fit
     x_max = df['Pick Rate %'].max() * 1.15
@@ -1796,7 +1804,8 @@ def add_img_chart(df, fig, opacity = 0.6, marker_opacity = 0.3):
                         xanchor="center",
                         yanchor="middle",
                         layer="above",
-                        opacity=opacity
+                        opacity=opacity,
+                        sizing="contain"
                     )
                 )
             else:

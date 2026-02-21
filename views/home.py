@@ -35,6 +35,7 @@ def show_view(df, team_df, current_config):
 * **Variant Updates** Updated the variant names for the most recent umas
 * **Data handling update** Updated data handling in _explode_raw_form_data and reorganize CM9 section in home view
 * **CM9 Finals** Capricorn Cup finals data is now live!
+* **Readded Zooming a panning to Uma Bubble Graphs** 
 
 
             """)

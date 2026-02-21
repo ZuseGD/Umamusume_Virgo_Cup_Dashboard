@@ -1,7 +1,7 @@
 import streamlit as st
 import plotly.express as px
 import pandas as pd
-from uma_utils import style_fig, PLOT_CONFIG, dynamic_height, show_description
+from uma_utils import BUBBLE_CONFIG, style_fig, PLOT_CONFIG, dynamic_height, show_description
 
 def show_view(df, team_df):
     st.set_page_config(page_title="Team & Strategy Dashboard", layout="wide")
@@ -56,7 +56,7 @@ def show_view(df, team_df):
             fig_bubble.add_hline(y=avg_wr, line_dash="dot", annotation_text="Avg Win Rate")
 
             fig_bubble.update_layout(coloraxis_colorbar=dict(title=None, orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-            st.plotly_chart(style_fig(fig_bubble, height=500), width="stretch", config=PLOT_CONFIG)
+            st.plotly_chart(style_fig(fig_bubble, height=500), width="stretch", config=BUBBLE_CONFIG)
             show_description("teams_bubble")
             
             st.markdown("---")
@@ -124,7 +124,7 @@ def show_view(df, team_df):
             final_fig.update_layout(
                 showlegend=False
             )
-            st.plotly_chart(final_fig, width="stretch", config=PLOT_CONFIG)
+            st.plotly_chart(final_fig, width="stretch", config=BUBBLE_CONFIG)
             show_description("teams_meta")
         else:
             st.info("Not enough data to show style combinations.")

@@ -1,6 +1,6 @@
 import streamlit as st
 import plotly.express as px
-from uma_utils import style_fig, PLOT_CONFIG, dynamic_height, show_description, analyze_significant_roles, add_img_chart
+from uma_utils import BUBBLE_CONFIG, style_fig, PLOT_CONFIG, dynamic_height, show_description, analyze_significant_roles, add_img_chart
 
 def show_view(df, team_df):
     st.set_page_config(page_title="Uma Performance Dashboard", layout="wide")
@@ -136,7 +136,7 @@ def show_view(df, team_df):
 
     fig_scatter.update_layout(coloraxis_colorbar=dict(title=None, orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     
-    st.plotly_chart(style_fig(fig_scatter, height=600), width="stretch", config=PLOT_CONFIG)
+    st.plotly_chart(style_fig(fig_scatter, height=600), width="stretch", config = BUBBLE_CONFIG)
     show_description("scatter_tier")
     
     # BAR CHART (Rankings)

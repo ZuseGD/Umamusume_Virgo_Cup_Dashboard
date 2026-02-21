@@ -11,9 +11,9 @@ CM_LIST = {
         "sheet_url": config('CAPRICORN_SHEET_URL', default=''),
         "is_multipart_parquet": True,
         "finals_parts": {
-            "statsheet": "data/cm9_finals_statsheet_0.parquet",
-            "podium": "data/cm9_finals_podium_0.parquet",
-            "deck": "data/cm9_finals_deck_0.parquet"
+            "statsheet": "data/cm9_finals_statsheet_1.parquet",
+            "podium": "data/cm9_finals_podium_1.parquet",
+            "deck": "data/cm9_finals_deck_1.parquet"
         },
          # Backwards compatibility flags
         "parquet_file": None,

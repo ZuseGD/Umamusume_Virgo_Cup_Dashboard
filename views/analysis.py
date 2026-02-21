@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import pandas as pd
 from textwrap import dedent
 from collections import Counter
-from uma_utils import get_card_rarity_map, render_visual_card_list, get_type_icon_src, get_uma_base64, get_stat_icon_base64, add_img_chart
+from uma_utils import BUBBLE_CONFIG, get_card_rarity_map, render_visual_card_list, get_type_icon_src, get_uma_base64, get_stat_icon_base64, add_img_chart
 from uma_utils import load_finals_data
 
 STAT_CHECKPOINTS = {
@@ -1003,7 +1003,7 @@ def show_view(config_item):
             
             fig_scatter.update_layout(legend=dict(title=None, orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
             fig_scatter.update_traces(textposition='top center')
-            st.plotly_chart(style_fig(fig_scatter, title=f'{selected_league} Finals Bubble Chart'), width='stretch')
+            st.plotly_chart(style_fig(fig_scatter, title=f'{selected_league} Finals Bubble Chart'), width='stretch', config=BUBBLE_CONFIG)
             
             st.caption("""
             - **Top Right:** Meta Kings (High Use, High Wins)
