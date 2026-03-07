@@ -28,7 +28,7 @@ def show_view(df, team_df, current_config):
     col_header, col_btn = st.columns([1, 1], gap="medium")
 
     with col_header:
-        with st.expander("Reorganized CM9", expanded=True):
+        with st.expander("CM10 Added", expanded=True):
             st.markdown("""
     
 ### Added CM10

@@ -260,6 +260,7 @@ VARIANT_MAP = {
 
     # Valentine Variants
     "mihono bourbon (valentine)": "Mihono Bourbon (Valentine)",
+    "miho bourbon (valentine)": "Mihono Bourbon (Valentine)",
     "code: icing": "Mihono Bourbon (Valentine)",
     "code icing": "Mihono Bourbon (Valentine)",
 
