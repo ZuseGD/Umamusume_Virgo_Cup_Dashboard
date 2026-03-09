@@ -32,7 +32,7 @@ def show_view(df, team_df, current_config):
             st.markdown("""
     
 ### Added CM10
-
+**Mihono Bourbon (Valentine)** has been added to the dashboard with the latest data. You can find her in the Uma Inspector and other relevant analyses.
 
             """)
 
