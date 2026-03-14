@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import pandas as pd
+import views.global_skills as global_skills
 from uma_utils import load_data, footer_html, load_ocr_data
 from PIL import Image
 from cm_config import CM_LIST
@@ -113,6 +114,7 @@ if data_loaded:
         {"label": "Overview", "name": "Home", "icon": "🌍"},
         {"label": "Umas", "name": "Umas", "icon": "📊"},
         {"label": "Team Comps", "name": "Teams", "icon": "⚔️"},
+        {"label": "Global Skills", "name": "Skills", "icon": "🔮"},
         {"label": "Card Ownership", "name": "Cards", "icon": "🗃️"},
         {"label": "Finals Analysis", "name": "Analysis", "icon": "🏆"},
         {"label": "Timeline", "name": "Timeline", "icon": "📍"},
@@ -122,6 +124,7 @@ else:
     # LIMITED NAVIGATION: Only Home, Timeline, Canva
     pages = [
         {"label": "Overview", "name": "Home", "icon": "🌍"},
+        {"label": "Global Skills", "name": "Skills", "icon": "🔮"},
         {"label": "Timeline", "name": "Timeline", "icon": "📍"},
         {"label": "Canva", "name": "Canva", "icon": "📚"},
     ]
@@ -195,5 +198,7 @@ elif data_loaded:
     elif st.session_state.current_page == "Analysis":
         from views import analysis
         analysis.show_view(current_config)
+    elif st.session_state.current_page == "Skills":
+        global_skills.show_view(CM_LIST)
 
 st.markdown(footer_html, unsafe_allow_html=True)

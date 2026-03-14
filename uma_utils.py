@@ -1513,7 +1513,7 @@ def load_finals_data(config_item: dict):
             # Finds 'Finals - Winner - Name' and 'Finals - Winner - Running Style' even with weird chars
             winner_style_col = None
             winner_name_col = None
-            
+
             for col in raw_csv.columns:
                 c_clean = col.lower().replace(" ", "").replace("-", "").replace("_", "")
                 if "winner" in c_clean and "runningstyle" in c_clean:
@@ -1522,13 +1522,13 @@ def load_finals_data(config_item: dict):
                     winner_name_col = col
             
             # DEBUG PRINT (Visible in console)
-            print(f"DEBUG: Found Winner Name Col: {winner_name_col}")
-            print(f"DEBUG: Found Winner Style Col: {winner_style_col}")
+            #print(f"DEBUG: Found Winner Name Col: {winner_name_col}")
+            #print(f"DEBUG: Found Winner Style Col: {winner_style_col}")
             result_col = find_column(raw_csv, ['final result', 'finals result', 'result'])
 
             # --- DEBUG: CHECK COLUMNS ---
-            print(f"DEBUG: Winner Style Column Found: '{winner_style_col}'")
-            print(f"DEBUG: Winner Name Column Found: '{winner_name_col}'")
+            #print(f"DEBUG: Winner Style Column Found: '{winner_style_col}'")
+            #print(f"DEBUG: Winner Name Column Found: '{winner_name_col}'")
             
             # Check if column actually exists in CSV
             if winner_style_col and winner_style_col not in raw_csv.columns:
@@ -1588,7 +1588,7 @@ def load_finals_data(config_item: dict):
                             # Found the winner in the team list! Use that declared style.
                             if member['clean_style'] != "Unknown":
                                 w_clean_style = member['clean_style']
-                                print(f"DEBUG: Auto-filled style for {w_clean_name}: {w_clean_style}")
+                                # UNCOMMENT FOR DEBUGGING: print(f"DEBUG: Auto-filled style for {w_clean_name}: {w_clean_style}")
                                 break
 
                 # --- DETERMINE WINNER INDEX ---

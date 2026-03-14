@@ -37,6 +37,8 @@ def show_view(df, team_df, current_config):
 **T.M. Opera O (New Year)**'s uma picture has also been added.
                         
 **Reworded Sections** to be more clear
+                        
+**Added Global Skill Database** view with interactive filters to analyze skill usage across all past CMs. (Still a work in progress, but a powerful reference for skill trends and optimal builds based on historical data.)
             """)
 
     with col_btn:
