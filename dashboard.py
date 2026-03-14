@@ -113,8 +113,8 @@ if data_loaded:
         {"label": "Overview", "name": "Home", "icon": "🌍"},
         {"label": "Umas", "name": "Umas", "icon": "📊"},
         {"label": "Team Comps", "name": "Teams", "icon": "⚔️"},
-        {"label": "Card Usage", "name": "Cards", "icon": "🗃️"},
-        {"label": "Analysis", "name": "Analysis", "icon": "🏆"},
+        {"label": "Card Ownership", "name": "Cards", "icon": "🗃️"},
+        {"label": "Finals Analysis", "name": "Analysis", "icon": "🏆"},
         {"label": "Timeline", "name": "Timeline", "icon": "📍"},
         {"label": "Canva", "name": "Canva", "icon": "📚"},
     ]

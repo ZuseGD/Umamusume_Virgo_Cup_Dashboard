@@ -257,6 +257,7 @@ VARIANT_MAP = {
     "new year, same radiance!": "T.M. Opera O (New Year)",
     "same radiance": "T.M. Opera O (New Year)",
     "t.m. opera o (new year)": "T.M. Opera O (New Year)",
+    "tmny": "T.M. Opera O (New Year)",
 
     # Valentine Variants
     "mihono bourbon (valentine)": "Mihono Bourbon (Valentine)",

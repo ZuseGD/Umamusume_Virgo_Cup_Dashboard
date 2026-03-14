@@ -28,12 +28,15 @@ def show_view(df, team_df, current_config):
     col_header, col_btn = st.columns([1, 1], gap="medium")
 
     with col_header:
-        with st.expander("CM10 Added", expanded=True):
+        with st.expander("Recent Updates", expanded=True):
             st.markdown("""
     
-### Added CM10
+### CM10 Updates:
 **Mihono Bourbon (Valentine)** has been added to the dashboard with the latest data. You can find her in the Uma Inspector and other relevant analyses.
-
+                        
+**T.M. Opera O (New Year)**'s uma picture has also been added.
+                        
+**Reworded Sections** to be more clear
             """)
 
     with col_btn:

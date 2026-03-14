@@ -4,7 +4,7 @@ from uma_utils import BUBBLE_CONFIG, style_fig, PLOT_CONFIG, dynamic_height, sho
 
 def show_view(df, team_df):
     st.set_page_config(page_title="Uma Performance Dashboard", layout="wide")
-    st.header("🐴 Individual Uma Performance")
+    st.header("🐴 Uma Performance")
     st.warning("⚠️ **NOTE:** Win Rates are based on **TEAM Performance** when this Uma is present. It does NOT track individual race wins. Use this data to analyze overall Uma effectiveness within team compositions.")
     
     # Calculate Total Entries for Percentage Maths
@@ -24,14 +24,12 @@ def show_view(df, team_df):
         # Calculate Global Pick Rate for this specific Uma
         uma_pick_rate = (total_uma_entries / total_entries) * 100
         
-        # --- UPDATE: Added c4 for Total Count ---
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Win Rate", f"{avg_wr:.1f}%")
         c2.metric("Pick Rate", f"{uma_pick_rate:.1f}%")
         c3.metric("Unique Users", int(unique_players))
         c4.metric("Total Entries", int(total_uma_entries)) # Display Count
         
-        # --- NEW: Role Impact Analysis for this Uma ---
         # Checks if specific roles (Ace, Debuffer) on THIS Uma change the win rate
         role_res = analyze_significant_roles(uma_data, role_col='Clean_Role', threshold=2.0)
         st.warning("The following roles for this Uma have a significant impact on Win Rate (>2% difference):, if there is no data shown, it means no roles had significant impact.")
