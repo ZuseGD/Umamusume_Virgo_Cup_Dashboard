@@ -9,9 +9,14 @@ CM_LIST = {
         "aptitude_dist": "Long",   # Options: Sprint, Mile, Medium, Long
         "aptitude_surf": "Turf",   # Options: Turf, Dirt
         "sheet_url": config('PISCES_SHEET_URL', default=''),
-        "is_multipart_parquet": False,
+        "is_multipart_parquet": True,
+        "finals_parts": {
+            "statsheet": "data/cm11_finals_statsheet_0.parquet",
+            "podium": "data/cm11_finals_podium_0.parquet",
+            "deck": "data/cm11_finals_deck_0.parquet"
+        },
         "parquet_file": None,
-        "finals_csv": None, 
+        "finals_csv": "data/cm11_finals.csv", 
         "finals_parquet": None,
         "form_url": "https://forms.gle/q9sevdfhqkLNcEU28",
         "status_msg": "Forms have closed.",
