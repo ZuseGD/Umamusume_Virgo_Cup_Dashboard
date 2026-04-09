@@ -1505,11 +1505,52 @@ def load_finals_data(config_item: dict):
             
             if 'A or B Finals?' in raw_csv.columns:
                  raw_csv = raw_csv.dropna(subset=['A or B Finals?'])
+            
+            # Backwards Compatibility Flag for Finals Team Comp same as Day 4
+            finals_flag_pat = r"Was your Finals Team Comp.*same.*Day 4"
+            finals_flag_col = find_col_fuzzy(raw_csv.columns, finals_flag_pat)
+
+            if finals_flag_col:
+                # print(f"DEBUG: Found Finals backfill column: {finals_flag_col}")
+                
+                # Find rows where user said 'Yes'
+                is_same_finals = raw_csv[finals_flag_col].astype(str).str.lower() == 'yes'
+                count = is_same_finals.sum()
+                
+                if count > 0:
+                    # print(f"DEBUG: Backfilling Finals from Day 4 for {count} rows.")
+                    
+                    for uma_idx in range(1, 4):
+                        # Destination: Finals Columns
+                        c_name = find_col_fuzzy(raw_csv.columns, f"Finals.*Uma\\s*{uma_idx}.*Name")
+                        c_style = find_col_fuzzy(raw_csv.columns, f"Finals.*Uma\\s*{uma_idx}.*(Style|Running)")
+                        c_role = find_col_fuzzy(raw_csv.columns, f"Finals.*Uma\\s*{uma_idx}.*Role")
+                        
+                        # Source: Day 4, Team 1 Columns
+                        p_name = find_col_fuzzy(raw_csv.columns, f"Day\\s*4.*Team\\s*Comp\\s*1.*Uma\\s*{uma_idx}.*Name")
+                        p_style = find_col_fuzzy(raw_csv.columns, f"Day\\s*4.*Team\\s*Comp\\s*1.*Uma\\s*{uma_idx}.*(Style|Running)")
+                        p_role = find_col_fuzzy(raw_csv.columns, f"Day\\s*4.*Team\\s*Comp\\s*1.*Uma\\s*{uma_idx}.*Role")
+                        
+                        # Execute Copy with Type Safety
+                        if c_name and p_name:
+                            raw_csv[c_name] = raw_csv[c_name].astype(object)
+                            raw_csv.loc[is_same_finals, c_name] = raw_csv.loc[is_same_finals, c_name].fillna(raw_csv.loc[is_same_finals, p_name])
+                            
+                        if c_style and p_style:
+                            raw_csv[c_style] = raw_csv[c_style].astype(object)
+                            raw_csv.loc[is_same_finals, c_style] = raw_csv.loc[is_same_finals, c_style].fillna(raw_csv.loc[is_same_finals, p_style])
+                            
+                        if c_role and p_role:
+                            raw_csv[c_role] = raw_csv[c_role].astype(object)
+                            raw_csv.loc[is_same_finals, c_role] = raw_csv.loc[is_same_finals, c_role].fillna(raw_csv.loc[is_same_finals, p_role])
+                            
 
             ign_col = find_column(raw_csv, ['player ign', 'unique display name', 'trainer name'])
             league_col = find_column(raw_csv, ['league', 'selection'])
             winner_type_col = find_column(raw_csv, ["ownumaoropponent", "winnerown", "isthewinnerumayourownumaoropponent"]) 
-           # --- AGGRESSIVE COLUMN SEARCH ---
+
+            
+
             # Finds 'Finals - Winner - Name' and 'Finals - Winner - Running Style' even with weird chars
             winner_style_col = None
             winner_name_col = None
