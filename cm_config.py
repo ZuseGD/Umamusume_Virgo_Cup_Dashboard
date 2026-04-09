@@ -3,6 +3,22 @@ from decouple import config
 # update the relevant CM form_url with link when form is live/none when inactive
 # update sheet_url with the exploded CSV link from Google Sheets when available use the previous event's link as placeholder if needed
 CM_LIST = {
+    "Aries Cup (CM12)": {
+        "id": "Aries Cup (CM12)",
+        "icon": "♈",
+        "aptitude_dist": "Medium",   # Options: Sprint, Mile, Medium, Long
+        "aptitude_surf": "Turf",   # Options: Turf, Dirt
+        "sheet_url": config('ARIES_SHEET_URL', default=''),
+        "is_multipart_parquet": True,
+        "parquet_file": None,
+        "finals_csv": None, 
+        "finals_parquet": None,
+        "form_url": None,
+        "status_msg": "Forms have closed.",
+        "guide_images": [
+            "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/aries.png"
+        ]
+    },
     "Pisces Cup (CM11)": {
         "id": "Pisces Cup (CM11)",
         "icon": "♓",
