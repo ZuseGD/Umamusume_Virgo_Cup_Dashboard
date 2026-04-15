@@ -11,6 +11,17 @@ def get_mega_skill_dataframe(all_configs):
     data_frames = []
     
     for cm_id, config in all_configs.items():
+        is_multipart = config.get('is_multipart_parquet', False)
+        
+        if is_multipart:
+            parts = config.get('finals_parts', {})
+            # If the required parquet paths are None/Missing, skip this CM
+            if not parts.get("statsheet") or not parts.get("podium"):
+                continue
+        else:
+            # If it's a CSV based CM and the path is None, skip it
+            if not config.get('finals_csv'):
+                continue
         df, _ = load_finals_data(config)
         
         if not df.empty and 'Skill_List' in df.columns:

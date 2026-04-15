@@ -32,7 +32,7 @@ def show_view(df, team_df, current_config):
             st.markdown("""
     
 ### CM12 Updates:
-**Added Initial Aries Cup Guides
+**Fixed Global Skill Database**: The mega skill dataframe now handles new CMs without crashing, even if they have missing or differently structured data. 
             """)
 
     with col_btn:
