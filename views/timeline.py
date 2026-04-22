@@ -1,5 +1,5 @@
 import streamlit as st
-import streamlit.components.v1 as components
+from streamlit.components.v1 import html
 from pathlib import Path
 
 # PRINCIPLE: Efficiency & Resource Safety
@@ -112,4 +112,4 @@ def render_timeline_tab():
     st.warning("This timeline is not linear; it is dynamic based on user filters. The filters use an \"AND\" operation.")
 
     # Render Component
-    components.html(full_html, height=800, scrolling=True)
+    html(full_html, height=800, scrolling=True)
