@@ -33,6 +33,7 @@ def show_view(df, team_df, current_config):
     
 ### CM12 Updates:
 **Fixed Global Skill Database**: The mega skill dataframe now handles new CMs without crashing, even if they have missing or differently structured data. 
+**Added Eishin Flash (Valentine)**: This character has been added to the global uma database
             """)
 
     with col_btn:

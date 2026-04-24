@@ -265,6 +265,8 @@ VARIANT_MAP = {
     "code: icing": "Mihono Bourbon (Valentine)",
     "code icing": "Mihono Bourbon (Valentine)",
     "code__icing_mihono_bourbon": "Mihono Bourbon (Valentine)",
+    "eishin flash (valentine)": "Eishin Flash (Valentine)",
+    "precise chocolatier": "Eishin Flash (Valentine)",
 
     # Add any other specific titles from your CSVs here
     # Format: "unique keyword found in csv": "Target Canonical Name"
