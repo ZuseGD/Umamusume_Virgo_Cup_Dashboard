@@ -1286,11 +1286,16 @@ def load_finals_data(config_item: dict):
     # 1. LOAD AUTOMATED PARQUETS
     if config_item.get('is_multipart_parquet', False):
         parts = config_item.get('finals_parts', {})
+        
+        p_stat = parts.get("statsheet")
+        p_pod = parts.get("podium")
+        p_deck = parts.get("deck")
+        
+        if not p_stat or not p_pod or not p_deck:
+            st.info("🚧 We are still finalizing data collection for this Champion's Meeting. Please check back later!")
+            return pd.DataFrame(), {}
+        
         try:
-            p_stat = parts.get("statsheet")
-            p_pod = parts.get("podium")
-            p_deck = parts.get("deck")
-            
             def get_cte_info(path):
                 try:
                     df_schema = duckdb.sql(f"DESCRIBE SELECT * FROM read_parquet('{path}') LIMIT 0").df()

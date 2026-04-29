@@ -10,8 +10,13 @@ CM_LIST = {
         "aptitude_surf": "Turf",   # Options: Turf, Dirt
         "sheet_url": config('ARIES_SHEET_URL', default=''),
         "is_multipart_parquet": True,
+        "finals_parts": {
+            "statsheet": "data/cm12_finals_statsheet_0.parquet",
+            "podium": "data/cm12_finals_podium_0.parquet",
+            "deck": "data/cm12_finals_deck_0.parquet"
+        },
         "parquet_file": None,
-        "finals_csv": None, 
+        "finals_csv": "data/cm12_finals.csv", 
         "finals_parquet": None,
         "form_url": 'https://forms.gle/j7gipsXVJFJ16De97',
         "status_msg": "Forms have closed.",
