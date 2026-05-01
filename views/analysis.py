@@ -392,7 +392,7 @@ def show_view(config_item):
                 else:
                     img_tag = f"<img src='{img_src}' style='width: 45px; height: 45px; object-fit: cover; border-radius: 50%; border: 2px solid #555;'>"
 
-                bar_width = min(win_per, 100)
+                bar_width = 0 if pd.isna(win_per) else min(win_per, 100)
 
                 # 2. Create Layout: [ Card Visual (90%) ] [ Button (10%) ]
                 c_card, c_btn = st.columns([0.90, 0.10])
