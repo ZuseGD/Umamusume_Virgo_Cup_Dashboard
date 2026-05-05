@@ -498,15 +498,23 @@ def hybrid_merge_entries(df_ocr, df_manual):
     man_s = suffix_df(df_manual, '_manual')
     ocr_s = suffix_df(df_ocr, '_ocr')
     
-    # --- PASS 1: IGN + HORSE NAME ---
-    # We DO NOT use Is_Winner here. If names match, we trust it.
-    # This fixes the bug where OCR missing "1st" caused valid winners to be dropped.
+    # merge pass 1: name match (most reliable)
+    # EXCLUDE unknown IGNs so they don't Cartesian explode and scramble data!
+    man_known = man_s[man_s['join_ign_manual'] != 'unknown']
+    ocr_known = ocr_s[ocr_s['join_ign_ocr'] != 'unknown']
+
     m1 = pd.merge(
-        man_s, ocr_s, 
+        man_known, ocr_known, 
         left_on=['join_ign_manual', 'Clean_Uma_manual'], 
         right_on=['join_ign_ocr', 'Clean_Uma_ocr'], 
         how='inner'
     )
+    
+    # Restore row_id which pandas automatically renames to _x and _y during merge
+    if 'row_id_x' in m1.columns:
+        m1['row_id'] = m1['row_id_y'].fillna(m1['row_id_x'])
+    elif 'row_id' not in m1.columns:
+        m1['row_id'] = pd.Series(dtype='object')
     
     # Leftovers 1
     used_m = m1['_m_idx_manual'].unique()
@@ -571,7 +579,7 @@ def hybrid_merge_entries(df_ocr, df_manual):
     merged = pd.concat([m1, m2, m3, man_orphans, ocr_orphans], ignore_index=True)
     
     # Cleanup tracking indices
-    drop_indices = [c for c in merged.columns if '_idx_' in c]
+    drop_indices = [c for c in merged.columns if '_idx_' in c or c in ['row_id_x', 'row_id_y']]
     merged.drop(columns=drop_indices, inplace=True, errors='ignore')
     
     # --- SMART FILL ---
@@ -617,8 +625,17 @@ def hybrid_merge_entries(df_ocr, df_manual):
     for col in ['Finals_Group', 'League']:
         if col not in merged.columns: merged[col] = "Unknown"
 
+    # ENSURE METRICS EXIST FOR UI 
+    if 'Clean_Races' not in merged.columns:
+        merged['Clean_Races'] = 1
+    if 'Clean_Wins' not in merged.columns:
+        merged['Clean_Wins'] = merged['Is_Winner'].fillna(0)
+        
+    merged['Calculated_WinRate'] = (merged['Clean_Wins'] / merged['Clean_Races']) * 100
+    merged.loc[merged['Calculated_WinRate'] > 100, 'Calculated_WinRate'] = 100
+
     return merged
-#--- NEW: HELPER FOR NORMALIZATION ---
+# HELPER FOR NORMALIZATION
 def _normalize_name_string(text):
     """
     Removes punctuation, spaces, and casing for fuzzy comparison.
@@ -1070,7 +1087,7 @@ def _process_teams(df: pd.DataFrame) -> pd.DataFrame:
     card_cols = [c for c in df.columns if c.startswith('card_')]
     
     # Identify unique run keys.
-    potential_keys = ['Clean_IGN', 'Display_IGN', 'Clean_Group', 'Round', 'Day', 'Original_Spent', 'Sort_Money', 'Clean_Timestamp', 'Team_Comp']
+    potential_keys = ['Clean_IGN', 'Display_IGN', 'Clean_Group', 'Round', 'Day', 'Original_Spent', 'Sort_Money', 'Clean_Timestamp', 'Team_Comp', 'row_id']
     group_cols = [c for c in potential_keys if c in df.columns]
 
     # --- AGGREGATION RULES ---
@@ -1143,12 +1160,28 @@ def load_data(sheet_url: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
                 name_map = {name: smart_match_name(name, ORIGINAL_UMAS) for name in unique_names}
                 df['Clean_Uma'] = df['Clean_Uma'].map(name_map)
 
-            # --- CRITICAL FIX: AGGRESSIVE DEDUPLICATION ---
+            # AGGRESSIVE DEDUPLICATION
             # We assume one submission per player per round/day is the valid one.
-            # We drop duplicates based on Player + Round + Day + Uma Name
-            # This keeps the "latest" or "most complete" entry for that specific slot.
+            # We MUST isolate anonymous runs before dropping, otherwise they all get deleted!
+            
+            df['Clean_IGN_Lower'] = df['Clean_IGN'].astype(str).str.lower().str.strip()
+            is_anon = df['Clean_IGN_Lower'].isin(['unknown', 'anonymous', 'anonymous trainer'])
+            
+            df_known = df[~is_anon]
+            df_anon = df[is_anon]
+            
+            # Deduplicate known players aggressively
             subset_cols = ['Clean_IGN', 'Round', 'Day', 'Clean_Uma']
-            df = df.drop_duplicates(subset=subset_cols, keep='first')
+            df_known = df_known.drop_duplicates(subset=subset_cols, keep='first')
+            
+            # Deduplicate anonymous players strictly by row_id
+            subset_anon = ['row_id', 'Clean_Uma']
+            if 'row_id' in df_anon.columns:
+                df_anon = df_anon.drop_duplicates(subset=subset_anon, keep='first')
+            
+            # Recombine and clean up
+            df = pd.concat([df_known, df_anon], ignore_index=True)
+            df = df.drop(columns=['Clean_IGN_Lower'], errors='ignore')
 
             df = anonymize_players(df)
             team_df = _process_teams(df)
@@ -1397,23 +1430,15 @@ def load_finals_data(config_item: dict):
             else:
                 select_parts.append("NULL as Is_Winner")
 
-            # --- IS_USER LOGIC (OR SOURCE) ---
-            # 1. Check Podium (IGN Match)
-            p_is_user_col = None
-            for c in cols_pod:
-                if c.lower() == 'is_user': p_is_user_col = c; break
-            p_check = f"TRY_CAST(p.\"{p_is_user_col}\" AS INTEGER)" if p_is_user_col else "NULL"
+            p_is_user_col = next((c for c in cols_pod if c.lower() == 'is_user'), None)
+            s_is_user_col = next((c for c in cols_stat if c.lower() == 'is_user'), None)
 
-            # 2. Check Statsheet (Spreadsheet Own Match)
-            s_is_user_col = None
-            for c in cols_stat:
-                if c.lower() == 'is_user': s_is_user_col = c; break
-            s_check = f"TRY_CAST(s.\"{s_is_user_col}\" AS INTEGER)" if s_is_user_col else "NULL"
+            p_check = f"CASE WHEN CAST(p.\"{p_is_user_col}\" AS VARCHAR) ILIKE 'true' OR TRY_CAST(p.\"{p_is_user_col}\" AS INTEGER) = 1 THEN 1 ELSE 0 END" if p_is_user_col else "0"
+            s_check = f"CASE WHEN CAST(s.\"{s_is_user_col}\" AS VARCHAR) ILIKE 'true' OR TRY_CAST(s.\"{s_is_user_col}\" AS INTEGER) = 1 THEN 1 ELSE 0 END" if s_is_user_col else "0"
 
-            # 3. Combine with OR Logic
             is_user_logic = f"""
             CASE 
-                WHEN (COALESCE({p_check}, 0) = 1 OR COALESCE({s_check}, 0) = 1) THEN 1
+                WHEN ({p_check} = 1 OR {s_check} = 1) THEN 1
                 ELSE 0
             END as is_user
             """
@@ -1438,6 +1463,20 @@ def load_finals_data(config_item: dict):
             else:
                 select_parts.append("'Unknown' as League_Inferred")
 
+            # dynamic left join logic to handle missing row_id or name columns, with OCR typo tolerance on names
+            # Joins on row_id AND the Uma's name (ignoring spaces/case for OCR typos)
+            join_s = "p.row_id = s.row_id"
+            if 'trainee_name' in [c.lower() for c in cols_pod] and 'name' in [c.lower() for c in cols_stat]:
+                pod_name = next(c for c in cols_pod if c.lower() == 'trainee_name')
+                stat_name = next(c for c in cols_stat if c.lower() == 'name')
+                join_s += f" AND LOWER(REPLACE(p.\"{pod_name}\", ' ', '')) = LOWER(REPLACE(s.\"{stat_name}\", ' ', ''))"
+                
+            join_d = "p.row_id = d.row_id"
+            if 'trainee_name' in [c.lower() for c in cols_pod] and 'name' in [c.lower() for c in cols_deck]:
+                pod_name = next(c for c in cols_pod if c.lower() == 'trainee_name')
+                deck_name = next(c for c in cols_deck if c.lower() == 'name')
+                join_d += f" AND LOWER(REPLACE(p.\"{pod_name}\", ' ', '')) = LOWER(REPLACE(d.\"{deck_name}\", ' ', ''))"
+
             select_string = ",\n                ".join(select_parts)
             
             query = f"""
@@ -1448,8 +1487,8 @@ def load_finals_data(config_item: dict):
                 {select_string},
                 'Automated' as Source
             FROM pod_data p
-            FULL JOIN stat_data s ON p.row_id = s.row_id
-            FULL JOIN deck_data d ON COALESCE(p.row_id, s.row_id) = d.row_id
+            LEFT JOIN stat_data s ON {join_s}
+            LEFT JOIN deck_data d ON {join_d}
             """
             
             df_auto = duckdb.query(query).to_df()
@@ -1459,6 +1498,8 @@ def load_finals_data(config_item: dict):
                 df_auto['League'] = pd.Series(dtype='object')
                 df_auto['uma_slot'] = pd.Series(dtype='int')
             else:
+                if 'row_id' in df_auto.columns:
+                    df_auto['row_id'] = "ocr_" + df_auto['row_id'].astype(str)
                 if 'Run_Time_Str' in df_auto.columns:
                     df_auto['Run_Time'] = df_auto['Run_Time_Str'].apply(_parse_run_time_to_seconds)
                 
@@ -1488,7 +1529,7 @@ def load_finals_data(config_item: dict):
                      df_auto['is_user'] = pd.to_numeric(df_auto['is_user'], errors='coerce').fillna(0).astype(int)
 
                 def resolve_metadata(row):
-                    res_group = "Unknown"
+                    res_group = "A Finals" 
                     res_league = row.get('League_Inferred', 'Unknown')
                     return pd.Series([res_group, res_league])
 
@@ -1587,7 +1628,7 @@ def load_finals_data(config_item: dict):
             
             # --- FIX: USE ROW INDEX TO PREVENT DRIFT ---
             for row_idx, row in raw_csv.iterrows():
-                row_id = int(str(row_idx)) + 2 # Matches CSV Row Number perfectly
+                row_id = f"manual_{int(str(row_idx)) + 2}"# Matches CSV Row Number perfectly
                 
                 if ign_col:
                     ign_raw = str(row.get(ign_col, 'Unknown'))
