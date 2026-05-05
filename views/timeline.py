@@ -112,4 +112,4 @@ def render_timeline_tab():
     st.warning("This timeline is not linear; it is dynamic based on user filters. The filters use an \"AND\" operation.")
 
     # Render Component
-    html(full_html, height=800, scrolling=True)
+    st.iframe(full_html, height=800)

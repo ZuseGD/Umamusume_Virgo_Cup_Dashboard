@@ -182,4 +182,4 @@ def render_custom_viewer(path):
     """
     
     # Render the component with a fixed height of 750px
-    st.html(f"<div style='height: 750px;'>{html_code}</div>")
+    st.html(html_code, width = 'content', unsafe_allow_javascript=True)
