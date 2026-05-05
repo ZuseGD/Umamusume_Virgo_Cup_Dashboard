@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import base64
 import os
 from cm_config import CM_LIST
@@ -183,4 +182,4 @@ def render_custom_viewer(path):
     """
     
     # Render the component with a fixed height of 750px
-    components.html(html_code, height=750)
+    st.html(f"<div style='height: 750px;'>{html_code}</div>")
