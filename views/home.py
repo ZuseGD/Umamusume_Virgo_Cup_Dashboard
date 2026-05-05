@@ -32,13 +32,14 @@ def show_view(df, team_df, current_config):
             st.markdown("""
     
 ### Critical Updates:
-**Data Pipeline Restored OCR Submission Fix: Resolved a critical aggregation bug where anonymous OCR screenshots were overwriting each other in the database. Hundreds of previously "lost" runs have been restored to the dashboard, providing a much more accurate picture of the meta.
+                        
+**Data Pipeline Restored OCR Submission Fix:** Resolved a critical aggregation bug where anonymous OCR screenshots were overwriting each other in the database. Hundreds of previously "lost" runs have been restored to the dashboard, providing a much more accurate picture of the meta.
             
-**Typo-Proofing: Improved the matching logic between Podium and Statsheet data. The dashboard can now safely stitch runs together even if the OCR accidentally added a space or misread a character in an Uma's name.     
+**Typo-Proofing:**  Improved the matching logic between Podium and Statsheet data. The dashboard can now safely stitch runs together even if the OCR accidentally added a space or misread a character in an Uma's name.     
 
-**Filter Alignment: OCR submissions now correctly map to the "A Finals" filter by default, preventing them from vanishing when players filter by bracket.      
+**Filter Alignment:**  OCR submissions now correctly map to the "A Finals" filter by default, preventing them from vanishing when players filter by bracket.      
 
-**Timeline Sandboxing: Rebuilt the Meta Timeline using modern HTML5 srcdoc isolation. This completely eliminates the random WebSocket disconnects and deprecation warnings some users were experiencing on longer sessions.          
+**Timeline Sandboxing:**  Rebuilt the Meta Timeline using modern HTML5 srcdoc isolation. This completely eliminates the random WebSocket disconnects and deprecation warnings some users were experiencing on longer sessions.          
                         """)
 
     with col_btn:
