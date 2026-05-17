@@ -33,11 +33,11 @@ def show_view(df, team_df, current_config):
     
 ### Critical Updates:
                         
-**Data Pipeline Restored OCR Submission Fix:** Resolved a critical aggregation bug where anonymous OCR screenshots were overwriting each other in the database. Hundreds of previously "lost" runs have been restored to the dashboard, providing a much more accurate picture of the meta.
+**Taurus Cup 2 Support** Upgraded our data scanner to fully support the new Taurus Cup 2 form layout! All new submissions will now process smoothly.
             
-**Typo-Proofing:**  Improved the matching logic between Podium and Statsheet data. The dashboard can now safely stitch runs together even if the OCR accidentally added a space or misread a character in an Uma's name.     
+**Re-used Teams" Fixed**  Fixed a bug where selecting "Re-use Team 1" or "Team 2" from a dropdown wasn't properly copying your team data forward into later days or the Finals.     
 
-**Filter Alignment:**  OCR submissions now correctly map to the "A Finals" filter by default, preventing them from vanishing when players filter by bracket.      
+**Runaways Restored**  Fixed an issue where teams utilizing a "Runaway" strategy were accidentally vanishing from the Team Compositions page.      
 
 **Timeline Sandboxing:**  Rebuilt the Meta Timeline using modern HTML5 srcdoc isolation. This completely eliminates the random WebSocket disconnects and deprecation warnings some users were experiencing on longer sessions.          
                         """)
@@ -59,10 +59,23 @@ def show_view(df, team_df, current_config):
     
     st.header("Global Overview")
     
-    # Metrics
+   # Metrics
     total_runs = team_df['Clean_Races'].sum()
     avg_wr = team_df['Calculated_WinRate'].mean()
-    active_trainers = team_df['Clean_IGN'].nunique()
+    
+    # --- FIX: PROPERLY COUNT ANONYMOUS TRAINERS ---
+    is_anon = team_df['Clean_IGN'].astype(str).str.lower().str.strip().isin(['unknown', 'anonymous', 'anonymous trainer', ''])
+    
+    # Count named trainers normally
+    known_trainers = team_df[~is_anon]['Clean_IGN'].nunique()
+    
+    # Count each anonymous submission (row_id) as its own independent trainer
+    if 'row_id' in team_df.columns:
+        anon_trainers = team_df[is_anon]['row_id'].nunique()
+    else:
+        anon_trainers = len(team_df[is_anon])
+        
+    active_trainers = known_trainers + anon_trainers
     
     m1, m2, m3 = st.columns(3)
     m1.metric("Total Races", int(total_runs))

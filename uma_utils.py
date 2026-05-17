@@ -808,6 +808,14 @@ def find_col_fuzzy(df_columns, pattern_str):
             return col
     return None
 
+def get_day_pattern(day):
+    """Generates a resilient regex pattern to match various Google Form 'Day' namings."""
+    if day == 1: return r"(?:Day\s*1|R1D1|Round\s*1\s*Day\s*1)"
+    if day == 2: return r"(?:Day\s*2|R1D2|Round\s*1\s*Day\s*2)"
+    if day == 3: return r"(?:Day\s*3|R2D1|Round\s*2\s*Day\s*1)"
+    if day == 4: return r"(?:Day\s*4|R2D2|Round\s*2\s*Day\s*2)"
+    return rf"Day\s*{day}"
+
 def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Detects and transforms Raw 'Wide' format. 
@@ -816,98 +824,96 @@ def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
     print("DEBUG: Checking if file is Raw Data...")
     
     # 1. Detection
-    test_col = find_col_fuzzy(df.columns, r"Day\s*1.*Team\s*Comp\s*1.*Uma\s*1.*Name")
+    day1_pat = get_day_pattern(1)
+    test_col = find_col_fuzzy(df.columns, rf"{day1_pat}.*Team.*1.*Uma\s*1.*Name")
     if test_col:
         print(f"DEBUG: Raw Data detected! Found key column: {test_col}")
     else:
         print("DEBUG: Not Raw Data. Skipping explode.")
         return df
 
-    # Work on a copy to avoid SettingWithCopy warnings
     df = df.copy()
 
-    # 2. PRE-PROCESS: SEQUENTIAL BACKFILL (The Fix)
-    # We loop Day 2 -> 3 -> 4. This ensures that if Day 3 copies Day 2, 
-    # and Day 2 copied Day 1, Day 3 gets the correct data.
+    # 2. PRE-PROCESS: SEQUENTIAL BACKFILL
     print("DEBUG: Pre-processing 'Same Team' flags...")
-    
-    for day in range(2, 5): # Days 2, 3, 4
-        # Pattern: "Was your Day X ... same ... Day Y ... ?"
-        # Note: This flag only exists for Team Comp 1
-        flag_pat = f"Was your Day {day}.*Team Comp 1.*same.*Day {day-1}.*Team Comp 1"
-        flag_col = find_col_fuzzy(df.columns, flag_pat)
+    for day in range(2, 5): 
+        curr_day_pat = get_day_pattern(day)
+        prev_day_pat = get_day_pattern(day-1)
         
-        if flag_col:
-            # Identify rows where user said "Yes"
-            is_same = df[flag_col].astype(str).str.lower() == 'yes'
-            count = is_same.sum()
+        # Loop through both possible destination teams (Team 1 and Team 2) for the current day
+        for target_team_idx in range(1, 3): 
+            # Look for the specific question for THIS target team
+            flag_pat = rf"(?:Was.*{curr_day_pat}.*Team(?:.*Comp)?\s*{target_team_idx}.*same.*{prev_day_pat}|Re-use.*{prev_day_pat}.*{curr_day_pat}.*Team(?:.*Comp)?\s*{target_team_idx})"
+            flag_col = find_col_fuzzy(df.columns, flag_pat)
             
-            if count > 0:
-                print(f"DEBUG: Backfilling Day {day} from Day {day-1} for {count} rows.")
+            if flag_col:
+                flag_series = df[flag_col].astype(str).str.lower()
                 
-                # Transfer Data for Umas 1, 2, 3 (Name, Style, Role)
-                for uma_idx in range(1, 4):
-                    # Current Day Cols
-                    curr_prefix = f"Day\\s*{day}.*Team\\s*Comp\\s*1"
-                    c_name = find_col_fuzzy(df.columns, f"{curr_prefix}.*Uma\\s*{uma_idx}.*Name")
-                    c_style = find_col_fuzzy(df.columns, f"{curr_prefix}.*Uma\\s*{uma_idx}.*(Style|Running)")
-                    c_role = find_col_fuzzy(df.columns, f"{curr_prefix}.*Uma\\s*{uma_idx}.*Role")
-                    
-                    # Previous Day Cols
-                    prev_prefix = f"Day\\s*{day-1}.*Team\\s*Comp\\s*1"
-                    p_name = find_col_fuzzy(df.columns, f"{prev_prefix}.*Uma\\s*{uma_idx}.*Name")
-                    p_style = find_col_fuzzy(df.columns, f"{prev_prefix}.*Uma\\s*{uma_idx}.*(Style|Running)")
-                    p_role = find_col_fuzzy(df.columns, f"{prev_prefix}.*Uma\\s*{uma_idx}.*Role")
-                    
-                    # Execute Copy
-                    if c_name and p_name:
-                        df[c_name] = df[c_name].astype(object)
-                        df.loc[is_same, c_name] = df.loc[is_same, c_name].fillna(df.loc[is_same, p_name])
-                    if c_style and p_style:
-                        df[c_style] = df[c_style].astype(object)
-                        df.loc[is_same, c_style] = df.loc[is_same, c_style].fillna(df.loc[is_same, p_style])
-                    if c_role and p_role:
-                        df[c_role] = df[c_role].astype(object)
-                        df.loc[is_same, c_role] = df.loc[is_same, c_role].fillna(df.loc[is_same, p_role])
+                # DYNAMIC ROUTING: Which team from the previous day are they copying?
+                # NEW FIX: Explicitly exclude "add new" options so we don't overwrite manual inputs!
+                is_new_team = flag_series.str.contains(r'add new|new team|new comp', na=False)
+                
+                mask_t1 = flag_series.str.contains(r'yes|true|team 1|comp 1', na=False) & ~flag_series.str.contains(r'team 2|comp 2', na=False) & ~is_new_team
+                mask_t2 = flag_series.str.contains(r'team 2|comp 2', na=False) & ~is_new_team
+                
+                for source_team_idx, team_mask in [(1, mask_t1), (2, mask_t2)]:
+                    count = team_mask.sum()
+                    if count > 0:
+                        # UNCOMMENT FOR DEBUGGING: print(f"DEBUG: Backfilling Day {day} Team {target_team_idx} from Day {day-1} Team {source_team_idx} for {count} rows.")
+                        for uma_idx in range(1, 4):
+                            # Destination: Current day, Target Team
+                            curr_prefix = rf"{curr_day_pat}.*Team(?:.*Comp)?\s*{target_team_idx}"
+                            c_name = find_col_fuzzy(df.columns, rf"{curr_prefix}.*Uma\s*{uma_idx}.*Name")
+                            c_style = find_col_fuzzy(df.columns, rf"{curr_prefix}.*Uma\s*{uma_idx}.*(Style|Running)")
+                            c_role = find_col_fuzzy(df.columns, rf"{curr_prefix}.*Uma\s*{uma_idx}.*Role")
+                            
+                            # Source: Previous day, Source Team
+                            prev_prefix = rf"{prev_day_pat}.*Team(?:.*Comp)?\s*{source_team_idx}"
+                            p_name = find_col_fuzzy(df.columns, rf"{prev_prefix}.*Uma\s*{uma_idx}.*Name")
+                            p_style = find_col_fuzzy(df.columns, rf"{prev_prefix}.*Uma\s*{uma_idx}.*(Style|Running)")
+                            p_role = find_col_fuzzy(df.columns, rf"{prev_prefix}.*Uma\s*{uma_idx}.*Role")
+                            
+                            # Execute Copy
+                            if c_name and p_name:
+                                df[c_name] = df[c_name].astype(object)
+                                df.loc[team_mask, c_name] = df.loc[team_mask, c_name].fillna(df.loc[team_mask, p_name])
+                            if c_style and p_style:
+                                df[c_style] = df[c_style].astype(object)
+                                df.loc[team_mask, c_style] = df.loc[team_mask, c_style].fillna(df.loc[team_mask, p_style])
+                            if c_role and p_role:
+                                df[c_role] = df[c_role].astype(object)
+                                df.loc[team_mask, c_role] = df.loc[team_mask, c_role].fillna(df.loc[team_mask, p_role])
 
     # 3. Identify Core Metadata
-    ign_col = find_column(df, ['uniquedisplayname', 'ign', 'player'])
-    group_col = find_column(df, ['cmgroup', 'bracket', 'league', 'selection'])
-    money_col = find_column(df, ['spent', 'eur/usd', 'money'])
+    ign_col = find_column(df, ['uniquedisplayname', 'ign', 'player', 'displayname'])
+    group_col = find_column(df, ['cmgroup', 'bracket', 'league', 'selection', 'group'])
+    money_col = find_column(df, ['spent', 'eur/usd', 'money', 'budget'])
     time_col = find_column(df, ['timestamp', 'date'])
     
-    # Card Cols
     card_cols = [c for c in df.columns if "card status in account" in c.lower()]
     card_rename_map = {}
     for col in card_cols:
         match = re.search(r'\[(.*?)\]', col)
-        if match:
-            clean_name = match.group(1).strip()
-            card_rename_map[col] = f"card_{clean_name}"
-        else:
-            card_rename_map[col] = f"card_{col[:30]}"
+        card_rename_map[col] = f"card_{match.group(1).strip()}" if match else f"card_{col[:30]}"
 
     # 4. Standard Explode Loop
     processed_dfs = []
-    
     for day in range(1, 5):
+        curr_day_pat = get_day_pattern(day)
         for team_idx in range(1, 3):
-            prefix_pattern = f"Day\\s*{day}.*Team\\s*Comp\\s*{team_idx}"
+            prefix_pattern = rf"{curr_day_pat}.*Team(?:.*Comp)?\s*{team_idx}"
             
-            wins_col = find_col_fuzzy(df.columns, f"{prefix_pattern}.*wins")
-            races_col = find_col_fuzzy(df.columns, f"{prefix_pattern}.*(races|attempts)")
+            wins_col = find_col_fuzzy(df.columns, rf"{prefix_pattern}.*wins")
+            races_col = find_col_fuzzy(df.columns, rf"{prefix_pattern}.*(races|attempts)")
             
-            if not wins_col or not races_col:
-                continue
+            if not wins_col or not races_col: continue
 
             for uma_idx in range(1, 4):
-                name_col = find_col_fuzzy(df.columns, f"{prefix_pattern}.*Uma\\s*{uma_idx}.*Name")
-                style_col = find_col_fuzzy(df.columns, f"{prefix_pattern}.*Uma\\s*{uma_idx}.*(Style|Running)")
-                role_col = find_col_fuzzy(df.columns, f"{prefix_pattern}.*Uma\\s*{uma_idx}.*Role")
+                name_col = find_col_fuzzy(df.columns, rf"{prefix_pattern}.*Uma\s*{uma_idx}.*Name")
+                style_col = find_col_fuzzy(df.columns, rf"{prefix_pattern}.*Uma\s*{uma_idx}.*(Style|Running)")
+                role_col = find_col_fuzzy(df.columns, rf"{prefix_pattern}.*Uma\s*{uma_idx}.*Role")
                 
-                # Since we backfilled above, we only check if name_col exists and has data
-                if not name_col:
-                    continue
+                if not name_col: continue
                 
                 cols_to_select = [ign_col, group_col, money_col, wins_col, races_col] + card_cols
                 if name_col: cols_to_select.append(name_col)
@@ -927,22 +933,15 @@ def _explode_raw_form_data(df: pd.DataFrame) -> pd.DataFrame:
                 if role_col: base_rename[role_col] = 'role'
 
                 subset.rename(columns={**base_rename, **card_rename_map}, inplace=True)
-                
                 subset['Day'] = str(day)
                 subset['Round'] = "CM" 
                 subset['Team_Comp'] = str(team_idx)
                 
-                # Valid Row Check
                 subset = subset[subset['uma'].notna() & (subset['uma'] != '')]
-                
-                if not subset.empty:
-                    processed_dfs.append(subset)
+                if not subset.empty: processed_dfs.append(subset)
 
-    if not processed_dfs:
-        return df 
-    
-    final_df = pd.concat(processed_dfs, ignore_index=True)
-    return final_df
+    if not processed_dfs: return df 
+    return pd.concat(processed_dfs, ignore_index=True)
 
 def _clean_raw_data(df: pd.DataFrame) -> pd.DataFrame:
     string_cols = df.select_dtypes(include=['object']).columns
@@ -1066,23 +1065,13 @@ def _clean_raw_data(df: pd.DataFrame) -> pd.DataFrame:
     if 'Day' in df.columns:
         df = df[df['Day'] != 'Finals']
 
-    filter_mask = (
-        df['Clean_Style'].str.contains('Runaway|Oonige|Great Escape', case=False, na=False) & 
-        (df['Clean_Uma'] != 'Silence Suzuka')
-    )
-    df = df[~filter_mask].copy()
-
+    # FIX: Removed the Runaway executioner filter here so teams don't lose members.
     return df
 
 def _process_teams(df: pd.DataFrame) -> pd.DataFrame:
     """Aggregates individual uma rows into team rows."""
-    
-    # Filter out Runaways/Suzuka if needed (Legacy logic, keep if you use it)
-    filter_mask = (
-        df['Clean_Style'].str.contains('Runaway|Oonige|Great Escape', case=False, na=False) & 
-        (df['Clean_Uma'] != 'Silence Suzuka')
-    )
-    df_filtered = df[~filter_mask].copy()
+
+    df_filtered = df.copy()
 
     card_cols = [c for c in df.columns if c.startswith('card_')]
     
@@ -1554,36 +1543,33 @@ def load_finals_data(config_item: dict):
             if 'A or B Finals?' in raw_csv.columns:
                  raw_csv = raw_csv.dropna(subset=['A or B Finals?'])
             
-            # Backwards Compatibility Flag for Finals Team Comp same as Day 4
-            finals_flag_pat = r"Was your Finals Team Comp.*same.*Day 4"
+            # Backwards Compatibility Flag for Finals Team Comp same as Day 4 or Day 2
+            # Broadened to catch "Day 4", "Day 2", or "Round 2"
+            finals_flag_pat = r"(?:Finals|Final).*Team.*same.*(?:Day|Round)\s*(?:4|2)"
             finals_flag_col = find_col_fuzzy(raw_csv.columns, finals_flag_pat)
 
             if finals_flag_col:
-                # print(f"DEBUG: Found Finals backfill column: {finals_flag_col}")
-                
-                # Find rows where user said 'Yes'
-                is_same_finals = raw_csv[finals_flag_col].astype(str).str.lower() == 'yes'
+                is_same_finals = raw_csv[finals_flag_col].astype(str).str.lower().str.contains('yes|true', na=False)
                 count = is_same_finals.sum()
                 
                 if count > 0:
-                    # print(f"DEBUG: Backfilling Finals from Day 4 for {count} rows.")
-                    
                     for uma_idx in range(1, 4):
                         # Destination: Finals Columns
-                        c_name = find_col_fuzzy(raw_csv.columns, f"Finals.*Uma\\s*{uma_idx}.*Name")
-                        c_style = find_col_fuzzy(raw_csv.columns, f"Finals.*Uma\\s*{uma_idx}.*(Style|Running)")
-                        c_role = find_col_fuzzy(raw_csv.columns, f"Finals.*Uma\\s*{uma_idx}.*Role")
+                        c_name = find_col_fuzzy(raw_csv.columns, rf"(?:Finals|Final).*Uma\s*{uma_idx}.*Name")
+                        c_style = find_col_fuzzy(raw_csv.columns, rf"(?:Finals|Final).*Uma\s*{uma_idx}.*(Style|Running)")
+                        c_role = find_col_fuzzy(raw_csv.columns, rf"(?:Finals|Final).*Uma\s*{uma_idx}.*Role")
                         
-                        # Source: Day 4, Team 1 Columns
-                        p_name = find_col_fuzzy(raw_csv.columns, f"Day\\s*4.*Team\\s*Comp\\s*1.*Uma\\s*{uma_idx}.*Name")
-                        p_style = find_col_fuzzy(raw_csv.columns, f"Day\\s*4.*Team\\s*Comp\\s*1.*Uma\\s*{uma_idx}.*(Style|Running)")
-                        p_role = find_col_fuzzy(raw_csv.columns, f"Day\\s*4.*Team\\s*Comp\\s*1.*Uma\\s*{uma_idx}.*Role")
+                        # Source: We look for the last day played (usually Day 4 or Day 2)
+                        # We try Day 4 first, then Day 2 if Day 4 doesn't exist
+                        p_name = find_col_fuzzy(raw_csv.columns, rf"Day\s*4.*Team.*Uma\s*{uma_idx}.*Name") or find_col_fuzzy(raw_csv.columns, rf"Day\s*2.*Team.*Uma\s*{uma_idx}.*Name")
+                        p_style = find_col_fuzzy(raw_csv.columns, rf"Day\s*4.*Team.*Uma\s*{uma_idx}.*(Style|Running)") or find_col_fuzzy(raw_csv.columns, rf"Day\s*2.*Team.*Uma\s*{uma_idx}.*(Style|Running)")
+                        p_role = find_col_fuzzy(raw_csv.columns, rf"Day\s*4.*Team.*Uma\s*{uma_idx}.*Role") or find_col_fuzzy(raw_csv.columns, rf"Day\s*2.*Team.*Uma\s*{uma_idx}.*Role")
                         
-                        # Execute Copy with Type Safety
+                        # Execute Copy
                         if c_name and p_name:
                             raw_csv[c_name] = raw_csv[c_name].astype(object)
                             raw_csv.loc[is_same_finals, c_name] = raw_csv.loc[is_same_finals, c_name].fillna(raw_csv.loc[is_same_finals, p_name])
-                            
+
                         if c_style and p_style:
                             raw_csv[c_style] = raw_csv[c_style].astype(object)
                             raw_csv.loc[is_same_finals, c_style] = raw_csv.loc[is_same_finals, c_style].fillna(raw_csv.loc[is_same_finals, p_style])
@@ -1593,9 +1579,25 @@ def load_finals_data(config_item: dict):
                             raw_csv.loc[is_same_finals, c_role] = raw_csv.loc[is_same_finals, c_role].fillna(raw_csv.loc[is_same_finals, p_role])
                             
 
-            ign_col = find_column(raw_csv, ['player ign', 'unique display name', 'trainer name'])
-            league_col = find_column(raw_csv, ['league', 'selection'])
-            winner_type_col = find_column(raw_csv, ["ownumaoropponent", "winnerown", "isthewinnerumayourownumaoropponent"]) 
+            # Broadened search for IGN and League
+            ign_col = find_column(raw_csv, ['player ign', 'unique display name', 'trainer name', 'display name', 'ign'])
+            league_col = find_column(raw_csv, ['league', 'selection', 'bracket', 'group'])
+            
+            # EXTREMELY broad search for the "Did you win or opponent win?" column
+            winner_type_col = find_column(raw_csv, ["ownumaoropponent", "winnerown", "isthewinner", "whowon"]) 
+
+            # Broad search for Winner Name and Style
+            winner_style_col = None
+            winner_name_col = None
+
+            for col in raw_csv.columns:
+                c_clean = col.lower().replace(" ", "").replace("-", "").replace("_", "")
+                if ("winner" in c_clean or "1stplace" in c_clean) and "style" in c_clean:
+                    winner_style_col = col
+                if ("winner" in c_clean or "1stplace" in c_clean) and "name" in c_clean:
+                    winner_name_col = col
+            
+            result_col = find_column(raw_csv, ['final result', 'finals result', 'result', 'placement'])
 
             
 
