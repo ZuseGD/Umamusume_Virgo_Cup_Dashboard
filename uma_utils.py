@@ -1268,7 +1268,8 @@ def render_filters(df):
 @st.cache_data(ttl=3600) 
 def load_ocr_data(parquet_file):
     try:
-        if not os.path.exists(parquet_file):
+        is_url = str(parquet_file).startswith('http')
+        if not is_url and not os.path.exists(parquet_file):
             return pd.DataFrame()
             
         df = pd.read_parquet(parquet_file)
@@ -1318,6 +1319,9 @@ def load_finals_data(config_item: dict):
             return pd.DataFrame(), {}
         
         try:
+            duckdb.sql("INSTALL httpfs;")
+            duckdb.sql("LOAD httpfs;")
+
             def get_cte_info(path):
                 try:
                     df_schema = duckdb.sql(f"DESCRIBE SELECT * FROM read_parquet('{path}') LIMIT 0").df()
@@ -1445,12 +1449,12 @@ def load_finals_data(config_item: dict):
                         starts_with(upper(s.rank), 'G')
                     ) THEN 'Open'
                     WHEN s.rank IS NOT NULL THEN 'Graded'
-                    ELSE 'Unknown' 
+                    ELSE 'Graded' 
                 END as League_Inferred
                 """
                 select_parts.append(league_logic)
             else:
-                select_parts.append("'Unknown' as League_Inferred")
+                select_parts.append("'Graded' as League_Inferred")
 
             # dynamic left join logic to handle missing row_id or name columns, with OCR typo tolerance on names
             # Joins on row_id AND the Uma's name (ignoring spaces/case for OCR typos)

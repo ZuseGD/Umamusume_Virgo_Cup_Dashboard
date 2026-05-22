@@ -15,7 +15,7 @@ CM_LIST = {
         "parquet_file": None,
         "finals_csv": "data/cm14_finals.csv", 
         "finals_parquet": None,
-        "form_url": "https://forms.gle/kQWB9uazYpXmbf329",
+        "form_url": None,
         "status_msg": "Forms have closed.",
         "guide_images": [
             "assets/canva/CM14.png"
@@ -27,13 +27,16 @@ CM_LIST = {
         "aptitude_dist": "Medium",   # Options: Sprint, Mile, Medium, Long
         "aptitude_surf": "Turf",   # Options: Turf, Dirt
         "sheet_url": config('TAURUS2_SHEET_URL', default=''),
-        "is_multipart_parquet": False,
+        "is_multipart_parquet": True,
         "finals_parts": {
+            "statsheet": "https://github.com/Vali-98/UmaOCRData/raw/05fe5dcf87d0d2f33123c8fec609165814535779/events/cm13/data/statsheet.parquet",
+            "podium": "https://github.com/Vali-98/UmaOCRData/raw/05fe5dcf87d0d2f33123c8fec609165814535779/events/cm13/data/podium.parquet",
+            "deck": "https://github.com/Vali-98/UmaOCRData/raw/05fe5dcf87d0d2f33123c8fec609165814535779/events/cm13/data/deck.parquet"
         },
         "parquet_file": None,
-        "finals_csv": "data/cm13_finals.csv", 
+        "finals_csv": "https://github.com/Vali-98/UmaOCRData/raw/05fe5dcf87d0d2f33123c8fec609165814535779/events/cm13/data/sheet_cache_merged.csv", 
         "finals_parquet": None,
-        "form_url": "https://forms.gle/kQWB9uazYpXmbf329",
+        "form_url": None,
         "status_msg": "Forms have closed.",
         "guide_images": [
             "assets/canva/CM13.png"
@@ -54,7 +57,7 @@ CM_LIST = {
         "parquet_file": None,
         "finals_csv": "data/cm12_finals.csv", 
         "finals_parquet": None,
-        "form_url": "https://forms.gle/kQWB9uazYpXmbf329",
+        "form_url": None,
         "status_msg": "Forms have closed.",
         "guide_images": [
             "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/aries.png"
@@ -75,7 +78,7 @@ CM_LIST = {
         "parquet_file": None,
         "finals_csv": "data/cm11_finals.csv", 
         "finals_parquet": None,
-        "form_url": "https://forms.gle/kQWB9uazYpXmbf329",
+        "form_url": None,
         "status_msg": "Forms have closed.",
         "guide_images": [
             "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/pisces.png"
@@ -96,7 +99,7 @@ CM_LIST = {
         "parquet_file": None,
         "finals_csv": "data/cm10_finals.csv", 
         "finals_parquet": None,
-        "form_url": "https://forms.gle/kQWB9uazYpXmbf329",
+        "form_url": None,
         "status_msg": "Forms have closed.",
         "guide_images": [
             "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/aquarius.png"
@@ -118,7 +121,7 @@ CM_LIST = {
         "parquet_file": None,
         "finals_csv": "data/cm9_finals.csv", 
         "finals_parquet": None,
-        "form_url": "https://forms.gle/kQWB9uazYpXmbf329",
+        "form_url": None,
         "status_msg": "Forms have closed.",
         "guide_images": [
             "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/capricorn.png"
@@ -141,7 +144,7 @@ CM_LIST = {
         "parquet_file": None ,
         "finals_csv": "data/cm8_finals.csv", 
         "finals_parquet": None,
-        "form_url": "https://forms.gle/kQWB9uazYpXmbf329",
+        "form_url": None,
         "status_msg": "Forms have not started yet.",
         "guide_images": [
             "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/sagittarius.png"
@@ -164,7 +167,7 @@ CM_LIST = {
         "parquet_file": None ,
         "finals_csv": "data/cm7_finals.csv", 
         "finals_parquet": None,
-        "form_url": "https://forms.gle/kQWB9uazYpXmbf329",
+        "form_url": None,
         "status_msg": "Forms have closed.",
         "guide_images": [
             "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/scorpio.png"
@@ -188,7 +191,7 @@ CM_LIST = {
         # Backwards compatibility flags
         "finals_csv": "data/cm6_finals.csv",
         "finals_parquet": None,
-        "form_url": "https://forms.gle/kQWB9uazYpXmbf329",
+        "form_url": None,
         "status_msg": "Forms have closed for this event.",
         "guide_images": [
             "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/libra.png"
@@ -208,7 +211,7 @@ CM_LIST = {
         "finals_csv": "data/1_virgo_finals.csv", 
         "finals_parquet": "data/1_virgo_finals.parquet",
 
-        "form_url": "https://forms.gle/kQWB9uazYpXmbf329", 
+        "form_url": None, 
         "status_msg": "Forms have closed for this event.",
         "guide_images": [
             "https://raw.githubusercontent.com/moomoocowsteam/canva/refs/heads/main/virgo.png"
