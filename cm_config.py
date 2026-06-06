@@ -15,7 +15,7 @@ CM_LIST = {
         "parquet_file": None,
         "finals_csv": "data/cm14_finals.csv", 
         "finals_parquet": None,
-        "form_url": None,
+        "form_url": 'https://forms.gle/tXVs8fspBKPPS55T8',
         "status_msg": "Forms have closed.",
         "guide_images": [
             "assets/canva/CM14.png"
@@ -36,7 +36,7 @@ CM_LIST = {
         "parquet_file": None,
         "finals_csv": "https://github.com/Vali-98/UmaOCRData/raw/05fe5dcf87d0d2f33123c8fec609165814535779/events/cm13/data/sheet_cache_merged.csv", 
         "finals_parquet": None,
-        "form_url": None,
+        "form_url": 'https://forms.gle/tXVs8fspBKPPS55T8',
         "status_msg": "Forms have closed.",
         "guide_images": [
             "assets/canva/CM13.png"
