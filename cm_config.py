@@ -3,6 +3,27 @@ from decouple import config
 # update the relevant CM form_url with link when form is live/none when inactive
 # update sheet_url with the exploded CSV link from Google Sheets when available use the previous event's link as placeholder if needed
 CM_LIST = {
+    "Cancer Cup (CM15)": {
+        "id": "Cancer Cup (CM15)",
+        "icon": "♋",
+        "aptitude_dist": "Mile",   # Options: Sprint, Mile, Medium, Long
+        "aptitude_surf": "Turf",   # Options: Turf, Dirt
+        "sheet_url": config('CANCER2_SHEET_URL', default=''),
+        "is_multipart_parquet": None,
+        "finals_parts": {
+            "statsheet": "https://github.com/Vali-98/UmaOCRData/raw/c73dcb100da2e3109298b4c12c907b270de9f16f/events/cm15/data/statsheet.parquet",
+            "podium": "https://github.com/Vali-98/UmaOCRData/raw/c73dcb100da2e3109298b4c12c907b270de9f16f/events/cm15/data/podium.parquet",
+            "deck": "https://github.com/Vali-98/UmaOCRData/raw/c73dcb100da2e3109298b4c12c907b270de9f16f/events/cm15/data/deck.parquet"
+        },
+        "parquet_file": None,
+        "finals_csv": "https://github.com/Vali-98/UmaOCRData/raw/c73dcb100da2e3109298b4c12c907b270de9f16f/events/cm15/data/sheet_cache_merged.csv", 
+        "finals_parquet": None,
+        "form_url": 'https://bit.ly/CM15form',
+        "status_msg": "Forms have closed.",
+        "guide_images": [
+            "assets/canva/CM15.png"
+        ]
+    },
     "Gemini Cup (CM14)": {
         "id": "Gemini Cup (CM14)",
         "icon": "♊",
@@ -18,7 +39,7 @@ CM_LIST = {
         "parquet_file": None,
         "finals_csv": "https://github.com/Vali-98/UmaOCRData/raw/c73dcb100da2e3109298b4c12c907b270de9f16f/events/cm14/data/sheet_cache_merged.csv", 
         "finals_parquet": None,
-        "form_url": 'https://forms.gle/tXVs8fspBKPPS55T8',
+        "form_url": 'https://bit.ly/CM15form',
         "status_msg": "Forms have closed.",
         "guide_images": [
             "assets/canva/CM14.png"
@@ -39,7 +60,7 @@ CM_LIST = {
         "parquet_file": None,
         "finals_csv": "https://github.com/Vali-98/UmaOCRData/raw/05fe5dcf87d0d2f33123c8fec609165814535779/events/cm13/data/sheet_cache_merged.csv", 
         "finals_parquet": None,
-        "form_url": 'https://forms.gle/tXVs8fspBKPPS55T8',
+        "form_url": 'https://bit.ly/CM15form',
         "status_msg": "Forms have closed.",
         "guide_images": [
             "assets/canva/CM13.png"
