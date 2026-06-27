@@ -156,7 +156,7 @@ ORIGINAL_UMAS = [
     "Mejiro Ryan",  "Hishi Akebono", "Yukino Bijin", "Rice Shower", 
     "Ines Fujin",  "Agnes Tachyon",  "Admire Vega", "Inari One", 
     "Winning Ticket", "Air Groove", "Kawakami Princess", "Mejiro Degu",
-    "Matikanefukukitaru",  "Meisho Doto",  "Mejiro Dober", 
+    "Matikanefukukitaru",  "Meisho Doto",  "Mejiro Dober", "Matikanetannhauser",
     "Nice Nature",  "King Halo",  "Machikane Tannhauser", "Ikuno Dictus",
     "Mejiro Palmer", "Daitaku Helios", "Twin Turbo", "Satono Diamond", "Kitasan Black", 
     "Sakura Chiyono O", "Sirius Symboli", "Mejiro Ardan", "Yaeno Muteki", "Tsurumaru Tsuyoshi",
@@ -249,6 +249,11 @@ VARIANT_MAP = {
     "quercus civilis": "Air Groove (Wedding)",
     "quercus": "Air Groove (Wedding)",
     "air groove (wedding)": "Air Groove (Wedding)",
+    "of the new moon": "Curren Chan (Wedding)",
+    "curren chan (wedding)": "Curren Chan (Wedding)",
+    "titania": "Fine Motion (Wedding)",
+    "fine motion (wedding)": "Fine Motion (Wedding)",
+
 
     # New Year Variants
     "new year ♪ new urara!": "Haru Urara (New Year)",
@@ -267,6 +272,31 @@ VARIANT_MAP = {
     "code__icing_mihono_bourbon": "Mihono Bourbon (Valentine)",
     "eishin flash (valentine)": "Eishin Flash (Valentine)",
     "precise chocolatier": "Eishin Flash (Valentine)",
+
+    # Ballroom Variants
+    "chatons": "Seiun Sky (Ballroom)",
+    "seiun sky (ballroom)": "Seiun Sky (Ballroom)",
+    "fuji kiseki (ballroom)": "Fuji Kiseki (Ballroom)",
+    "succès étoilé": "Fuji Kiseki (Ballroom)",
+    "succes etoile": "Fuji Kiseki (Ballroom)",
+
+    # Cheerleader Variants
+    "cheerleader in noble white": "King Halo (Cheerleader)",
+    "king halo (cheerleader)": "King Halo (Cheerleader)",
+    "run & win": "Nice Nature (Cheerleader)",
+    "nice nature (cheerleader)": "Nice Nature (Cheerleader)",
+
+    # Camping Variants
+    "sapphire sojourn": "Mejiro Dober (Camping)",
+    "mejiro dober (camping)": "Mejiro Dober (Camping)",
+    "bubblegum☆memories": "Taiki Shuttle (Camping)",
+    "bubblegum memories": "Taiki Shuttle (Camping)",
+    "taiki shuttle (camping)": "Taiki Shuttle (Camping)",
+
+    # Commander Variants
+    "ruler of japan": "Special Week (Commander)",
+    "special week (commander)": "Special Week (Commander)",
+
 
     # Add any other specific titles from your CSVs here
     # Format: "unique keyword found in csv": "Target Canonical Name"
