@@ -11,12 +11,12 @@ CM_LIST = {
         "sheet_url": config('CANCER2_SHEET_URL', default=''),
         "is_multipart_parquet": True,
         "finals_parts": {
-            "statsheet": "https://github.com/Vali-98/UmaOCRData/raw/c73dcb100da2e3109298b4c12c907b270de9f16f/events/cm15/data/statsheet.parquet",
-            "podium": "https://github.com/Vali-98/UmaOCRData/raw/c73dcb100da2e3109298b4c12c907b270de9f16f/events/cm15/data/podium.parquet",
-            "deck": "https://github.com/Vali-98/UmaOCRData/raw/c73dcb100da2e3109298b4c12c907b270de9f16f/events/cm15/data/deck.parquet"
+            "statsheet": "https://github.com/Vali-98/UmaOCRData/raw/1fe545d82ce18bc928b5471e05c7256b446ba0b6/events/cm15/data/statsheet.parquet",
+            "podium": "https://github.com/Vali-98/UmaOCRData/raw/1fe545d82ce18bc928b5471e05c7256b446ba0b6/events/cm15/data/podium.parquet",
+            "deck": "https://github.com/Vali-98/UmaOCRData/raw/1fe545d82ce18bc928b5471e05c7256b446ba0b6/events/cm15/data/deck.parquet"
         },
         "parquet_file": None,
-        "finals_csv": "https://github.com/Vali-98/UmaOCRData/raw/c73dcb100da2e3109298b4c12c907b270de9f16f/events/cm15/data/sheet_cache_merged.csv", 
+        "finals_csv": "https://github.com/Vali-98/UmaOCRData/raw/1fe545d82ce18bc928b5471e05c7256b446ba0b6/events/cm15/data/sheet_cache_merged.csv", 
         "finals_parquet": None,
         "form_url": 'https://bit.ly/CM15form',
         "status_msg": "Forms have closed.",
