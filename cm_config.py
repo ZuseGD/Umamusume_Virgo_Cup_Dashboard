@@ -9,7 +9,7 @@ CM_LIST = {
         "aptitude_dist": "Mile",   # Options: Sprint, Mile, Medium, Long
         "aptitude_surf": "Turf",   # Options: Turf, Dirt
         "sheet_url": config('CANCER2_SHEET_URL', default=''),
-        "is_multipart_parquet": None,
+        "is_multipart_parquet": True,
         "finals_parts": {
             "statsheet": "https://github.com/Vali-98/UmaOCRData/raw/c73dcb100da2e3109298b4c12c907b270de9f16f/events/cm15/data/statsheet.parquet",
             "podium": "https://github.com/Vali-98/UmaOCRData/raw/c73dcb100da2e3109298b4c12c907b270de9f16f/events/cm15/data/podium.parquet",
