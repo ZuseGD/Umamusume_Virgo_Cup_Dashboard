@@ -3,6 +3,27 @@ from decouple import config
 # update the relevant CM form_url with link when form is live/none when inactive
 # update sheet_url with the exploded CSV link from Google Sheets when available use the previous event's link as placeholder if needed
 CM_LIST = {
+    "Leo Cup (CM16)": {
+        "id": "Leo Cup (CM16)",
+        "icon": "♌",
+        "aptitude_dist": "Mile",   # Options: Sprint, Mile, Medium, Long
+        "aptitude_surf": "Turf",   # Options: Turf, Dirt
+        "sheet_url": config('LEO2_SHEET_URL', default=''),
+        "is_multipart_parquet": True,
+        "finals_parts": {
+            "statsheet": "https://github.com/Vali-98/UmaOCRData/raw/1fe545d82ce18bc928b5471e05c7256b446ba0b6/events/cm16/data/statsheet.parquet",
+            "podium": "https://github.com/Vali-98/UmaOCRData/raw/1fe545d82ce18bc928b5471e05c7256b446ba0b6/events/cm16/data/podium.parquet",
+            "deck": "https://github.com/Vali-98/UmaOCRData/raw/1fe545d82ce18bc928b5471e05c7256b446ba0b6/events/cm16/data/deck.parquet"
+        },
+        "parquet_file": None,
+        "finals_csv": "https://github.com/Vali-98/UmaOCRData/raw/1fe545d82ce18bc928b5471e05c7256b446ba0b6/events/cm16/data/sheet_cache_merged.csv", 
+        "finals_parquet": None,
+        "form_url": 'https://bit.ly/CM16form',
+        "status_msg": "Forms have closed.",
+        "guide_images": [
+            "assets/canva/CM16.png"
+        ]
+    },
     "Cancer Cup (CM15)": {
         "id": "Cancer Cup (CM15)",
         "icon": "♋",
